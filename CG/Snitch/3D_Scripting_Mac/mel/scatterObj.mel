@@ -1,0 +1,149 @@
+//-----------------------------------------------------------------------------------
+//                  Scatter 0.1 Create Crowd Objects Script                          
+//-----------------------------------------------------------------------------------       
+
+//-----------------------------------------------------------------------------------
+//	Author Info:		Mohammad Sadeh                                                 
+//					http://www.animation1on1.com/moanimate                         
+//-----------------------------------------------------------------------------------			
+
+//---------------------------------------Notes----------------------------------------------------
+// 1) Just works with polygons.                                                                   
+// 2) Work one object at a time but you can repeat the process on the same surface as many times. 
+// 3) Check Align To Surface if you want the orientation of the objects to match the sufrace. 
+//------------------------------------------------------------------------------------------------
+
+//--------------------------------------Discription-------------------------------------------------
+// Make sure that your source geometry pivot point is in the right position.                        
+// Select the target or "surface" first and then select the object you want it to be scatterd last. 
+// Use the translation slider to offset the position of the scatterd objects.                       
+//--------------------------------------------------------------------------------------------------
+
+string $Mm = "Scatter 0.1";
+
+if (`window -exists $Mm`) { deleteUI -window $Mm; }
+window -rtf true -title "Scatter 0.1" -sizeable off -widthHeight 310 200 $Mm ;
+string $Mm = `window -title "Scatter 0.1" -sizeable off -widthHeight 310 200 ` ;
+
+ checkBoxGrp 
+          -numberOfCheckBoxes 1
+           -label "Align To Surface"
+          -labelArray2 "" ""
+
+  mChkBxGrp;
+  
+formLayout -numberOfDivisions 100 myForm;
+   
+     floatSliderGrp -label "Scale" -field true 
+          -minValue -100.0 -maxValue 100.0
+          -value 1
+     mySlider;
+     
+     floatSliderGrp -label "Rotation" -field true 
+          -minValue -100.0 -maxValue 100.0
+          -value 1
+     mySlider2;
+     
+     floatSliderGrp -label "Translation" -field true 
+          -minValue -100.0 -maxValue 100.0
+          -value 1
+     mySlider3;
+     
+
+     button -label  " Scatter " -command "scatterObj()" myBtn1; 
+     button -label "  Close  " -command ("deleteUI -window " + $Mm) mBtn2 ;
+
+progressBar 
+
+	-maxValue 100
+     -width 200
+	buildGridProgBar;
+
+formLayout -edit 
+     
+      -attachForm mChkBxGrp "top" 1
+     -attachForm mChkBxGrp "left" -40
+     
+     -attachForm mySlider "top" 70
+     -attachForm mySlider "left" -40
+      -attachForm mySlider2 "top" 45
+     -attachForm mySlider2 "left" -20
+       -attachForm mySlider3 "top" 20
+     -attachForm mySlider3 "left" -1
+     -attachForm myBtn1 "bottom" 10 
+     -attachForm myBtn1 "left" 10
+     
+     -attachForm mBtn2 "bottom" 10 
+     -attachForm mBtn2 "left" 320
+     
+      -attachForm buildGridProgBar "bottom" 10 
+     -attachForm buildGridProgBar "left" 100
+myForm; 
+
+
+	
+
+showWindow $Mm;
+
+global proc scatterObj() {
+    
+    
+     float $scaleVal = `floatSliderGrp -q -value mySlider`;
+     float $rotVal = `floatSliderGrp -q -value mySlider2`;
+          float $tranVal = `floatSliderGrp -q -value mySlider3`;
+string $grnd_Sel[] = `ls -sl`;
+$vtxCnt = `polyEvaluate -v $grnd_Sel[0]`;
+
+int $u;
+int $objNum;
+$objNum = size ($grnd_Sel[1]);
+
+for ($i = 0; $i <= $vtxCnt[0]; $i++) {
+
+progressBar -edit -step 1 buildGridProgBar;
+
+float $posi[]= `xform -q -t -ws ($grnd_Sel[0]+".vtx["+$i+"]")`;
+string $loc[] = `spaceLocator -p $posi[0] $posi[1] $posi[2]`;
+xform -cp;
+
+ if (`checkBoxGrp -q -value1 mChkBxGrp`)
+	  {
+		normalConstraint -aim 0 1 0 -u 0 1 0 -wut "vector" -wu 0 1 0 $grnd_Sel[0] $loc[0];
+		}
+
+string $dup[] = `duplicate -rr -un $grnd_Sel[1]`;
+pointConstraint  -offset 0 0 0 -weight 1 $loc $dup;
+orientConstraint -offset -1 -1 -1 -weight 1 $loc $dup;
+scaleConstraint -mo  -weight 1 $loc $dup;          
+     
+     
+     float $sX = $scaleVal + rand(0.4,1.0);
+     float $sY = $scaleVal + rand(0.6,1.0);
+     float $sZ = $scaleVal + rand(0.4,1.0);
+     scale $sX $sY $sZ;
+     
+     
+     float $x = $rotVal + rand(-6.0,6.0);
+     float $y = $rotVal + rand(-360,360);
+     float $z = $rotVal + rand(-6.0,6.0);
+     rotate $x $y $z;
+     
+     
+    
+     float $tX = $tranVal + rand(-1.0,1.0);
+     float $tY = $tranVal * 0;
+     float $tZ = $tranVal + rand(-1.0,1.0);
+     move $tX $tY $tZ;
+
+     
+    DeleteConstraints $dup;
+	delete -constraints $dup;
+     
+     delete $loc;
+
+    
+     }
+}
+
+      
+

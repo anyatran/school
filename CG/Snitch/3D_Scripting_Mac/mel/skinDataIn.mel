@@ -1,0 +1,3 @@
+global proc string skinDataIn (){	// open a file dialog to name the file.	string $fileName = `fileDialog` ;	// Open the file for writing and capture the file	// identifier for later use	int $fileID = `fopen $fileName "r"`;	// Get the first line of the file, and declare an	// array to hold the entirety of the file	string $word = `fgetword $fileID`;	string $fileContents[];	// continue as long as fgetline returns info	while ( `feof $fileID` == 0 )		{			$fileContents[`size $fileContents`] = $word;			$word = `fgetword $fileID`;		}	// close out the file	fclose $fileID;
+
+	// test read data	for ( $eachItem in $fileContents )		if ( `substring $eachItem 1 1` == “[“ )			print ( $eachItem + “\n” );}

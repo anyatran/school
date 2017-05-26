@@ -1,0 +1,35 @@
+//
+//  Creation Date:	Oct 18, 2008
+//
+//  Procedure Name:
+//	AEtlgammaTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the tlgamma node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+//	Author:		Morteza Ramezanali (xDreamer)
+//				www.cgdna.com - moto@cgdna.com
+
+global proc AEtlgammaTemplate ( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "TLGamma Attributes" -collapse 0;
+			editorTemplate -addControl "operation";
+			editorTemplate -addControl "input";
+			editorTemplate -addControl "output";
+		editorTemplate -endLayout;
+
+	// include/call base class/node attributes
+	AEdependNodeTemplate $nodeName;
+
+	editorTemplate -addExtraControls;
+	editorTemplate -endScrollLayout;
+}

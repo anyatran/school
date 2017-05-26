@@ -1,0 +1,114 @@
+//----------------------------------------------------------------------------------------------
+//
+//	icQRbuildTail
+//
+//	SCRIPT:			icQRbuildTail.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					
+//	DATE:			Jul 03, 2011
+//					created: Jun 14, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// builds a tail based on the given joint chain
+//
+//----------------------------------------------------------------------------------------------
+
+
+global proc icQRbuildTail ( string $charName, string $root )
+{
+	string $joints[] = `listRelatives -c -ad $root`;
+	$joints[size($joints)] = $root;
+
+	int $userScale = `intField -q -v QRheight`;
+	int $counter = size($joints) - 1;
+	for ($j = 1; $j < size($joints); $j ++)
+	{
+		$joints[$j] = `rename $joints[$j] ("tail" + $counter + "_jnt" + $charName)`;
+
+		string $control[] = `circle -c 0 0 0 -nr 1 0 0 -sw 360 -r ($userScale / 18) -d 3 -ut 0 -tol 0.01 -s 12 -ch 0 -n ("tail" + $counter + "_ctrl" + $charName)`;
+		delete (`pointConstraint $joints[$j] $control[0]`);
+		delete (`aimConstraint -aim 0 0 1 -u 0 1 0 $joints[$j] $control[0]`);
+		parent -s -r ($control[0] + "Shape") $joints[$j];
+		delete $control[0];
+		setAttr ($joints[$j] + ".rotateOrder") 2;
+		$counter --;
+	}
+	$joints[0] = `rename $joints[0] ("tail" + (size($joints)) + "_jnt" + $charName)`;
+
+	string $tailConstGrp = "tail_constGrp" + $charName;
+	createNode transform -n $tailConstGrp;
+
+	string $tailFollowGrp = "tail_FollowGrp" + $charName;
+	createNode transform -n $tailFollowGrp;
+	delete (`pointConstraint $joints[size($joints) - 1] $tailFollowGrp`);
+	delete (`orientConstraint $joints[size($joints) - 1] $tailFollowGrp`);
+	parent $joints[size($joints) - 1] $tailFollowGrp;
+	parent $tailFollowGrp $tailConstGrp;
+
+	string $tailHipSpaceGrp = "tail_pelvisSpace_grp" + $charName;
+	string $tailWorldSpaceGrp = "tail_worldSpace_grp" + $charName;
+	createNode transform -n $tailHipSpaceGrp;
+	createNode transform -n $tailWorldSpaceGrp;
+	delete (`pointConstraint $joints[size($joints) - 1] $tailHipSpaceGrp`);
+	delete (`pointConstraint $joints[size($joints) - 1] $tailWorldSpaceGrp`);
+	delete (`orientConstraint $joints[size($joints) - 1] $tailHipSpaceGrp`);
+	delete (`orientConstraint $joints[size($joints) - 1] $tailWorldSpaceGrp`);
+	parent $tailHipSpaceGrp ("pelvis_ctrl" + $charName);
+	parent $tailWorldSpaceGrp ("dontTouch_grp" + $charName);
+
+	string $tailConst[] = `parentConstraint -mo ("pelvis_ctrl" + $charName) $tailConstGrp`;
+
+	string $tailOrientConst[] = `orientConstraint $tailWorldSpaceGrp $tailHipSpaceGrp $tailFollowGrp`;
+	connectAttr -f ("pelvis_ctrl" + $charName + ".tailFollow") ($tailOrientConst[0] + ".w1");
+	setDrivenKeyframe -v 0 -dv 1 -cd ("pelvis_ctrl" + $charName + ".tailFollow") ($tailOrientConst[0] + ".w0");
+	setDrivenKeyframe -v 1 -dv 0 -cd ("pelvis_ctrl" + $charName + ".tailFollow") ($tailOrientConst[0] + ".w0");
+
+	parent $tailConstGrp ("animationControls_grp" + $charName);
+
+	//cleanup
+
+	setAttr ($tailWorldSpaceGrp + ".v") 0;
+
+	icCRlockHideAttr ( $tailConstGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $tailFollowGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $tailHipSpaceGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $tailWorldSpaceGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $tailConst[0], "nodeState,int,w0" );
+	icCRlockHideAttr ( $tailOrientConst[0], "nodeState,offsetX,offsetY,offsetZ,int,w0,w1" );
+
+	for ($joint in $joints)
+	{
+		icCRlockHideAttr ( $joint, "tx,ty,tz,sx,sy,sz,v" );
+	}
+
+	string $objectsToLayer[] = $joints;
+	icQRcontrolSet ( $charName, ("controls_set_" + $charName), $objectsToLayer, 0, 1, 0 );
+	$objectsToLayer = stringArrayRemove ( {$joints[0]}, $objectsToLayer );
+	$objectsToLayer = `icQRreverseArray $objectsToLayer`;
+	icQRcontrolSet ( $charName, ("tail_skinJoints_set_" + $charName), $objectsToLayer, 2, 1, 3 );
+	icCRdisplayOverride ( $objectsToLayer, 0, 1, 31 );
+	icCRcreateCharSet ( $charName, "tail_cs", 1 , $objectsToLayer );
+
+	//add the pickwalking attributes for the controls
+	string $reverseFKjoints[];
+	for ($j = size($joints) - 1; $j >= 1; $j --)
+	{
+		$reverseFKjoints[size($reverseFKjoints)] = $joints[$j];
+	}
+	string $FKjointString = stringArrayToString ($reverseFKjoints, ",");
+	icCRpickWalkSetup ( $FKjointString );
+
+	connectAttr -f ("pelvis_ctrl" + $charName + ".charRigPickWalkDown") ($reverseFKjoints[0] + ".charRigPickWalkUp");
+
+}

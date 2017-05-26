@@ -1,0 +1,178 @@
+/***********************************************************
+	
+	Eat 3D - Shader Production DVD 
+	
+	13_blended.cgfx 
+	
+	This shader demonstrates how to use a blend map to blend
+	between attributes, in this case, colors. 
+	
+	- Luiz 
+
+**************************************************************/
+
+//////////////////////////////////////////////////////////////
+// CGFX Matrices Section 
+float4x4 WorldViewProjection     : WorldViewProjection   < string UIWidget = "None"; >;
+float4x4 WorldInverseTranspose   : WorldInverseTranspose < string UIWidget = "None"; >;
+float4x4 ViewInverse             : ViewInverse           < string UIWidget = "None"; >;
+float4x4 World                   : World                 < string UIWidget = "None"; >;
+
+// Maya Description 
+string description = "Eat 3D blend shader";
+
+//////////////////////////////////////////////////////////////
+// Parameters section 
+
+float3 shaderColor : Diffuse
+<
+	string UIName = "Shader Color";
+> = {1.0f, 0.0f, 0.0f};
+
+float3 blendedColor : Diffuse
+<
+	string UIName = "Blended Color";
+> = {0.0f, 0.0f, 1.0f};
+
+float3 thirdColor : Diffuse
+<
+	string UIName = "Third Color";
+> = {0.0f, 1.0f, 0.0f};
+
+float3 lightDirection : Direction
+<
+	string UIName = "Light Direction";
+> = {0.0f, 1.0f, 0.0f};
+
+float3 ambientColor : Diffuse
+<
+	string UIName = "Ambient Color";
+> = {0.15f, 0.15f, 0.15f};
+
+float fresnelPower 
+<
+	string UIWidget = "slider";
+	string UIName = "Fresnel Power";
+	float UIMin = 0.0f;
+	float UIMax = 10.0f;
+	float UIStep = 0.01f;
+	
+> = 3.0f;
+
+float specularPower 
+<
+	string UIWidget = "slider";
+	string UIName = "Specular Power";
+	float UIMin = 0.1f;
+	float UIMax = 100.0f;
+	float UIStep = 0.01f;
+	
+> = 30.0f;
+
+float3 specularColor : Diffuse
+<
+	string UIName = "Specular Color";
+> = {1.0f, 1.0f, 1.0f};
+
+texture blendTexture
+<
+	string name = "default_color.dds";
+	string UIName = "Blend Texture";
+	string TextureType = "2D";
+>;
+
+sampler2D blendMap = sampler_state 
+{
+	Texture = <blendTexture>;
+	AddressU = Wrap;
+	AddressV = Wrap;
+
+};
+
+
+//////////////////////////////////////////////////////////////
+// Structs section 
+// input from application
+struct a2v {
+	float4 position  : POSITION;
+	float2 texCoord  : TEXCOORD0;
+	float4 normal    : NORMAL;
+ 	
+};
+
+// output to fragment program
+struct v2f {
+        float4 position        : POSITION;
+		float2 texCoord		   : TEXCOORD0;
+		float3 worldNormal     : TEXCOORD1;
+		float3 eyeVector 	   : TEXCOORD2;
+};
+
+
+
+//////////////////////////////////////////////////////////////
+// Vertex Shader 
+v2f vShader(a2v In)
+{
+    v2f Out;
+
+	
+    Out.position = mul(WorldViewProjection, In.position);
+	
+	Out.worldNormal   = mul(WorldInverseTranspose, In.normal).xyz;
+	
+	float3 worldSpacePos = mul(World,  In.position);
+	float3 worldCameraPos = float3(ViewInverse[0].w, ViewInverse[1].w, ViewInverse[2].w); 
+	Out.eyeVector = worldCameraPos - worldSpacePos;
+	
+	Out.texCoord = In.texCoord;
+	
+    return Out;
+}
+
+//////////////////////////////////////////////////////////////
+// Pixel Shader 
+float4 pShader(v2f In) : COLOR
+{
+	float4 outColor;
+	
+	
+	float3 worldNormal = normalize(In.worldNormal);
+	
+	// a few vectors used 
+	float3 lightDir = normalize(-lightDirection);
+	float3 eyeVector = normalize(In.eyeVector);
+	float3 reflectionVector = - reflect(eyeVector, worldNormal);
+	
+	float3 blend = tex2D(blendMap, In.texCoord).rgb;
+	
+	float3 finalColor = shaderColor * blend.r + blendedColor * blend.b + thirdColor * blend.g;
+	// diffuse lighting 
+	float3 lambert = saturate(dot(lightDir, worldNormal));
+	
+	// specularity 
+	float3 specular = pow(saturate(dot(reflectionVector, lightDir)), specularPower) * specularColor ;
+	
+	// rim lighting 
+	float3 fresnel = pow(1- saturate(dot(eyeVector, worldNormal)), fresnelPower) * (lambert + ambientColor);
+
+	float3 totalSpec = fresnel  + specular ;
+	
+	outColor.rgb = (lambert + ambientColor) * finalColor + totalSpec;
+
+	outColor.a = fresnel;
+	
+	return outColor;
+}
+
+//////////////////////////////////////////////////////////////
+// Techniques
+technique Opaque
+{
+    pass one
+    {
+		VertexShader = compile vp40 vShader();
+		PixelShader = compile fp40 pShader();
+    }
+}
+

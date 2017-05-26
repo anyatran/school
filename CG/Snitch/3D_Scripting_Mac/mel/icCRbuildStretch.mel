@@ -1,0 +1,215 @@
+//----------------------------------------------------------------------------------------------
+//
+//	procedure for establishing the limb stretching
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Nov 20, 2009
+//					created: Feb 01, 2009
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// create and setup all necessary nodes to make the limb stretchy
+//
+//----------------------------------------------------------------------------------------------
+
+global proc string[] icCRbuildStretch ( string $type, string $curve, string $jString,
+										string $charName )
+{
+	string $arclengthNode;
+	string $tempFrameCache;
+	string $charScaleMultNode;
+	string $charScaleDivNode;
+	string $factorMultNode;
+	string $tempUtilityNode;
+	string $tempBlend;
+	string $jointMultiplyCurve[];
+	string $joints[];
+	string $return[];
+	string $prefix;
+	float $aLength;
+	float $powerVal1;
+	float $powerVal2;
+
+	$prefix = $type;
+	if ($type == "neck")
+	{
+		$powerVal1 = -0.1;
+		$powerVal2 = -0.3;
+	}
+	if ($type == "spine")
+	{
+		$powerVal1 = -0.2;
+		$powerVal2 = -0.5;
+	}
+
+	//get the joint names and create an array
+	tokenize $jString ":" $joints;
+	//create an animation curve to drive the joint scale during stretching
+	int $jointCount = `size($joints)`;
+	icCRaddStretchFactorContainer ( $prefix,
+				(($jointCount - 1) / 2), ($jointCount - 1), $powerVal1, $powerVal2, $charName );
+
+	//create an arclength node to calculate the length of the spine curve
+	$arclengthNode = `arclen -ch 1 $curve`;
+	$arclengthNode = `rename $arclengthNode ($prefix + "_cInfo" + $charName)`;
+	$aLength = `getAttr ($arclengthNode + ".arcLength")`;
+
+	//create a multiply node to compensate for changes in length of the spine curve
+	//due to rescaling the character
+	$charScaleMultNode = `shadingNode -au multiplyDivide`;
+	$charScaleMultNode = `rename $charScaleMultNode ("charScale_" + $prefix + "_compensate_mult" + $charName)`;
+	setAttr ($charScaleMultNode + ".operation") 2;
+	//connect the first input of the multiply node with the arclength
+	connectAttr -f ($arclengthNode + ".arcLength") ($charScaleMultNode + ".input1X");
+	//set the second input of the multiply node to 1
+	setAttr ($charScaleMultNode + ".input2X") 1;
+
+	//create a multiply node to create a stretch factor for the power curves
+	$tempUtilityNode = `shadingNode -au multiplyDivide`;
+	$tempUtilityNode = `rename $tempUtilityNode ($prefix + "StretchFactor_mult" + $charName)`;
+	$factorMultNode = $tempUtilityNode;
+	setAttr ($factorMultNode + ".operation") 2;
+	connectAttr ($charScaleMultNode + ".outputX") ($factorMultNode + ".input1X");
+	//set the second input to the curve info length
+	setAttr ($factorMultNode + ".input2X") $aLength;
+
+	//create a new blend color node for the spine volume user scale
+	$tempBlend = `createNode blendTwoAttr`;
+	$tempBlend = `rename $tempBlend ($prefix + "Volume_blend" + $charName)`;
+	$return[size($return)] = $tempBlend;
+	//set attr 1 to 1
+	setAttr ($tempBlend + ".i[0]") 1;
+	//connect the scale factor with attribute 2
+	connectAttr -f ($factorMultNode + ".outputX") ($tempBlend + ".i[1]");
+
+	//the setup has to add the stretchy behavior to each joint in the joint chain
+	//the loop leaves out the first joint which can't be moved as the root of the spline ik
+	for ($j = 0; $j < $jointCount; $j ++)
+	{
+		if ($j > 0)
+		{
+			setDrivenKeyframe 	-dv 1
+								-v (`getAttr ($joints[$j] + ".tx")`)
+								-itt "clamped" -ott "clamped"
+								-cd ($factorMultNode + ".outputX")
+								($joints[$j] + ".tx");
+			setDrivenKeyframe 	-dv 2
+								-v ((`getAttr ($joints[$j] + ".tx")`) * 2)
+								-itt "clamped" -ott "clamped"
+								-cd ($factorMultNode + ".outputX")
+								($joints[$j] + ".tx");
+			setAttr ($joints[$j] + "_translateX.preInfinity") 1;
+			setAttr ($joints[$j] + "_translateX.postInfinity") 1;
+		}
+
+		//connect all joints for the stretch volume except the last
+		if ($j < size($joints) - 1)
+		{
+			//create a frame cache node to read the animation curve
+			$tempFrameCache = `createNode frameCache`;
+			$tempFrameCache = `rename $tempFrameCache ($prefix + ($j + 1) + "Power_fCache" + $charName)`;
+			setAttr ($prefix + ($j + 1) + "Power_fCache" + $charName + ".varyTime") ($j + 1);
+			connectAttr ("characterScale_grp" + $charName + "." + $prefix)
+						($prefix + ($j + 1) + "Power_fCache" + $charName + ".stream");
+			
+			//create a multiply node to power the stretch factor with the
+			//volume curve factor that comes from the animation curve
+			$tempUtilityNode = `shadingNode -au multiplyDivide`;
+			$tempUtilityNode = `rename $tempUtilityNode ($prefix + "StretchVolume_mult" + ($j + 1) + $charName)`;
+			$jointMultiplyCurve[$j] = $tempUtilityNode;
+			setAttr ($jointMultiplyCurve[$j] + ".operation") 3;
+			connectAttr ($tempBlend + ".o")
+						($jointMultiplyCurve[$j] + ".input1X");
+			//connect the respective animation curve value as the multiplyer
+			connectAttr ($prefix + ($j + 1) + "Power_fCache" + $charName + ".varying")
+						($jointMultiplyCurve[$j] + ".input2X");
+			
+			//connect the scale attributes of the joints with the scale factor
+			connectAttr -f ($jointMultiplyCurve[$j] + ".outputX")
+							($joints[$j] + ".sy");
+			connectAttr -f ($jointMultiplyCurve[$j] + ".outputX")
+							($joints[$j] + ".sz");
+
+			//cleanup
+			icCRlockHideAttr ( $tempUtilityNode, "i1x,i1y,i1z,i2x,i2y,i2z" );
+		}
+	}
+
+	//control the volume of the root joint
+	if ($type == "spine")
+	{
+		//find the axes that can be scaled
+		//the second spine joint is down the aim axis of the root
+		//that must be omit during scaling
+		//get the down axis
+		float $axisPos[] = `getAttr ($joints[0] + ".t")`;
+		string $rootAxis[] = {"x","y","z"};
+		int $axisID = 0;
+		for ($v = 1; $v < size($axisPos); $v ++)
+		{
+			if ($axisPos[$v] > $axisPos[$axisID])
+			{
+				$axisID = $v;
+			}
+		}
+
+		//create a multiply node to reduce the scale value with a power function
+		string $scaleMultNode = `shadingNode -au multiplyDivide`;
+		string $multName = ($type + "_rootScaleMult_" + $charName);
+		$scaleMultNode = `rename $scaleMultNode $multName`;
+		$return[size($return)] = $scaleMultNode;
+		setAttr ($scaleMultNode + ".operation") 3;
+		//connect the first input of the multiply node with the scale node
+		connectAttr -f ($factorMultNode + ".outputX") ($scaleMultNode + ".input1X");
+		//set the second input of the multiply node
+		setAttr ($scaleMultNode + ".input2X") 0.3;
+		for ($v = 0; $v < size($axisPos); $v ++)
+		{
+			if ($v != $axisID)
+			{
+				connectAttr -f ($scaleMultNode + ".outputX") ("root_jnt" + $charName + ".s" + $rootAxis[$v]);
+			}
+		}
+	}
+
+	//create a divide node to compensate for changes in length of the spine curve
+	//due to rescaling the character
+	//this time for avoiding double transformations on the spine curve itself
+	$charScaleDivNode = `shadingNode -au multiplyDivide`;
+	$charScaleDivNode = `rename $charScaleDivNode ("charScale_" + $prefix + "Curve_compensate_mult" + $charName)`;
+	setAttr ($charScaleDivNode + ".operation") 2;
+	setAttr ($charScaleDivNode + ".input1X") 1;
+	//unlock the scale of the spine ik curve
+	setAttr -l 0 ($curve + ".sx");
+	setAttr -l 0 ($curve + ".sy");
+	setAttr -l 0 ($curve + ".sz");
+	//connect the divide node output to the curve scale of the spline ik
+	connectAttr -f ($charScaleDivNode + ".outputX") ($curve + ".sx");
+	connectAttr -f ($charScaleDivNode + ".outputX") ($curve + ".sy");
+	connectAttr -f ($charScaleDivNode + ".outputX") ($curve + ".sz");
+
+	//----------------------------------------------------------------------------------------
+	//
+	//cleanup
+	//
+	//----------------------------------------------------------------------------------------
+
+	//the utility nodes
+	icCRlockHideAttr ( $charScaleDivNode, "i1x,i1y,i1z,i2x,i2y,i2z" );
+	icCRlockHideAttr ( $charScaleMultNode, "i1x,i1y,i1z,i2x,i2y,i2z" );
+	icCRlockHideAttr ( $factorMultNode, "i1x,i1y,i1z,i2x,i2y,i2z" );
+
+	return $return;
+}

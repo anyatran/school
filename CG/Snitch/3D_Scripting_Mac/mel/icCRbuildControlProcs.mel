@@ -1,0 +1,129 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRbuildControlProcs.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Apr 27, 2009
+//					created: Jan 02, 2005
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// creates a nurbs curve for a rotation control
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRbuildRotationControl ( float $scaleFactor, string $controlName )
+{
+	float $frontArrowPoints[] = {1.321, 0.988, 0.0, 1.518, 1.188, 0.0,
+						1.65, 0.396, 0.0, 0.858, 0.528, 0.0, 1.059, 0.728, 0.0};
+	float $backArrowPoints[] = {-1.321, 0.988, 0.0, -1.518, 1.188, 0.0,
+						-1.65, 0.396, 0.0, -0.858, 0.528, 0.0, -1.059, 0.728, 0.0};
+
+	string $curve1[];
+	string $curve2[];
+	string $arrow1 = "frontArrow";
+	string $arrow2 = "backArrow";
+
+	icCRbuildCurve ( $frontArrowPoints, 1, $scaleFactor, $arrow1 );
+	icCRbuildCurve ( $backArrowPoints, 1, $scaleFactor, $arrow2 );
+
+	$curve1 = `circle -c 0 0 0 -nr 0 0 1 -r (1.65 * $scaleFactor) -sw 106.4 -s 4 -ch 0`;
+	$curve2 = `circle -c 0 0 0 -nr 0 0 1 -r (1.285 * $scaleFactor) -sw 111 -s 4 -ch 0`;
+
+	setAttr ($curve1[0] + ".rz") -53.2;
+	setAttr ($curve2[0] + ".rz") -55.5;
+
+	makeIdentity -a 1 -t 1 -s 1 -r 1 $curve1[0];
+	makeIdentity -a 1 -t 1 -s 1 -r 1 $curve2[0];
+
+	reverseCurve -ch 0 -rpo 1 $arrow2;
+	reverseCurve -ch 0 -rpo 1 $curve2[0];
+
+	attachCurve -ch 0 -rpo 1 -kmk 0 -m 0 $curve1[0] $arrow1;
+	delete $arrow1;
+	attachCurve -ch 0 -rpo 1 -kmk 0 -m 0 $curve1[0] $curve2[0];
+	delete $curve2[0];
+	attachCurve -ch 0 -rpo 1 -kmk 0 -m 0 $curve1[0] $arrow2;
+	delete $arrow2;
+
+	rename $curve1[0] $controlName;
+}
+
+global proc icCRbuildOrientationControl ( float $scaleFactor, string $controlName )
+{
+	string $curve1[];
+	string $curve2[];
+	string $curve3[];
+	string $elements[];
+
+	$curve1 = `circle -c 0 0 0 -nr 0 1 0 -sw 360 -r 8 -d 3 -ut 0 -tol 0.01 -s 8 -ch 0`;
+	$curve2 = `circle -c 0 0 0 -nr 1 0 0 -sw 360 -r 8 -d 3 -ut 0 -tol 0.01 -s 8 -ch 0`;
+	$curve3 = `circle -c 0 0 0 -nr 0 0 1 -sw 360 -r 8 -d 3 -ut 0 -tol 0.01 -s 8 -ch 0`;
+
+	makeIdentity -a 1 -t 1 -s 1 -r 1 $curve1[0];
+	makeIdentity -a 1 -t 1 -s 1 -r 1 $curve2[0];
+	makeIdentity -a 1 -t 1 -s 1 -r 1 $curve3[0];
+
+	parent -add -s (`listRelatives -s $curve2[0]`) $curve1[0];
+	parent -add -s (`listRelatives -s $curve3[0]`) $curve1[0];
+
+	delete $curve2[0];
+	delete $curve3[0];
+
+	rename $curve1[0] $controlName;
+}
+
+//----------------------------------------------------------------------------------------------
+//
+// creates a nurbs curve for a control
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRbuildCurve ( float $curvePoints[], int $degree,
+						float $scaleFactor, string $controlName )
+{
+	int $pointNum = (size($curvePoints) / 3);
+
+	//first scale the point position
+	for ($i = 0; $i < size($curvePoints); $i ++)
+	{
+		$curvePoints[$i] = $curvePoints[$i] * $scaleFactor;
+	}
+
+	//create the command and execute
+	string $baseCommand = ("curve -d " + $degree + " ");
+	for ($p = 0; $p < size($curvePoints); $p += 3)
+	{
+		$baseCommand = ($baseCommand + "-p  " + $curvePoints[$p] + " " + $curvePoints[$p + 1] + " " + $curvePoints[$p + 2]);
+	}
+
+	rename (`eval $baseCommand`) $controlName;
+
+	if ($degree == 3 && !`gmatch $controlName "*hip*"`)
+	{
+		closeCurve -ch 0 -ps 2 -rpo 1 $controlName;
+	}
+
+}
+
+//----------------------------------------------------------------------------------------------
+//
+// initialize the build control help procedures
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRbuildControlProcs ()
+{
+}

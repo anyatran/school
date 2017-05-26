@@ -1,0 +1,684 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Random Duplicator
+''    Author:  
+''    Last Updated: Feb 01, 2007
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/modeling/misc/4454.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+
+
+  //---------------------------//
+  //---------------------------//
+  //-----Random Duplicator-----//
+  //---------------------------//
+  //---------------------------//
+
+
+ global proc RandomDuplicator() 
+ {
+ randDuplicateUI; 
+ };
+
+
+ global proc randDuplicateUI ()
+ {
+
+ if (`window -ex randDupWindow`)
+   deleteUI randDupWindow;
+
+ window -height 610 -sizeable 0 -title "Random Duplicator 1.5" -width 350 randDupWindow;
+  columnLayout -columnWidth 342 -height 519 -width 342 MainLayout;
+
+    columnLayout -columnWidth 350 -height 97 -width 350 DupNumLayout;
+      text -height 15 -label " " -width 80;
+      text -height 12 -label "Number of Duplicates" -width 343;
+      rowLayout -columnWidth2 115 112  -height 17 -numberOfColumns 2 -width 227 sepVa1;
+	text -height 17 -label " " -width 115;
+	separator -height 10 -width 112 -st "in";
+	setParent ..;
+      text -height 5 -label " " -width 80;
+      columnLayout -columnWidth 390 -height 40 -width 390 numValues;
+	rowLayout -adjustableColumn5 1 -columnWidth6 65 50 30 50 27 50  -height 17 -numberOfColumns 6 -width 272 dupA;
+	  text -height 17 -label " " -width 65;
+	  text -height 17 -label "  Rows  X" -width 50;
+	  text -height 17 -label " " -width 30;
+	  text -height 17 -label "  Rows  Y" -width 50;
+	  text -height 17 -label " " -width 27;
+	  text -height 17 -label "   Rows  Z" -width 50;
+	  setParent ..;
+	rowLayout -columnWidth6 55 70 10 70 10 70  -height 23 -numberOfColumns 6 -width 285 fields;
+	  text -height 17 -label " " -width 55;
+	  intField -height 23 -minValue 1 -value 3 -width 70 xRows;
+	  text -height 17 -label " ." -width 10;
+	  intField -height 23 -minValue 1 -value 3 -width 70 yRows;
+	  text -height 17 -label " ." -width 10;
+	  intField -height 23 -minValue 1 -value 3 -width 70 zRows;
+	  setParent ..;
+	setParent ..;
+      text -height 8 -label " " -width 40;
+      setParent ..;
+
+    separator -height 15 -width 350 -st "in" sep1;
+    columnLayout -columnWidth 350 -height 290 -width 350 GroupLayout;
+      text -height 3 -label " " -width 40;
+      rowLayout -columnWidth2 140 100  -height 23 -numberOfColumns 2 -width 285 grpText;
+        text -height 5 -label " " -width 140;
+	text -height 15 -label "Group Name" -width 100;
+        setParent ..;
+      rowLayout -columnWidth2 133 75  -height 20 -numberOfColumns 2 -width 285 sepGr;
+        text -height 5 -label " " -width 132;
+        separator -height 6 -width 75 -st "in";
+        setParent ..;
+      text -height 10 -label " " -width 40;
+      rowLayout -columnWidth2 95 150  -height 23 -numberOfColumns 2 -width 285 grpControl;
+        text -height 5 -label " " -width 95;
+	textField -height 23 -width 150 -it "Duplicates" groupName;
+        setParent ..;
+      text -height 10 -label " " -width 40;
+    setParent ..;
+
+    separator -height 8 -width 350 -st "in" sep2;
+    columnLayout -columnWidth 350 -height 290 -width 350 ValuesLayout;
+      columnLayout -columnWidth 1140 -height 49 -width 1140 intro;
+	text -height 5 -label " " -width 80;
+	rowLayout -columnWidth2 115 108  -height 30 -numberOfColumns 2 -width 223 mmText;
+	  text -height 12 -label " " -width 115;
+	  text -height 12 -label "   Minimum/Maximum" -width 108;
+	  setParent ..;
+       rowLayout -columnWidth2 155 100  -height 30 -numberOfColumns 2 -width 223;
+         text -height 12 -label " " -width 155;
+         text -height 12 -label "Values" -width 100;
+         setParent ..;
+	rowLayout -columnWidth2 94 152  -height 14 -numberOfColumns 2 -width 246 sepVa2;
+	  text -height 14 -label " " -width 94;
+          separator -height 10 -width 152;
+	  setParent ..;
+	setParent ..;
+      columnLayout -columnWidth 1140 -height 71 -width 1140 transLayout;
+	text -height 8 -label " " -width 80;
+	rowLayout -columnWidth2 130 80  -height 12 -numberOfColumns 2 -width 210 transText;
+	  text -height 10 -label " " -width 130;
+	  text -height 12 -label "  T r a n s l a t e" -width 80;
+	  setParent ..;
+	rowLayout -columnWidth2 131 80  -height 11 -numberOfColumns 2 -width 211 sepVa3;
+	  text -height 11 -label " " -width 131;
+	  separator -height 10 -width 80 -st "in";
+	  setParent ..;
+	columnLayout -columnWidth 1140 -height 40 -width 1140 transControls;
+	  rowLayout -columnWidth6 22 80 30 80 30 80  -height 17 -numberOfColumns 6 -width 322 traA;
+	    text -height 17 -label " " -width 22;
+	    text -height 17 -label "            X" -width 80;
+	    text -height 17 -label " " -width 30;
+	    text -height 17 -label "            Y" -width 80;
+	    text -height 17 -label " " -width 30;
+	    text -height 17 -label "            Z" -width 80;
+	    setParent ..;
+	  rowLayout -columnWidth6 15 90 20 90 20 90  -height 23 -numberOfColumns 6 -width 325 traV;
+	    text -height 17 -label " " -width 15;
+	    rowLayout -columnWidth2 45 45  -height 23 -numberOfColumns 2 -width 90;
+	      floatField -height 23 -precision 3 -value 10 -width 45 mintx;
+	      floatField -height 23 -precision 3 -value 15 -width 45 maxtx;
+	      setParent ..;
+	    text -height 17 -label " " -width 20;
+	    rowLayout -columnWidth2 45 45  -height 23 -numberOfColumns 2 -width 90;
+	      floatField -height 23 -precision 3 -value 10 -width 45 minty;
+	      floatField -height 23 -precision 3 -value 15 -width 45 maxty;
+	      setParent ..;
+	    text -height 17 -label " " -width 20;
+	    rowLayout -columnWidth2 45 45  -height 23 -numberOfColumns 2 -width 90;
+	      floatField -height 23 -precision 3 -value 10 -width 45 mintz;
+	      floatField -height 23 -precision 3 -value 15 -width 45 maxtz;
+	      setParent ..;
+	    setParent ..;
+	  setParent ..;
+	setParent ..;
+      columnLayout -columnWidth 1140 -height 79 -width 1140 rotateLayout;
+	text -height 15 -label " " -width 80;
+	rowLayout -columnWidth2 130 80  -height 17 -numberOfColumns 2 -width 210 rotateText;
+	  text -height 10 -label " " -width 130;
+	  text -height 17 -label "      R o t a t e" -width 80;
+	  setParent ..;
+	rowLayout -columnWidth2 131 80  -height 7 -numberOfColumns 2 -width 211 sepVa4;
+	  text -height 7 -label " " -width 131;
+	  separator -height 4 -width 80 -st "in";
+	  setParent ..;
+	columnLayout -columnWidth 1120 -height 40 -width 1120 rotateControls;
+	  rowLayout -columnWidth6 22 80 30 80 30 80  -height 17 -numberOfColumns 6 -width 322 rotA;
+	    text -height 17 -label " " -width 22;
+	    text -height 17 -label "            X" -width 80;
+	    text -height 17 -label " " -width 30;
+	    text -height 17 -label "            Y" -width 80;
+	    text -height 17 -label " " -width 30;
+	    text -height 17 -label "            Z" -width 80;
+	    setParent ..;
+	  rowLayout -columnWidth6 15 90 20 90 20 90  -height 23 -numberOfColumns 6 -width 325 rotV;
+	    text -height 17 -label " " -width 15;
+	    rowLayout -columnWidth2 45 45  -height 23 -numberOfColumns 2 -width 90;
+	      floatField -height 23 -precision 3 -value 0 -width 45 minrx;
+	      floatField -height 23 -precision 3 -value 0 -width 45 maxrx;
+	      setParent ..;
+	    text -height 17 -label " " -width 20;
+	    rowLayout -columnWidth2 45 45  -height 23 -numberOfColumns 2 -width 90;
+	      floatField -height 23 -precision 3 -value -180 -width 45 minry;
+	      floatField -height 23 -precision 3 -value 180 -width 45 maxry;
+	      setParent ..;
+	    text -height 17 -label " " -width 20;
+	    rowLayout -columnWidth2 45 45  -height 23 -numberOfColumns 2 -width 90;
+	      floatField -height 23 -precision 3 -width 45 minrz;
+	      floatField -height 23 -precision 3 -width 45 maxrz;
+	      setParent ..;
+	    setParent ..;
+	  setParent ..;
+	setParent ..;
+      columnLayout -columnWidth 350 -height 79 -width 350 scaleLayout;
+	text -height 15 -label " " -width 80;
+	rowLayout -columnWidth2 130 80  -height 17 -numberOfColumns 2 -width 210 scaleText;
+	  text -height 10 -label " " -width 130;
+	  text -height 17 -label "       S c a l e" -width 80;
+	  setParent ..;
+	rowLayout -columnWidth2 131 80  -height 7 -numberOfColumns 2 -width 211 sepVa5;
+	  text -height 7 -label " " -width 131;
+	  separator -height 4 -width 80 -st "in";
+	  setParent ..;
+	columnLayout -columnWidth 1140 -height 40 -width 1140 scaleControls;
+	  rowLayout -columnWidth6 22 80 30 80 30 80  -height 17 -numberOfColumns 6 -width 322 scaA;
+	    text -height 17 -label " " -width 22;
+	    text -height 17 -label "            X" -width 80;
+	    text -height 17 -label " " -width 30;
+	    text -height 17 -label "            Y" -width 80;
+	    text -height 17 -label " " -width 30;
+	    text -height 17 -label "            Z" -width 80;
+	    setParent ..;
+	  rowLayout -columnWidth6 15 90 20 90 20 90  -height 23 -numberOfColumns 6 -width 325 scaV;
+	    text -height 17 -label " " -width 15;
+	    rowLayout -columnWidth2 45 45  -height 23 -numberOfColumns 2 -width 90;
+	      floatField -height 23 -minValue 0.1 -precision 3 -value 1 -width 45 minsx;
+	      floatField -height 23 -minValue 0.1 -precision 3 -value 1.5 -width 45 maxsx;
+	      setParent ..;
+	    text -height 17 -label " " -width 20;
+	    rowLayout -columnWidth2 45 45  -height 23 -numberOfColumns 2 -width 90;
+	      floatField -height 23 -minValue 0.1 -precision 3 -value 1 -width 45 minsy;
+	      floatField -height 23 -minValue 0.1 -precision 3 -value 1.5 -width 45 maxsy;
+	      setParent ..;
+	    text -height 17 -label " " -width 20;
+	    rowLayout -columnWidth2 45 45  -height 23 -numberOfColumns 2 -width 90;
+	      floatField -height 23 -minValue 0.1 -precision 3 -value 1 -width 45 minsz;
+	      floatField -height 23 -minValue 0.1 -precision 3 -value 1.5 -width 45 maxsz;
+	      setParent ..;
+	    setParent ..;
+	  setParent ..;
+	setParent ..;
+    text -height 12 -label " " -width 80;
+    setParent ..;
+
+    separator -height 8 -width 350 -st "in" sep3;
+    columnLayout -columnWidth 350 -height 82 -width 350 ExecutionLayout;
+      text -height 8 -label " " -width 80;
+      rowLayout -columnWidth2 127 100  -height 28 -numberOfColumns 2 -width 227;
+        text -height 17 -label " " -width 127;
+        checkBox -height 28 -label "Keep original" -width 100 keepOrg;
+	setParent ..;
+      text -height 10 -label " " -width 80;
+      rowLayout -columnWidth2 105 130  -height 36 -numberOfColumns 2 -width 235;
+	text -height 17 -label " " -width 105;
+	button -align "center" -height 36 -bgc 0.73 0.78 0.96 -label "             Duplicate" -width 130 -c "randDuplicate" Duplicate;
+	setParent ..;
+      setParent ..;
+
+ showWindow randDupWindow;
+
+ print "Random Duplicator 1.5";
+
+ };
+
+
+ global proc randDuplicate () 
+ {
+
+ //--Defining important variables--//
+ string $objName[] = `ls -sl`;
+ int $numberObj = size($objName);
+ int $mainLoop = 0;
+ int $reTr = 0;
+ int $scaleAbs = 0;
+
+ if ($numberObj == 0)
+  error "No object(s) to duplicate";
+
+ //--Group transform bugfix--//
+ string $groupName = `textField -q -text "groupName"`;
+ int $groupExists = `objExists $groupName`;
+ int $groupExists1 = $groupExists;
+ string $zeroGroup = $groupName +0;
+
+ int $subTest = 0;
+ if ($groupExists == 1){
+  while ($groupExists1 > 0){
+   string $groupNameT = `textField -q -text "groupName"`;
+   $groupNameT = $groupNameT + $subTest;
+   if ($groupNameT == $zeroGroup)
+    $groupNameT = `textField -q -text "groupName"`;
+   $groupExists1 = `objExists $groupNameT`;
+   $subTest++;
+  };
+ };
+
+ //--Saving main object(s) transform data into array--//
+ float $ObjData1[];
+ int $var1 = 0;
+ int $var2 = 10 * $numberObj;
+
+ while ($var1 < $var2){
+ $ObjData1[$var1] = 0;
+ $var1++;
+ };
+
+ while ($mainLoop < $numberObj){
+
+  $ObjData1[$reTr] = `getAttr ($objName[$mainLoop] + ".tx")` * -1;
+  $ObjData1[$reTr +1] = `getAttr ($objName[$mainLoop] + ".ty")` * -1;
+  $ObjData1[$reTr +2] = `getAttr ($objName[$mainLoop] + ".tz")` * -1;
+  $ObjData1[$reTr +3] = `getAttr ($objName[$mainLoop] + ".rx")` * -1;
+  $ObjData1[$reTr +4] = `getAttr ($objName[$mainLoop] + ".ry")` * -1;
+  $ObjData1[$reTr +5] = `getAttr ($objName[$mainLoop] + ".rz")` * -1;
+  $ObjData1[$reTr +6] = `getAttr ($objName[$mainLoop] + ".sx")`;
+  $ObjData1[$reTr +7] = `getAttr ($objName[$mainLoop] + ".sy")`;
+  $ObjData1[$reTr +8] = `getAttr ($objName[$mainLoop] + ".sz")`;
+  $ObjData1[$reTr +9] = 0;
+
+  $reTr = $reTr +10;
+  $mainLoop++;
+ };
+
+ //--For all selected objects--//
+ $mainLoop = 0;
+ int $grNum = 0;
+ while ($mainLoop < $numberObj)
+ {
+
+  //--Reseting and saving main object(s) transforms data--//
+  makeIdentity -apply 1 $objName[$mainLoop];
+
+  /*
+     The script will start duplicating in Y axis and later in X and Z axis.
+  */
+
+  //--Along the Y axis--//
+  //--Finding the required data for Y duplications--//
+  int $yRows = `intField -q -value "yRows"`;
+  float $minty = `floatField -q -value "minty"`;
+  float $maxty = `floatField -q -value "maxty"`;
+
+  //--Begining duplication along Y axis--//
+  if ($yRows > 1){
+   string $dupY[];
+
+   $yRows1 = $yRows -1;
+   float $transY = 0;
+
+   while ($yRows1 >= 0)
+   {
+    $dupY = `duplicate -rr $objName[$mainLoop]`;
+    setAttr ($dupY[0] + ".ty") $transY;
+    float $randty = `rand $minty $maxty`;
+    $transY = $transY + $randty;
+
+    $yRows1 = $yRows1 -1;
+    select -add $dupY[0];
+   };
+  
+   select -add $objName[$mainLoop];
+  }
+ 
+  $groupName = `textField -q -text "groupName"`;
+
+  //--Along the X and Z axis--//
+  string $objNameX[] = `ls -sl`;
+  int $sizeSelected = size($objNameX);
+  int $objLoop = 0;
+  int $grpXYZnum = 1;
+
+  if ($yRows > 1)
+   $sizeSelected = $sizeSelected -1;
+
+  while ($objLoop < $sizeSelected){
+
+  //--Finding the required data for the transforms and XY duplications--//
+  int $xRows = `intField -q -value "xRows"`;
+  int $zRows = `intField -q -value "zRows"`;
+  float $mintx = `floatField -q -value "mintx"`;
+  float $maxtx = `floatField -q -value "maxtx"`;
+  float $mintz = `floatField -q -value "mintz"`;
+  float $maxtz = `floatField -q -value "maxtz"`;
+  float $minrx = `floatField -q -value "minrx"`;
+  float $maxrx = `floatField -q -value "maxrx"`;
+  float $minry = `floatField -q -value "minry"`;
+  float $maxry = `floatField -q -value "maxry"`;
+  float $minrz = `floatField -q -value "minrz"`;
+  float $maxrz = `floatField -q -value "maxrz"`;
+  float $minsx = `floatField -q -value "minsx"`;
+  float $maxsx = `floatField -q -value "maxsx"`;
+  float $minsy = `floatField -q -value "minsy"`;
+  float $maxsy = `floatField -q -value "maxsy"`;
+  float $minsz = `floatField -q -value "minsz"`;
+  float $maxsz = `floatField -q -value "maxsz"`;
+
+  //--Variable definitions--// 
+  int $displace = 1;
+
+  if ($mintz == $maxtz)
+   $displace = 0;
+
+  int $zRows1 = $zRows;
+  float $randtx = `rand $maxtx $mintx`;
+  float $transZ1 = 0;
+  float $maxdis = $maxtz / 5;
+  float $mindis = $maxdis * -1;
+  $transZ1 = `rand $maxdis $mindis`;
+  float $transX = 0;
+  
+  float $rotateX = `rand $maxrx $minrx`;
+  float $rotateY = `rand $maxry $minry`;
+  float $rotateZ = `rand $maxrz $minrz`;
+  float $scaleX = `rand $maxsx $minsx`;
+  float $scaleY = `rand $maxsy $minsy`;
+  float $scaleZ = `rand $maxsz $minsz`;
+
+  float $randtz = `rand $maxtz $mintz`;
+  float $transZ = 0;
+  
+  int $groupNum = 1;
+  string $groupN = ("Row" + $groupNum);
+  string $dupXZ[];
+  string $groupXYZ = "A";
+  $groupXYZ = $groupXYZ + $grpXYZnum;
+
+  //--Check if scale absolute--//
+  if ($maxsx == $maxsy){
+   if ($maxsy == $maxsz){
+    if ($minsx == $minsy){
+     if ($minsy == $minsz){
+      $scaleAbs = 1;
+     };
+    };
+   };
+  };
+
+  if ($scaleAbs == 1){
+   $scaleX = `rand $maxsx $minsx`;
+   $scaleY = $scaleX;
+   $scaleZ = $scaleX;
+  };
+
+  //--<Possible bugs>--//
+  //--Reset and save transform data of Y duplicates--//
+  float $ObjData[];
+
+  $ObjData[0] = `getAttr ($objNameX[$objLoop] + ".tx")` * -1;
+  $ObjData[1] = `getAttr ($objNameX[$objLoop] + ".ty")` * -1;
+  $ObjData[2] = `getAttr ($objNameX[$objLoop] + ".tz")` * -1;
+  $ObjData[3] = `getAttr ($objNameX[$objLoop] + ".rx")` * -1;
+  $ObjData[4] = `getAttr ($objNameX[$objLoop] + ".ry")` * -1;
+  $ObjData[5] = `getAttr ($objNameX[$objLoop] + ".rz")` * -1;
+  $ObjData[6] = `getAttr ($objNameX[$objLoop] + ".sx")`;
+  $ObjData[7] = `getAttr ($objNameX[$objLoop] + ".sy")`;
+  $ObjData[8] = `getAttr ($objNameX[$objLoop] + ".sz")`;
+
+  makeIdentity -apply 1 $objNameX[$objLoop];
+
+  //--</Possible bugs>--//
+
+  /*
+     The script uses a hierarchy to duplicate along the
+     X and Z axis, where the Z axis is the parent of the 
+     X axis rows.
+  */
+
+  //--Begining duplicating along the X and Z axis--//
+  //--Loop A - The loop for the Z-axis rows--//
+  select -cl;
+  while ($zRows > 0){
+
+     float $transX = 0;
+     int $xRows1 = $xRows; 
+    	
+     //--Loop B - Inside the A Loop is the loop for the X-axis rows and the random modifications for the duplicated objects--//
+     while ($xRows1 > 0){
+     	$dupXZ = `duplicate -rr $objNameX[$objLoop]`; 
+    	
+    	setAttr ($dupXZ[0] + ".tx ") $transX;
+        if ($displace == 1) 
+    	setAttr ($dupXZ[0] + ".tz ") $transZ1; 
+    	setAttr ($dupXZ[0] + ".rx ") $rotateX;
+    	setAttr ($dupXZ[0] + ".ry ") $rotateY;
+    	setAttr ($dupXZ[0] + ".rz ") $rotateZ; 
+    	setAttr ($dupXZ[0] + ".sx ") $scaleX; 
+    	setAttr ($dupXZ[0] + ".sy ") $scaleY; 
+    	setAttr ($dupXZ[0] + ".sz ") $scaleZ; 
+    	
+    	$randtx = `rand $maxtx $mintx`;
+    	$transX = $transX + $randtx;
+    	$transZ1 = `rand $mindis $maxdis`;
+        $rotateX = `rand $maxrx $minrx`;
+        $rotateY = `rand $maxry $minry`;
+        $rotateZ = `rand $maxrz $minrz`;
+	if ($scaleAbs == 0){
+         $scaleX = `rand $maxsx $minsx`;
+         $scaleY = `rand $maxsy $minsy`;
+         $scaleZ = `rand $maxsz $minsz`;
+	};
+	if ($scaleAbs == 1){
+	 $scaleX = `rand $maxsx $minsx`;
+	 $scaleY = $scaleX;
+	 $scaleZ = $scaleX;
+	};
+    	
+    	$xRows1 = $xRows1 -1;
+    	select -add $dupXZ[0];
+     };
+    	
+     //--Grouping the rows along the X axis--//
+    	
+     group -name $groupN; 
+     select -cl; 
+ 
+     $zRows = $zRows -1;
+  };
+  
+  /*
+     The scipt will then ungroup all of the hierarchys into
+     objects and will assign all the duplicated objects into
+     a new group in order to make things cleaner in the scene.
+  */
+
+  int $loop3 = 0;
+  $unitsZ = 0;
+  $groupNum = 2;
+
+  spaceLocator -n ("Row" + ($zRows1 +1));
+
+  while ($loop3 < $zRows1){
+    setAttr ($groupN + ".tz ") $transZ;
+    $randtz = `rand $maxtz $mintz`;
+    $transZ = $transZ + $randtz;
+    $groupN = ("Row" + $groupNum);
+
+    select -add $groupN;
+    $groupNum++;
+    $loop3++;
+  }; 
+
+  delete ("Row" + ($zRows1 +1));
+  select -add "Row1";
+  ungroup;
+  group -n $groupXYZ;
+  select -cl;
+
+  $grpXYZnum++;
+
+  //--Restoring transform values for Y duplicates--//
+  setAttr ($objNameX[$objLoop] + ".tx") $ObjData[0];
+  setAttr ($objNameX[$objLoop] + ".ty") $ObjData[1];
+  setAttr ($objNameX[$objLoop] + ".tz") $ObjData[2];
+  setAttr ($objNameX[$objLoop] + ".rx") $ObjData[3];
+  setAttr ($objNameX[$objLoop] + ".ry") $ObjData[4];
+  setAttr ($objNameX[$objLoop] + ".rz") $ObjData[5];
+ 
+  //--<Restore Scale Formula>---//
+  float $formScaleX = 1 / $ObjData[6];
+  float $formScaleY = 1 / $ObjData[7];
+  float $formScaleZ = 1 / $ObjData[8];
+  scale -a $formScaleX $formScaleY $formScaleZ $objNameX[$objLoop];
+  //--</Restore Scale Formula>--//
+
+  select -add $objNameX[$objLoop];
+  makeIdentity -apply 1;
+
+  int $loopRun = 0;
+  while ($loopRun < 6){
+  $ObjData[$loopRun] = $ObjData[$loopRun] * -1;
+  $loopRun++;
+  };
+
+  setAttr ($objNameX[$objLoop] + ".tx") $ObjData[0];
+  setAttr ($objNameX[$objLoop] + ".ty") $ObjData[1];
+  setAttr ($objNameX[$objLoop] + ".tz") $ObjData[2];
+  setAttr ($objNameX[$objLoop] + ".rx") $ObjData[3];
+  setAttr ($objNameX[$objLoop] + ".ry") $ObjData[4];
+  setAttr ($objNameX[$objLoop] + ".rz") $ObjData[5];
+  scale -a $ObjData[6] $ObjData[7] $ObjData[8] $objNameX[$objLoop];
+
+  //--Check the name of selected object and delete if it is a Y duplicate--//
+  if ($yRows > 1){
+   if ($objName[$mainLoop] == $objNameX[$objLoop]) {}
+    else delete $objNameX[$objLoop];
+  };
+
+  $objLoop++;
+
+ };
+
+ //--Group/Ungroup all duplicates into one--//
+ select -cl;
+ $grpXYZnum = 1;
+ $groupXYZ = "A" + ($mainLoop +1);
+
+ if ($yRows > 1){
+  while ($grpXYZnum <= $yRows){
+   $groupXYZ = "A";
+   $groupXYZ = $groupXYZ + $grpXYZnum;
+   if (`objExists $groupXYZ`)
+    select -add $groupXYZ;
+   $grpXYZnum++;
+  };
+ };
+
+ if ($yRows == 1)
+  select -add $groupXYZ;
+  
+ ungroup;
+ group -n $groupName;
+ select -cl;
+
+ $grNum++;
+ $groupName = `textField -q -text "groupName"`;
+ $groupName = $groupName + $grNum;
+
+ $mainLoop++;
+
+ };
+
+ //--Restoring main object(s) transform data--//
+ $mainLoop = 0;
+ $reTr = 0;
+ $grNum = $subTest;
+
+ while ($mainLoop < $numberObj)
+ {
+ 
+  setAttr ($objName[$mainLoop] + ".tx") $ObjData1[$reTr];
+  setAttr ($objName[$mainLoop] + ".ty") $ObjData1[$reTr +1];
+  setAttr ($objName[$mainLoop] + ".tz") $ObjData1[$reTr +2];
+  setAttr ($objName[$mainLoop] + ".rx") $ObjData1[$reTr +3];
+  setAttr ($objName[$mainLoop] + ".ry") $ObjData1[$reTr +4];
+  setAttr ($objName[$mainLoop] + ".rz") $ObjData1[$reTr +5];
+  scale -a $ObjData1[$reTr +6] $ObjData1[$reTr +7] $ObjData1[$reTr +8] $objName[$mainLoop];
+
+  //--Giving the group the same transform values--//
+  $groupName = `textField -q -text "groupName"`;
+ 
+  if ($groupExists == 1)
+   $grNum = $subTest;
+
+  if ($grNum > 0)
+   $groupName = $groupName + $grNum;
+  
+  if (`objExists $groupName`) {}
+  else {
+   $groupName = `textField -q -text "groupName"`;
+   $groupName = $groupName + ($grNum -1);
+  };
+
+  setAttr ($groupName + ".tx") $ObjData1[$reTr];
+  setAttr ($groupName + ".ty") $ObjData1[$reTr +1];
+  setAttr ($groupName + ".tz") $ObjData1[$reTr +2];
+  setAttr ($groupName + ".rx") $ObjData1[$reTr +3];
+  setAttr ($groupName + ".ry") $ObjData1[$reTr +4];
+  setAttr ($groupName + ".rz") $ObjData1[$reTr +5];
+
+  //--<Restore Scale Formula>---//
+  $formScaleX1 = 1 / $ObjData1[$reTr +6];
+  $formScaleY1 = 1 / $ObjData1[$reTr +7];
+  $formScaleZ1 = 1 / $ObjData1[$reTr +8];
+  scale -a $formScaleX1 $formScaleY1 $formScaleZ1 $objName[$mainLoop];
+  //--</Restore Scale Formula>--//
+
+  makeIdentity -apply 1 $objName[$mainLoop] $groupName;
+
+  int $loopRun = 0;
+  while ($loopRun < 6){
+   $ObjData1[$reTr + $loopRun] = $ObjData1[$reTr + $loopRun] * -1;
+   $loopRun++;
+  };
+
+  setAttr ($objName[$mainLoop] + ".tx") $ObjData1[$reTr];
+  setAttr ($objName[$mainLoop] + ".ty") $ObjData1[$reTr +1];
+  setAttr ($objName[$mainLoop] + ".tz") $ObjData1[$reTr +2];
+  setAttr ($objName[$mainLoop] + ".rx") $ObjData1[$reTr +3];
+  setAttr ($objName[$mainLoop] + ".ry") $ObjData1[$reTr +4];
+  setAttr ($objName[$mainLoop] + ".rz") $ObjData1[$reTr +5];
+  scale -a $ObjData1[$reTr +6] $ObjData1[$reTr +7] $ObjData1[$reTr +8] $objName[$mainLoop];
+
+  setAttr ($groupName + ".tx") $ObjData1[$reTr];
+  setAttr ($groupName + ".ty") $ObjData1[$reTr +1];
+  setAttr ($groupName + ".tz") $ObjData1[$reTr +2];
+  setAttr ($groupName + ".rx") $ObjData1[$reTr +3];
+  setAttr ($groupName + ".ry") $ObjData1[$reTr +4];
+  setAttr ($groupName + ".rz") $ObjData1[$reTr +5];
+
+  $reTr = $reTr +10;
+  $mainLoop++;
+  $grNum++;
+ };
+
+ //--To keep the original object or not--//
+ int $keepOrg = `checkBox -q -value "keepOrg"`;
+
+ for ($objects in $objName){
+  if ($keepOrg == 0)
+    delete $objects;
+ 
+  if ($keepOrg == 1)
+    select -add $objects;
+ };
+
+ print "Done!";
+
+ };

@@ -1,0 +1,1319 @@
+//----------------------------------------------------------------------------------------------
+//
+//	QTown tool
+//
+//	SCRIPT:		icQTOwn.mel
+//
+//	AUTHOR:		Ingo Clemens
+//				info@effect-house.de
+//
+//	DESCRIPTION:
+//				This script creates a city like geometry based on the selected polygons.
+//				Just simply select some faces of the object to build upon and execute.
+//
+//	VERSIONS:
+//				1.3	- Oct. 02, 2009
+//
+//				- added the feature to not be restricted to a planar surface, in order to
+//					allow for features such as hills
+//				- added a curved option, to be able to work with cylindrical and
+//					spherical shapes (disables the detail and well features - sorry :-)!)
+//				- added a colorize option, which assigns some shaders to the surfaces
+//					NOTE: WITH THIS OPTION ENABLED IT IS COMMON THAT UNDOING THE TOOL WILL
+//							NOT WORK CORRECTLY, SO BE SURE TO SAFE PRIOR TO
+//							EXECUTING! UNDOING AND RERUNNING THE SCRIPT CAN EVENTUALLY CAUSE
+//							MAYA TO CRASH!
+//				FIXES:
+//				- fixed, what caused maya to crash on some machines running windows
+//				- the well occurance parameter wasn't correctly implemented
+//				- fixed a bug where some wells have received top rims
+//
+//				1.1 - Sep. 21, 2009
+//				1.0 - Jul. 12, 2009
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+global proc icQTexecute ()
+{
+
+	string $sel[] = `ls -sl`;
+	string $polyNameArray[];
+	string $polyName;
+	string $compList;
+	string $faceNum[];
+	float $dropout;
+	float $lengthValue;
+
+	if (`nodeType $sel[0]` != "mesh")
+	{
+		error "Please select some polygons!";
+	}
+
+	clear $faceNum;
+	//get the numbers of the selected polygons
+	$compList = `icQTgetSelectionNumbers`;
+	tokenize $compList ":" $faceNum;
+	tokenize $sel[0] "." $polyNameArray;
+
+	//create the shaders if necessary
+	if (`checkBox -q -v applyColor`)
+	{
+		icTQcreateColors;
+	}
+
+	progressWindow
+         	-title "Constructing"
+			-progress 0 -max (size($faceNum))
+			-isInterruptable true;
+
+	//go through each selected polygon and extrude it
+	for ($i = 0; $i < size($faceNum); $i ++)
+	{
+		progressWindow -e -pr $i -st ("Face " + $i + " of " + (size($faceNum)) + " in Progress");
+
+		$dropout = rand(1,10);
+		if ($dropout > (`floatFieldGrp -q -v1 dropout`) / 10 + 1)
+		{
+			//select the current polygon
+			$polyName = $polyNameArray[0] + ".f[" + $faceNum[$i] + "]";
+			select -r $polyName;
+			$lengthValue = icQTinnerExtrude ($polyName, $polyNameArray[0], "first");
+			icQTfirstLevelExtrude ( $polyName, $lengthValue, $polyNameArray[0] );
+		}
+
+		// Check if the dialog has been cancelled
+        if ( `progressWindow -q -ic` ) break;
+	}
+
+	//if any geometry for the top surfaces have been created combine them with the source
+	//geometry
+	if (`objExists topCubes`)
+	{
+		select -r $polyNameArray[0];
+		string $topCubes[] = `listRelatives -c topCubes`;
+		for ($cubes in $topCubes)
+		{
+			select -add $cubes;
+		}
+		polyUnite -ch 0;
+	}
+
+	progressWindow -endProgress;
+	select -cl;
+
+}
+
+global proc string icQTgetSelectionNumbers ()
+{
+	string $sel[] = `ls -sl`;
+	string $selArray[];
+	string $selPart[];
+	int $selStart;
+	int $selEnd;
+	int $faceNum[];
+	string $compList;
+
+	//find all polygon numbers of the selection
+	for ($s in $sel)
+	{
+		//if there are is a range of polygons selected
+		if (`gmatch $s "*:*"`)
+		{
+			//separate the start and end numbers
+			tokenize $s ":" $selArray;
+			//find the number of digits of the polygon number
+			tokenize $selArray[0] "[" $selPart;
+			//define the number for the start of the range
+			$selStart = `substring $selArray[0] (size($selArray[0]) - size($selPart[1]) + 1) (size($selArray[0]))`;
+			//define the number for the end of the range
+			tokenize $selArray[1] "]" $selPart;
+			$selEnd = `substring $selArray[1] 1 (size($selPart[0]))`;
+			//build a list of all numbers in between
+			for ($i = $selStart; $i <= $selEnd; $i ++)
+			{
+				$faceNum[size($faceNum)] = $i;
+			}
+		}
+		//if there is a single polygon listed
+		else
+		{
+			tokenize $s "[" $selArray;
+			$faceNum[size($faceNum)] = `substring $selArray[1] 1 (size($selArray[1]) - 1)`;
+		}
+	}
+	for ($f in $faceNum)
+	{
+		$compList = ($compList + $f + ":");
+	}
+	return $compList;
+}
+
+global proc float icQTinnerExtrude ( string $polyName, string $nodeName, string $stage )
+{
+	string $compList;
+	string $edgeNum[];
+	string $extrude[];
+	float $bbox1[];
+	float $bbox2[];
+	float $freeX;
+	float $freeY;
+	float $localScale[];
+	float $moveVal;
+	float $moveValList[];
+	float $moveValMul;
+	float $edgePos[];
+	float $edgeLengthArray[];
+	float $lengthValue;
+	float $lengthValueList[];
+	float $baseInset;
+	int $randSign;
+	int $moveValIndex;
+	int $continue = 1;
+	vector $edgeStart;
+	vector $edgeEnd;
+	vector $edgeLength;
+
+	//assign the random scale values
+	float $scaleRangeLow = `floatFieldGrp -q -v1 minScale`;
+	float $scaleRangeHi = 1.5;
+	float $randSX = rand($scaleRangeLow,$scaleRangeHi);
+	float $randSY = rand($scaleRangeLow,$scaleRangeHi);
+
+	//color the selection
+	if ($stage == "first")
+	{
+		icQTapplyColor ( $polyName, "street" );
+	}
+	else
+	{
+		//colorize
+		string $colorNames[] = {"concrete1","concrete2","dark1","dark2","light1","light2"};
+		int $randColor = rand(0,5.9);
+		icQTapplyColor ( $polyName, $colorNames[$randColor] );
+	}
+
+	//get the initial bounding box of the selection
+	$bbox1 = `xform -q -bb $polyName`;
+
+	//extrude the face and scale it
+	$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+	setAttr ($extrude[0] + ".localScale") -type double3 $randSX $randSY 1;
+
+	//decrease the local scale until the size is smaller than the inital bounding box
+	for ($i = 0; $i < 50; $i ++)
+	{
+		$localScale = `getAttr ($extrude[0] + ".localScale")`;
+		setAttr ($extrude[0] + ".localScaleX") ($localScale[0] * 0.99);
+		setAttr ($extrude[0] + ".localScaleY") ($localScale[1] * 0.99);
+
+		$bbox2 = `xform -q -bb $polyName`;
+		//include some headroom space in the calculation
+		$freeX = $bbox2[3] / 30;
+		$freeY = $bbox2[5] / 30;
+		//if the bounding box is in positive space go for the max values first
+		if ($bbox1[3] >= 0)
+		{
+			//check for the max values of the bounding box
+			if ((abs($bbox1[3]) > abs($bbox2[3] + $freeX)) && 
+				(abs($bbox1[5]) > abs($bbox2[5] + $freeY)))
+			{
+				//check for the min values of the bounding box
+				if ((abs($bbox1[0]) > abs($bbox2[0] + $freeX)) && 
+				(abs($bbox1[2]) > abs($bbox2[2] + $freeY)))
+				{
+					break;
+				}
+			}
+		}
+		//if the bounding box is in negative space go for the min values first
+		else
+		{
+			//check for the min values of the bounding box
+			if ((abs($bbox1[0]) > abs($bbox2[0] + $freeX)) && 
+				(abs($bbox1[2]) > abs($bbox2[2] + $freeY)))
+			{
+				//check for the max values of the bounding box
+				if ((abs($bbox1[3]) > abs($bbox2[3] + $freeX)) && 
+				(abs($bbox1[5]) > abs($bbox2[5] + $freeY)))
+				{
+					break;
+				}
+			}
+		}
+	}
+
+	//if the surface is non planar scale the height to zero
+	if (!`checkBox -q -v planarCheck`)
+	{
+		if ($bbox2[1] != $bbox2[4])
+		{
+			scale -r -p 0 ($bbox2[1] + (($bbox2[4] - $bbox2[1]) / 2)) 0 1 0 1 $polyName;
+		}
+	}
+
+	//define a offset multiplier for each polygon
+	$moveValMult = rand(0.1,1);
+	$moveValList[0] = (abs($bbox1[3]) - abs($bbox2[3])) * $moveValMult;
+	$moveValList[1] = (abs($bbox1[5]) - abs($bbox2[5])) * $moveValMult;
+	//create a random index to choose if the translation is in X or Y
+	$moveValIndex = rand(0,1.9);
+	//create a random sign for the translation
+	$randSign = rand(-1.9,1.9);
+	if ($moveValIndex == 0)
+	{
+		setAttr ($extrude[0] + ".localTranslateX") ($moveValList[0] * $randSign);
+	}
+	else
+	{
+		setAttr ($extrude[0] + ".localTranslateY") ($moveValList[1] * $randSign);
+	}
+
+	//convert the face to an edge selection
+	select(`polyListComponentConversion -ff -te $polyName`);
+	//get the numbers of the selected edges
+	$compList = `icQTgetSelectionNumbers`;
+	tokenize $compList ":" $edgeNum;
+	//find the longest edge in the list
+	for ($e in $edgeNum)
+	{
+		$lengthValue = 0;
+		$edgePos = `xform -q -ws -t ($nodeName + ".e[" + $e + "]")`;
+		$edgeStart = <<$edgePos[0],$edgePos[1],$edgePos[2]>>;
+		$edgeEnd = <<$edgePos[3],$edgePos[4],$edgePos[5]>>;
+		//calculate the length of the edge
+		$edgeLength = abs($edgeStart - $edgeEnd);
+		$edgeLengthArray = {($edgeLength.x),($edgeLength.y),($edgeLength.z)};
+		for ($el in $edgeLengthArray)
+		{
+			if ($el > $lengthValue)
+			{
+				$lengthValue = $el;
+			}
+		}
+		$lengthValueList[size($lengthValueList)] = $lengthValue;
+	}
+	//finally find the longest edge
+	$lengthValue = 0;
+	for ($v in $lengthValueList)
+	{
+		if ($v > $lengthValue)
+		{
+			$lengthValue = $v;
+		}
+	}
+/*
+	//create a base extrusion if the polygon hasn't been offset much
+	if ($moveValMult < 0.2)
+	{
+		$baseInset = rand(0.9,0.95);
+		$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+		setAttr ($extrude[0] + ".localTranslateZ") ($lengthValue / 4);
+		$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+		setAttr ($extrude[0] + ".localScaleX") $baseInset;
+		setAttr ($extrude[0] + ".localScaleY") $baseInset;
+	}
+*/
+	return $lengthValue;
+}
+
+global proc icQTfirstLevelExtrude ( string $polyName, float $lengthValue, string $nodeName )
+{
+	string $extrude[];
+	float $bbCube[];
+	float $cubeCenterX;
+	float $cubeCenterZ;
+	float $cubeSize;
+	float $randomHeight;
+	float $randomWellHeight;
+	float $special;
+	float $shrinkScale;
+	int $randSecondLevel;
+	int $wellsRandom;
+	int $shrinkRandom;
+	int $noWells;
+	
+	//extrude the face with some random height
+	float $heightMin = `floatFieldGrp -q -v1 heightRange`;
+	float $heightMax = `floatFieldGrp -q -v2 heightRange`;
+	$randomHeight = rand($heightMin,$heightMax);
+	$randomWellHeight = rand(1,1.1);
+
+	//colorize
+	string $colorNames[] = {"brick1","brick2","glass1","glass2",
+							"sand1","sand2","dark1","dark2","light1","light2"};
+	int $randColor = rand(0,9.9);
+
+	$special = rand(1,10);
+	int $stacksTrue = `checkBox -q -v stacksCheck`;
+	if ($stacksTrue == 1 && $special > 1 && $special < 2)
+	{
+		icQTstackExtrude ( $polyName, ($lengthValue * $randomHeight) );
+		$noWells = 1;
+	}
+	else
+	{
+		icQTapplyColor ( $polyName, $colorNames[$randColor] );
+
+		$shrinkRandom = rand(0,12);
+		$shrinkScale = rand(0.8,0.95);
+		$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+		setAttr ($extrude[0] + ".localTranslateZ") ($lengthValue * $randomHeight);
+		if (`checkBox -q -v shrinkCheck` && $shrinkRandom < 2)
+		{
+			setAttr ($extrude[0] + ".localScaleX") $shrinkScale;
+			setAttr ($extrude[0] + ".localScaleY") $shrinkScale;
+			$noWells = 1;
+		}
+	}
+
+	//
+	//for the vertical walls
+	//
+
+	if (`checkBox -q -v wellsCheck` && $noWells == 0)
+	{
+		$wellsRandom = rand(0,10);
+		if ($wellsRandom < `floatFieldGrp -q -v1 wellsOccur`)
+		{
+			//get the dimensions
+			$bbCube = `xform -q -bb $polyName`;
+			$cubeSize = (abs($bbCube[0] - $bbCube[3])) * (abs($bbCube[2] - $bbCube[5]));
+			$cubeCenterX = ($bbCube[0] + $bbCube[3]) / 2;
+			$cubeCenterZ = ($bbCube[2] + $bbCube[5]) / 2;
+		
+			string $wells = icQTwells ( $lengthValue, $cubeSize );
+			//get the dimension for the longest edge to decide if the vertical walls need to be rotated
+			if ($bbCube[5] - $bbCube[2] > $bbCube[3] - $bbCube[0])
+			{
+				rotate -r 0 90 0 $wells;
+			}
+			//place the wells at the center of the polygon
+			xform -ws -t $cubeCenterX ($bbCube[1] - ($lengthValue * $randomHeight)) $cubeCenterZ $wells;
+			makeIdentity -t 1 -s 1 -a 1 $wells;
+			//scale the wells to the height of the extrusion
+			scale -a 1 ($lengthValue * $randomHeight * rand(0.97,1.005)) 1 $wells;
+		
+			//if not already present create a group and parent the new geometry under it
+			if (!`objExists topCubes`)
+			{
+				createNode transform -n topCubes;
+			}
+			parent $wells topCubes;
+		}
+	}
+
+	//define the color for the top rim
+	//colorize
+	string $rimColor[] = {"rim1","rim2"};
+	int $randColorRim = rand(0,1.9);
+
+	//build a rim at the top
+	icQTbuildRim ( $polyName, $rimColor[$randColorRim] );
+
+	//build another level based on random number
+	$randSecondLevel = rand(0.2,4);
+
+	if ($randSecondLevel < 1 && $randomHeight >= 1 && `checkBox -q -v roofCube`)
+	{
+		icQTroofCube ( $polyName, $nodeName, $rimColor[$randColorRim] );
+	}
+	if ($randSecondLevel == 1 && $randomHeight >= 2)
+	{
+		if (`checkBox -q -v stairs`)
+		{
+			icQTstairStepSecondLevel ( $polyName, $lengthValue, $colorNames[$randColor], $rimColor[$randColorRim] );
+			if ($randomHeight >= 2 && `checkBox -q -v antenna`)
+			{
+				icQTbuildAntenna ( $polyName, $lengthValue );
+			}
+		}
+		else
+		{
+			if (`checkBox -q -v topDetail`)
+			{
+				for ($i = 0; $i < `radioButtonGrp -q -sl complexity`; $i++)
+				{
+					icQTtopDetail ( $polyName, $i );
+				}
+			}
+		}
+	}
+	else
+	{
+		if (`checkBox -q -v topDetail`)
+		{
+			for ($i = 0; $i < `radioButtonGrp -q -sl complexity`; $i++)
+			{
+				icQTtopDetail ( $polyName, $i );
+			}
+		}
+	}
+	if ($randSecondLevel == 2)
+	{
+		float $randomTop = rand(-1,1.3);
+		if ($randomTop > 0)
+		{
+			icQTsplitSecondLevel ( $polyName, $nodeName );
+			if ($randomHeight >= $heightMax / 2 && `checkBox -q -v topDetail`)
+			{
+				for ($i = 0; $i < `radioButtonGrp -q -sl complexity`; $i++)
+				{
+					icQTtopDetail ( $polyName, $i );
+				}
+			}
+		}
+		else if ($randomTop < 0 && `checkBox -q -v topDetail`)
+		{
+			icQTtopDetail ( $polyName, 0 );
+			icQTdivideSecondLevel ( $polyName, $nodeName );
+		}
+	}
+
+	select -r $nodeName;
+	polySoftEdge -a 0;
+	delete -ch $nodeName;
+}
+
+global proc icQTstackExtrude ( string $polyName, float $lengthValue )
+{
+	string $extrude[];
+	float $baseHeight;
+	float $storyHeight;
+	float $ledgeHeight;
+	float $ledgeScale;
+	float $storyScale;
+	int $storyLedgeRatio;
+	int $floors;
+
+	//define the base height before the stacking occurs
+	$baseHeight = rand(0.05,0.15);
+	//the actual base height is a fragment of the overall length
+	$baseHeight = $baseHeight * $lengthValue;
+	//the remaining extrude length is without the base height
+	$lengthValue = $lengthValue - $baseHeight;
+	//the story height depends on the scale
+	//define the ledge scale and story scale
+	$ledgeScale = rand(0.9,0.98);
+	$ledgeUpScale = 1 + (1 - $ledgeScale);
+	$storyScale = rand(0.5,2);
+	$floors = ceil($lengthValue / $storyScale);
+	$storyLedgeRatio = rand(4,11);
+	//the story height is 3/4, the ledge height is 1/4
+	$storyHeight = $lengthValue / $floors / $storyLedgeRatio;
+	$ledgeHeight = $storyHeight;
+	$storyHeight = $storyHeight * ($storyLedgeRatio - 1);
+
+	//extrude the base height
+	$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+	setAttr ($extrude[0] + ".localTranslateZ") $baseHeight;
+
+	//colorize
+	string $colorLedge[] = {"concrete1","concrete2","dark1","dark2","light1","light2"};
+	string $colorFloor[] = {"brick1","brick2","glass1","glass2","sand1","sand2","light1","light2"};
+	int $randColorLedge = rand(0,5.9);
+	int $randColorFloor = rand(0,7.9);
+	icQTapplyColor ( $polyName, $colorLedge[$randColorLedge] );
+	icQTapplyColor ( $polyName, $colorFloor[$randColorFloor] );
+
+	//create the stories
+	for ($i = 0; $i < $floors; $i ++)
+	{
+		icQTapplyColor ( $polyName, $colorLedge[$randColorLedge] );
+		//extrude the face and scale it
+		$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+		setAttr ($extrude[0] + ".localScale") -type double3 $ledgeUpScale $ledgeUpScale 1;
+		//extrude for the ledge height
+		$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+		setAttr ($extrude[0] + ".localTranslateZ") $ledgeHeight;
+		//extrude for the ledge inset
+		$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+		setAttr ($extrude[0] + ".localScale") -type double3 $ledgeScale $ledgeScale 1;
+		//extrude for the floor height
+		icQTapplyColor ( $polyName, $colorFloor[$randColorFloor] );
+		$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+		setAttr ($extrude[0] + ".localTranslateZ") $storyHeight;
+	}
+
+	//colorize the top polygon
+	string $colorNames[] = {"rim1","rim2"};
+	int $randColor = rand(0,1.9);
+	icQTapplyColor ( $polyName, $colorNames[$randColor] );
+}
+
+global proc icQTstairStepSecondLevel ( string $polyName, float $lengthValue, string $color1, string $color2 )
+{
+	string $extrude[];
+	int $maxLevelSteps = `radioButtonGrp -q -sl maxLevelSteps`;
+	int $levelNum = rand(1,$maxLevelSteps + 1);
+	float $levelHeight = rand(0.2,0.8);
+	float $levelScale = rand(0.6,0.8);
+
+	for ($i = 0; $i < $levelNum; $i ++)
+	{
+		//extrude the face and scale it
+		$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+		setAttr ($extrude[0] + ".localScale") -type double3 $levelScale $levelScale 1;
+
+		icQTapplyColor ( $polyName, $color1 );
+
+		//extrude again and set a height
+		$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+		setAttr ($extrude[0] + ".localTranslateZ") ($lengthValue * $levelHeight);
+		$lengthValue = $lengthValue * 0.8;
+
+		//build a rim at the top
+		icQTbuildRim ( $polyName, $color2 );
+	}
+}
+
+global proc icQTbuildAntenna ( string $polyName, float $lengthValue )
+{
+	string $extrude[];
+	float $antennaHeight = rand(0.6,1.5);
+	//extrude the face and scale it
+	$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+	setAttr ($extrude[0] + ".localScale") -type double3 0.1 0.1 1;
+
+	//colorize
+	string $colorNames[] = {"concrete1","concrete2","dark1","dark2","light1","light2"};
+	int $randColor = rand(0,5.9);
+	icQTapplyColor ( $polyName, $colorNames[$randColor] );
+
+	//extrude again and set a height
+	$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+	setAttr ($extrude[0] + ".localTranslateZ") ($lengthValue * $antennaHeight);
+	setAttr ($extrude[0] + ".localScale") -type double3 0.1 0.1 1;
+}
+
+global proc icQTsplitSecondLevel ( string $polyName, string $nodeName )
+{
+	string $extrude[];
+	string $compList;
+	string $vertList;
+	string $edgeNum[];
+	string $vertNum[];
+	string $faceNum[];
+	float $edgePos[];
+	float $edgeLengthArray[];
+	float $lengthValue;
+	float $lengthValueList[];
+	float $splitValue;
+	vector $edgeStart;
+	vector $edgeEnd;
+	vector $edgeLength;
+	int $randomEdge;
+	int $edgeList[];
+	int $parallel;
+	int $divisions;
+
+	//convert the face to an edge selection
+	select(`polyListComponentConversion -ff -te $polyName`);
+	//get the numbers of the selected edges
+	$compList = `icQTgetSelectionNumbers`;
+	tokenize $compList ":" $edgeNum;
+
+	//find the edge lengths
+	for ($e in $edgeNum)
+	{
+		$lengthValue = 0;
+		$edgePos = `xform -q -ws -t ($nodeName + ".e[" + $e + "]")`;
+		$edgeStart = <<$edgePos[0],$edgePos[1],$edgePos[2]>>;
+		$edgeEnd = <<$edgePos[3],$edgePos[4],$edgePos[5]>>;
+		//calculate the length of the edge
+		$edgeLength = abs($edgeStart - $edgeEnd);
+		$edgeLengthArray = {($edgeLength.x),($edgeLength.y),($edgeLength.z)};
+		for ($el in $edgeLengthArray)
+		{
+			if ($el > $lengthValue)
+			{
+				$lengthValue = $el;
+			}
+		}
+		$lengthValueList[size($lengthValueList)] = $lengthValue;
+	}
+
+	//pick an edge from the list that defines the length of the edge pair
+	$randomEdge = rand(0,(size($lengthValueList) - 1));
+
+	//find the edge pair that is the size of the random edge
+	for ($i = 0; $i < size($lengthValueList); $i ++)
+	{
+		if ($lengthValueList[$i] > $lengthValueList[$randomEdge] - 0.001 &&
+				$lengthValueList[$i] < $lengthValueList[$randomEdge] + 0.001)
+		{
+			$edgeList[size($edgeList)] = $edgeNum[$i];
+		}
+	}
+	//if the polygon is nonsquare take the first two edges
+	if (size($edgeList) != 2)
+	{
+		$edgeList[0] = $edgeNum[0];
+		for ($i = 1; $i < size($lengthValueList); $i ++)
+		{
+			if ($parallel == 0)
+			{
+				$edgeList[1] = $edgeNum[$i];
+				select -r ($nodeName + ".e[" + $edgeList[0] + "]")
+							($nodeName + ".e[" + $edgeList[$i] + "]");
+				//convert the edge to a vertex selection
+				select(`polyListComponentConversion -fe -tv`);
+				//get the vertex selection
+				$vertList = `icQTgetSelectionNumbers`;
+				tokenize $vertList ":" $vertNum;
+				//if there are only three verts selected the two edges connect
+				//in this case get the next edge
+				if (size($vertNum) == 4)
+				{
+					$parallel = 1;
+				}
+			}
+		}
+	}
+
+	for ($i = 0; $i < size($edgeNum); $i ++)
+	{
+		if ($edgeNum[$i] != $edgeList[0] && $edgeNum[$i] != $edgeList[1])
+		{
+			$edgeList[size($edgeList)] = $edgeNum[$i];
+		}
+	}
+
+	//generate a split value
+	$splitValue = rand(0.25,0.75);
+	//and split the polygon
+	polySplit -ch 1 -s 1 -sma 90 -ep $edgeList[0] $splitValue -ep $edgeList[1] $splitValue;
+
+	//colorize
+	string $colorNames[] = {"concrete1","concrete2","dark1","dark2","light1","light2"};
+	int $randColor = rand(0,5.9);
+	icQTapplyColor ( $polyName, $colorNames[$randColor] );
+
+	//extrude and set a height
+	$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+	setAttr ($extrude[0] + ".localTranslateZ") (min(($lengthValue * $splitValue),($lengthValue / 10)));
+}
+
+global proc icQTdivideSecondLevel ( string $polyName, string $nodeName )
+{
+	string $compList;
+	string $faceNum[];
+	string $extrude[];
+	int $divisions;
+
+	//subdivide the top
+	select -r $polyName;
+	$divisions = rand(1,2);
+	polySmooth  -mth 0 -dv $divisions -c 0 -kb 1 -sl 1 -ch 1 $polyName;
+	//get the numbers of the selected faces
+	$compList = `icQTgetSelectionNumbers`;
+	tokenize $compList ":" $faceNum;
+
+	//go through each face and extrude it by random
+	for ($f in $faceNum)
+	{
+		float $skip = rand(-2,4);
+		if ($skip < 0)
+		{
+			$polyName = $nodeName + ".f[" + $f + "]";
+			$lengthValue = icQTinnerExtrude ( $polyName, $nodeName, "" );
+			$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+			setAttr ($extrude[0] + ".localTranslateZ") ($lengthValue / 2);
+		}
+	}
+}
+
+global proc icQTroofCube ( string $polyName, string $nodeName, string $color )
+{
+	string $extrude[];
+	float $moveValMult;
+	float $bbox1[];
+	float $bbox2[];
+	float $moveValList[];
+	int $moveValIndex;
+	int $randSign;
+
+	//assign the random scale values
+	float $sizeMin = `floatFieldGrp -q -v1 sizeRange`;
+	float $sizeMax = `floatFieldGrp -q -v2 sizeRange`;
+	float $randSX = rand($sizeMin,$sizeMax);
+	float $randSY = rand($sizeMin,$sizeMax);
+
+	//get the initial bounding box of the selection
+	$bbox1 = `xform -q -bb $polyName`;
+
+	//extrude the face and scale it
+	$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+	setAttr ($extrude[0] + ".localScale") -type double3 $randSX $randSY 1;
+	//get the new bounding box size
+	$bbox2 = `xform -q -bb $polyName`;
+
+	icQTapplyColor ( $polyName, $color );
+
+	//define a offset multiplier for each polygon
+	$moveValMult = rand(0.6,0.9);
+	$moveValList[0] = (abs($bbox1[3]) - abs($bbox2[3])) * $moveValMult;
+	$moveValList[1] = (abs($bbox1[5]) - abs($bbox2[5])) * $moveValMult;
+	//create a random index to choose if the translation is in X or Y
+	$moveValIndex = rand(0,1.9);
+	//create a random sign for the translation
+	$randSign = rand(-1.9,1.9);
+	if ($moveValIndex == 0)
+	{
+		setAttr ($extrude[0] + ".localTranslateX") ($moveValList[0] * $randSign);
+	}
+	else
+	{
+		setAttr ($extrude[0] + ".localTranslateY") ($moveValList[1] * $randSign);
+	}
+	//extrude and set a height
+	$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+	setAttr ($extrude[0] + ".localTranslateZ") (abs($moveValList[$moveValIndex]) * 0.5);
+	//build a rim at the top
+	icQTbuildRim ( $polyName, $color );
+}
+
+global proc icQTtopDetail ( string $topPoly, int $scaleHeight )
+{
+	string $roofCube;
+	string $extrude[];
+	float $bbFloor[];
+	float $bbCube[];
+	float $floorSize;
+	float $floorCenterX;
+	float $floorCenterZ;
+	float $cubeSize;
+	float $scaleMax;
+	float $height;
+	float $randSizeX;
+	float $randSizeZ;
+	float $moveRangeX;
+	float $moveRangeZ;
+	float $randMoveX;
+	float $randMoveZ;
+	int $randType;
+
+
+	$bbFloor = `xform -q -bb $topPoly`;
+	$floorSize = (abs($bbFloor[0] - $bbFloor[3])) * (abs($bbFloor[2] - $bbFloor[5]));
+
+	$floorCenterX = ($bbFloor[0] + $bbFloor[3]) / 2;
+	$floorCenterZ = ($bbFloor[2] + $bbFloor[5]) / 2;
+
+	$randType = rand(0,3.5);
+	if ($randType == 1)
+	{
+		$roofCube = `icQTsingleCube 0`;
+		//colorize
+		string $colorNames[] = {"concrete1","concrete2","dark1","dark2","light1","light2"};
+		int $randColor = rand(0,5.9);
+		icQTapplyColor ( $roofCube, $colorNames[$randColor] );
+	}
+	else if ($randType == 2)
+	{
+		$roofCube = `icQTlShape`;
+	}
+	else if ($randType == 3)
+	{
+		$roofCube = `icQTtriplet`;
+	}
+	else
+	{
+		return;
+	}
+
+	//place the cube at the center of the selected polygon
+	xform -ws -t $floorCenterX $bbFloor[4] $floorCenterZ $roofCube;
+	//and get its dimensions
+	$bbCube = `xform -q -bb $roofCube`;
+	$cubeSize = (abs($bbCube[0] - $bbCube[3])) * (abs($bbCube[2] - $bbCube[5]));
+
+	float $userHeight = `floatFieldGrp -q -v1 detailHeight`;
+	$userHeight = rand($userHeight * 0.8, $userHeight * 1.2);
+	if ($scaleHeight > 0)
+	{
+		$height = $userHeight + ($userHeight / 10 * $scaleHeight);
+	}
+	else
+	{
+		$height = $userHeight;
+	}
+
+	//scale and position the cube
+	$scaleMax = sqrt($floorSize / $cubeSize);
+	$randSizeX = rand($scaleMax/2,$scaleMax);
+	$randSizeZ = rand($randSizeX/2,$randSizeX);
+	scale -a $randSizeX $height $randSizeZ $roofCube;
+
+	//freeze the transforms and get the new size
+	makeIdentity -t 1 -s 1 -a 1 $roofCube;
+	$bbCube = `xform -q -bb $roofCube`;
+
+	//calculate the moving range in X and Z
+	$moveRangeX = $bbFloor[3] - $bbCube[3];
+	$moveRangeZ = $bbFloor[5] - $bbCube[5];
+	$randMoveX = rand($moveRangeX * -1,$moveRangeX);
+	$randMoveZ = rand($moveRangeZ * -1,$moveRangeZ);
+	move -r $randMoveX 0 $randMoveZ $roofCube;
+
+	//if the size is too big reduce its scale
+	$bbCube = `xform -q -bb $roofCube`;
+	for ($i = 0; $i < 10; $i ++)
+	{
+		if (($bbCube[0] < $bbFloor[0]) || ($bbCube[3] > $bbFloor[3]) ||
+				($bbCube[2] < $bbFloor[2]) || ($bbCube[5] > $bbFloor[5]))
+		{
+			//move it back and scale
+			move -r (($randMoveX/10) * -1) 0 (($randMoveZ/10) * -1) $roofCube;
+			scale -a 0.9 1 0.9 $roofCube;
+			makeIdentity -s 1 -a 1 $roofCube;
+			//get the new bounding box
+			$bbCube = `xform -q -bb $roofCube`;
+		}
+	}
+	if (($bbCube[0] < $bbFloor[0]) || ($bbCube[3] > $bbFloor[3]) ||
+				($bbCube[2] < $bbFloor[2]) || ($bbCube[5] > $bbFloor[5]))
+	{
+		//if its still too big delete it
+		delete $roofCube;
+	}
+
+	//if not already present create a group and parent the new geometry under it
+	if (!`objExists topCubes`)
+	{
+		createNode transform -n topCubes;
+	}
+	if (`objExists $roofCube` && `objExists topCubes`)
+	{
+		parent $roofCube topCubes;
+	}
+}
+
+global proc string icQTsingleCube ( int $wells )
+{
+	string $roofCube[];
+
+	//create a cube with the pivot at the bottom
+	$roofCube = `polyCube -ch 0`;
+	//delete the bottom face
+	delete ($roofCube[0] + ".f[3]");
+	move -a 0 0.5 0 $roofCube[0];
+	makeIdentity -t 1 -a 1 $roofCube[0];
+	xform -ws -piv 0 0 0 $roofCube[0];
+
+	float $rim = rand(0,5);
+	if ($rim < 2 && $wells == 0)
+	{
+		//build a rim at the top
+		icQTbuildRim ( $roofCube[0] + ".f[1]", "" );
+	}
+
+	return $roofCube[0];
+}
+
+global proc string icQTlShape ()
+{
+	string $roofCube[];
+	string $extrude[];
+	string $zero[];
+	float $worldPos[];
+	int $randRot;
+
+	//create a cube with the pivot at the bottom
+	$roofCube = `polyCube -sx 2 -sz 2 -ch 0`;
+	//delete the bottom faces
+	delete ($roofCube[0] + ".f[8:11]");
+	//move the first two faces along their normals
+	polyMoveFacet -ltz (rand(0,2)) ($roofCube[0] + ".f[0:1]");
+	//extrude one face
+	$extrude = `polyExtrudeFacet -ch 1 -kft 0 ($roofCube[0] + ".f[13]")`;
+	setAttr ($extrude[0] + ".localTranslateZ") (rand(0.5,2));
+	DeleteHistory $roofCube[0];
+
+	//colorize
+	string $colorNames[] = {"concrete1","concrete2","dark1","dark2","light1","light2"};
+	int $randColor = rand(0,5.9);
+	icQTapplyColor ( $roofCube[0], $colorNames[$randColor] );
+
+	//move the cube so that its pivot is centered at the bottom
+	select -cl;
+	move -a 0 0.5 0 $roofCube[0];
+	makeIdentity -t 1 -a 1 $roofCube[0];
+	select $roofCube[0];
+	CenterPivot;
+	xform -r -piv 0 -0.5 0 $roofCube[0];
+
+	// save the position of the object
+	$worldPos = `xform -q -ws -rp $roofCube[0]`;
+	// create a new locator and move it to the position of the object
+	$zero = `spaceLocator`;
+	move -a $worldPos[0] $worldPos[1] $worldPos[2] $zero[0];
+	// parent the object to the locator
+	parent $roofCube[0] $zero[0];
+	// move the locator back to the world origin
+	move -a 0 0 0 $zero[0];
+	// unparent the object and delete the locator
+	parent -w $roofCube[0];
+	delete $zero[0];
+	// freeze the position transformation of the object
+	makeIdentity -a 1 -t 1 -r 0 -s 0;
+	// move the object back to the old position
+	move -a $worldPos[0] $worldPos[1] $worldPos[2] $roofCube[0];
+
+	$randRot = rand(0,10);
+	for ($i = 0; $i == $randRot; $i ++)
+	{
+		rotate -os 0 90 0 $roofCube[0];
+	}
+
+	return $roofCube[0];
+}
+
+global proc string icQTtriplet ()
+{
+	string $duplicate[];
+	string $combineList[];
+	string $roofCube = `icQTsingleCube 0 `;
+	float $moveVal = rand(1.5,3);
+
+	//colorize
+	string $colorNames[] = {"concrete1","concrete2","dark1","dark2","light1","light2"};
+	int $randColor = rand(0,5.9);
+	icQTapplyColor ( $roofCube, $colorNames[$randColor] );
+
+	//scale the first cube and store it
+	scale 1 1 (rand(2,4)) $roofCube;
+	$combineList[size($combineList)] = $roofCube;
+
+	float $rim = rand(0,5);
+	if ($rim < 2)
+	{
+		//build a rim at the top
+		icQTbuildRim ( $roofCube + ".f[1]", "" );
+	}
+
+	//duplicate the first cube and offset to x
+	$duplicate = `duplicate -rr -rc $roofCube`;
+	$combineList[size($combineList)] = $duplicate[0];
+	move -a $moveVal 0 0 $duplicate[0];
+	//duplicate a second time and offset to -x
+	$duplicate = `duplicate -rr -rc $roofCube`;
+	$combineList[size($combineList)] = $duplicate[0];
+	move -a ($moveVal * -1) 0 0 $duplicate[0];
+
+	//combine the three cubes
+	string $triplet[] = `polyUnite -ch 0 $combineList[0] $combineList[1] $combineList[2]`;
+	//delete the transform nodes of the other cubes
+	for ($i = 1; $i < 3; $i ++)
+	{
+		if (`objExists $combineList[$i]`)
+		{
+			delete $combineList[$i];
+		}
+	}
+
+	int $randRot = rand(0,10);
+	for ($i = 0; $i == $randRot; $i ++)
+	{
+		rotate -os 0 90 0 $triplet[0];
+	}
+
+	return $triplet[0];
+}
+
+global proc string icQTwells ( float $length, float $size )
+{
+	string $duplicate[];
+	string $combineList[];
+	string $command;
+	string $roofCube = `icQTsingleCube 1`;
+	float $moveVal = rand(1.5,3);
+	float $wellSpace = rand(2,6);
+	float $width;
+	int $wellCount = rand(3,9.9);
+
+	//colorize
+	string $colorNames[] = {"concrete1","concrete2","dark1","dark2","light1","light2"};
+	int $randColor = rand(0,5.9);
+	icQTapplyColor ( $roofCube, $colorNames[$randColor] );
+
+	//calculate the width from the given length and size
+	$width = $size / $length;
+
+	//scale the first cube
+	scale ($length / $wellCount / $wellSpace) 1 1 $roofCube;
+	//store the first cube
+	$combineList[size($combineList)] = $roofCube;
+	//position it at the -x end of the length
+	move -a ($length / -2) 0 0 $roofCube;
+
+	//duplicate the first cube and offset to x
+	for ($i = 1; $i < $wellCount + 1; $i ++)
+	{
+		$duplicate = `duplicate -rr -rc $roofCube`;
+		$combineList[size($combineList)] = $duplicate[0];
+		move -r ($length / $wellCount * $i) 0 0 $duplicate[0];
+	}
+
+	//combine the cubes
+	$command = "polyUnite -ch 0 ";
+	for ($item in $combineList)
+	{
+		$command = $command + $item + " ";
+	}
+	string $triplet[] = `eval($command)`;
+
+	//delete the transform nodes of the other cubes
+	for ($i = 1; $i < size($combineList); $i ++)
+	{
+		if (`objExists $combineList[$i]`)
+		{
+			delete $combineList[$i];
+		}
+	}
+
+	//scale the wells for the width
+	scale -a 1 1 ($width * 1.05) $triplet[0];
+
+	return $triplet[0];
+}
+
+global proc icQTbuildRim ( string $polyName, string $color )
+{
+	if ($color == "")
+	{
+		//colorize
+		string $colorNames[] = {"rim1","rim2"};
+		int $randColor = rand(0,1.9);
+		icQTapplyColor ( $polyName, $colorNames[$randColor] );
+	}
+	else
+	{
+		icQTapplyColor ( $polyName, $color );
+	}
+
+	//build a rim at the top
+	$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+	setAttr ($extrude[0] + ".localScale") -type double3 0.95 0.95 1;
+	$extrude = `polyExtrudeFacet -ch 1 -kft 0 $polyName`;
+	setAttr ($extrude[0] + ".localTranslateZ") -0.1;
+}
+
+global proc icTQcreateColors ()
+{
+	string $cityShader;
+	string $citySG;
+	int $add;
+
+	float $baseColors[] = {0.6,0.6,0.6,0.7,0.7,0.7,
+							0.4,0.4,0.4,0.6,0.38,0.32,
+							0.47,0.23,0.17,0.36,0.48,0.55,
+							0.2,0.24,0.32,0.73,0.66,0.38,
+							0.6,0.51,0.34,
+							0.25,0.25,0.25,0.12,0.12,0.12,
+							0.85,0.85,0.85,0.96,0.96,0.96,
+							0.3,0.3,0.3,0.5,0.5,0.5};
+	string $colorNames[] = {"street","concrete1","concrete2",
+							"brick1","brick2","glass1","glass2",
+							"sand1","sand2","dark1","dark2","light1","light2",
+							"rim1","rim2"};
+	//create the shader
+	for ($i = 0; $i < size($colorNames); $i ++)
+	{
+		if (!`objExists ($colorNames[$i] + "_SH")`)
+		{
+			$cityShader = `shadingNode -as lambert -n ($colorNames[$i] + "_SH")`;
+			$citySG = `sets -r 1 -nss 1 -em -n ($colorNames[$i] + "_SG")`;
+			connectAttr -f ($cityShader + ".outColor") ($citySG + ".surfaceShader");
+			setAttr ($colorNames[$i] + "_SH.color") $baseColors[$i + $add] $baseColors[$i + 1 + $add] $baseColors[$i + 2 + $add];
+			$add = $add + 2;
+		}
+	}
+}
+
+global proc icQTapplyColor ( string $polyName, string $color )
+{
+	if (`checkBox -q -v applyColor` && `objExists ($color + "_SG")`)
+	{
+		sets -e -forceElement ($color + "_SG") $polyName;
+	}
+}
+
+global proc icQTaddToSet ( string $polyName, string $type )
+{
+	//check if the set exists
+	if (!`objExists ($type + "_set")`)
+	{
+		string $sel[] = `ls -sl`;
+		//clear any selection so that an empty set is created
+		select -cl;
+		sets -n ($type + "_set");
+		select -cl;
+		for ($j in $sel)
+		{
+			select -add $j;
+		}
+	}
+
+	//add the polygons to the set
+	sets -e -fe ($type + "_set") $polyName;	
+}
+
+global proc icQTcurvedStateChange ()
+{
+	if (`checkBox -q -v curvedCheck`)
+	{
+		checkBox -e -v 0 topDetail;
+		checkBox -e -en 0 topDetail;
+		radioButtonGrp -e -en 0 complexity;
+		floatFieldGrp -e -en 0 detailHeight;
+		checkBox -e -v 0 wellsCheck;
+		checkBox -e -v 1 planarCheck;
+		checkBox -e -en 0 wellsCheck;
+		checkBox -e -en 0 planarCheck;
+	}
+	else
+	{
+		checkBox -e -v 1 topDetail;
+		checkBox -e -en 1 topDetail;
+		radioButtonGrp -e -en 1 complexity;
+		floatFieldGrp -e -en 1 detailHeight;
+		checkBox -e -en 1 wellsCheck;
+		checkBox -e -en 1 planarCheck;
+	}
+}
+
+global proc icQTown ()
+{
+	//declare a new window name
+	string $win = "icQtown";
+
+	//is the window already open?
+	if (`window -exists $win`)
+	{
+		deleteUI $win;
+	}
+
+	window -t "QTown v1.3" -w 380 -h 530 $win;
+	if (`windowPref -exists $win`)
+	{
+		windowPref -e -wh 380 530 $win;
+	}
+
+	//create the form
+	string $form = `formLayout "parentForm"`;
+
+	//create the frames in the form
+	string $generalFrame = `frameLayout -l "General"
+										-w 380 -h 190 -li 3
+										-mw 3 -mh 3 -bs "etchedIn" generalFrame`;
+	setParent $form;
+	//create the frames in the form
+	string $additionalFrame = `frameLayout -l "Additional"
+										-w 380 -h 190 -li 3
+										-mw 3 -mh 3 -bs "etchedIn" additionalFrame`;
+	setParent $form;
+
+	//create the buttons
+	string $bExecute = `button -l "Build QTown" -h 30 -en 1 -c "icQTexecute" executeButton`;
+
+	//position the elements
+	formLayout -e
+		-af $generalFrame "top" 3
+		-an $generalFrame "bottom"
+		-af $generalFrame "left" 3
+		-af $generalFrame "right" 3
+
+		-ac $additionalFrame "top" 3 $generalFrame
+		-ac $additionalFrame "bottom" 3 $bExecute
+		-af $additionalFrame "left" 3
+		-af $additionalFrame "right" 3
+
+		-an $bExecute "top"
+		-af $bExecute "bottom" 3
+		-af $bExecute "left" 3
+		-af $bExecute "right" 3
+
+		$form;
+
+	//create the elements for the uiFrame section
+	setParent $generalFrame;
+
+	columnLayout;
+		floatFieldGrp -l "Dropout %" -w 180 -cw2 120 60
+					-ct2 "left" "left" -co2 0 0 -cl2 "left" "left"
+					-pre 0 -v1 10 dropout;
+		floatFieldGrp -l "Height Range" -w 280 -nf 2 -cw3 120 80 80
+					-ct3 "left" "left" "left" -co3 0 0 0 -cl3 "left" "left" "left"
+					-pre 2 -v1 0.2 -v2 3 heightRange;
+		floatFieldGrp -l "Min Scale" -w 180 -cw2 120 60
+					-ct2 "left" "left" -co2 0 0 -cl2 "left" "left"
+					-v1 0.5 minScale;
+		checkBox -l "Planar Surface" -v 1 planarCheck;
+		text -l "" -h 10;
+		checkBox -l "Curved Surface" -v 0 -cc icQTcurvedStateChange curvedCheck;
+		text -l "" -h 10;
+		checkBox -l "Colorize" -v 0 applyColor;
+		text -l "" -h 10;
+	setParent $additionalFrame;
+
+	columnLayout;
+	rowColumnLayout -nc 2 -cw 1 100 -cw 2 280;
+		checkBox -l "Stairs" -v 1 stairs;
+		radioButtonGrp -nrb 4 -l "Max Level Steps" -h 20 -cl5 "left" "left" "left" "left" "left"
+				-cw5 120 35 35 35 35 -ct5 "left" "both" "both" "both" "both"
+				-la4 "2" "3" "4" "5" -sl 2 maxLevelSteps;
+
+		text -l "" -h 10;text -l "" -h 10;
+
+		checkBox -l "Stacks" -v 0 stacksCheck;
+		text -l "" -h 20;
+
+		text -l "" -h 10;text -l "" -h 10;
+
+		checkBox -l "Wells" -v 1 wellsCheck;
+		floatFieldGrp -l "Well Occurrence" -w 180 -cw2 120 60
+					-ct2 "left" "left" -co2 0 0 -cl2 "left" "left"
+					-pre 0 -v1 1 wellsOccur;
+		text -l "" -h 10;text -l "" -h 10;
+
+		checkBox -l "Shrink" -v 0 shrinkCheck;
+		text -l "" -h 10;
+
+		text -l "" -h 14;text -l "" -h 14;
+
+		checkBox -l "Roof Cube" -v 1 roofCube;
+		floatFieldGrp -l "Size Range" -w 280 -nf 2 -cw3 120 80 80
+					-ct3 "left" "left" "left" -co3 0 0 0 -cl3 "left" "left" "left"
+					-pre 2 -v1 0.25 -v2 0.4 sizeRange;
+
+		text -l "" -h 10;text -l "" -h 10;
+
+		checkBox -l "Top Detail" -v 1 topDetail;
+		radioButtonGrp -nrb 3 -l "Detail Complexity" -h 20 -cl4 "left" "left" "left" "left"
+				-cw4 120 35 35 35 -ct4 "left" "both" "both" "both"
+				-la3 "1" "2" "3" -sl 1 complexity;
+		text -l "" -h 5;text -l "" -h 5;
+		text -l "" -h 20;
+		floatFieldGrp -l "Detail Height" -w 180 -cw2 120 60
+					-ct2 "left" "left" -co2 0 0 -cl2 "left" "left"
+					-v1 0.5 detailHeight;
+
+		text -l "" -h 10;text -l "" -h 10;
+
+		checkBox -l "Antenna" -v 1 antenna;
+	setParent $form;
+
+	//make the window visible
+	showWindow $win;
+}
+
+polyPlane -n myPlane -sx 25 -sy 25  -w 29.056873 -h 29.827317;
+// use F11 to get face mode  ... hold shift to get more than one face
+icQTown();

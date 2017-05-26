@@ -1,0 +1,852 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: TETRIS in Maya!
+''    Author: 0_1 
+''    Last Updated: Jul 22, 2007
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/games/1554.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+/*
+Mail me here:
+0-1(at)tut.by
+
+Web-site:
+www.mayascripts.cgtalk.ru
+
+
+
+After long hard day just run Maya and TETRIS inside it!!
+My record now only 70 lines..
+HOW TO INSTALL:
+1.Put script in your scripts folder (My documents/maya/scripts)
+2.Setup hotkeys:
+on Press:
+tetrisKey left;
+tetrisKey right;
+tetrisKey down;
+tetrisKey rotate;
+on Release:
+tetrisKey release; - on Release of each of 4 keys.
+Also you can use this code -
+if (`objExists tetrisGamePlane`)
+tetrisKey down;
+else
+{
+"YOUR HOTKEY CODE"
+}
+with this code tetris-keys will be work only when tetris runing. When tetris isn't runing your hotkeys will work as usually to work in maya.
+3. Create shelf button with code - 
+tetris;
+4. Press shelf button and enjoy!!!
+5. Save your scene to prevent adding to it tetris nodes and than do File > New scene.
+6. Press shelf button again to pause game.
+To start new game just do File > New Scene.
+You can't press two or three hotkeys at one time. Press it one by one (You can do this very quickly).
+In Command Line you can see count of lines you've made and your record.
+*/
+
+
+
+
+
+global proc tetris()
+{
+global int $gTetrisRecord;
+global int $tetrisScriptJobIndex;
+if ($tetrisScriptJobIndex == 0)
+	$tetrisScriptJobIndex = -1;
+if (!`scriptJob -ex $tetrisScriptJobIndex`)
+	{
+	$tetrisScriptJobIndex = `scriptJob -kws -e idle tetrisScriptJob`;
+	warning "TETRIS STARTED!!!";
+	global int $gTetrisPause;
+	$gTetrisPause = 0;
+	if (!`objExists tetrisGamePlane`)
+		{
+		setAttr -type double3 persp.t 4.5 9.5 29;
+		setAttr -type double3 persp.r 0 0 0;
+		setAttr perspShape.centerOfInterest 29;
+		tetrisNewGame;
+		}
+	}
+else
+	{
+	scriptJob -k $tetrisScriptJobIndex;
+	print "TETRIS PAUSED";
+	}
+}
+
+
+
+global proc tetrisScriptJob()
+{
+global float $gTetrisSpeed;
+if (timerquery() > $gTetrisSpeed)
+{
+int $moveDown = moveFigure("down");
+if (!$moveDown || (size(`ls -tr "*fig*"`)) == 0)
+	{
+	//playWav -path "C://flexlm//tetrisSounds//placeFigure.wav";
+	if (newFigure())
+		{
+		global int $gTetrisRecord;
+		global int $gTetrisLinesCount;
+		if ($gTetrisLinesCount > $gTetrisRecord)
+			$gTetrisRecord = $gTetrisLinesCount;
+		tetrisNewGame;
+		}
+	}
+tetrisDeleteFullLines;
+timerstart;
+global int $gTetrisLinesCount;
+global int $gTetrisRecord;
+string $record = "";
+if ($gTetrisRecord > 0)
+	$record = ("   RECORD: " + $gTetrisRecord + ".");
+print ("LINES COUNT: " + $gTetrisLinesCount + $record);
+}
+}
+
+
+
+
+global proc tetrisNewGame()
+{
+global float $gTetrisSpeed;
+$gTetrisSpeed = 0.4;
+
+global int $gTetrisLinesCount;
+$gTetrisLinesCount = 0;
+
+string $cubes[] = `ls -tr "*Cube*"`;
+if (`size $cubes` > 0)
+	delete $cubes;
+string $figure[] = `ls -tr "*fig*"`;
+if (`size $figure` > 0)
+	delete $figure;
+if (`objExists tetrisGamePlane`)
+	delete tetrisGamePlane;
+string $plan[] = `polyPlane -w 1 -h 1 -sx 10 -sy 20 -ax 0 0 1 -tx 1 -ch 1`;
+move -0.5 -0.5 0 ($plan[0] + ".scalePivot") ($plan[0] + ".rotatePivot");
+scale -r 10 20 0;
+move -r 0 0 -0.5;
+rename tetrisGamePlane;
+CenterPivot;
+string $poke[] = `polyPoke -ws 1  -tx 0 -ty 0 -tz 0 -ltx 0 -lty 0 -ltz 0 -ch 1 tetrisGamePlane.f[0:199]`;
+setAttr "polyPoke1.translateZ" -0.5;
+polySoftEdge -a 0;
+select tetrisGamePlane;
+
+setAttr "tetrisGamePlane.rotateY" 8.231935;
+modelEditor -edit -da "smoothShaded" -wos 1 (`getPanel -withFocus`);
+optionVar -intValue showGrid 1; grid -toggle 0;
+
+if (`objExists tetrisBack`)
+	hyperShade -assign tetrisBack;
+else
+{
+string $material = createAndAssignShaderMy ("lambert", "");
+rename $material tetrisBack;
+setAttr tetrisBack.color -type double3 0.348 0.312 0.475;
+setAttr lambert1.color -type double3 0.8 0.8 1;
+}
+color -ud 1;
+displayRGBColor -c userDefined1 0.152 0.122 0.357;
+
+select -cl;
+int $count = 100;
+for (; $count >= 2; $count--)
+	{
+	rotate -r -os 0 (pow(1.035, $count)) 0 tetrisGamePlane;
+	refresh -cv;
+	}
+}
+
+
+
+
+
+
+
+
+
+
+global proc tetrisDeleteFullLines()
+{
+global int $gTetrisLinesCount;
+string $cubes[] = `ls -tr "*Cube*"`;
+vector $cubesPoses[] = {};
+//size $cubes;
+for ($object in $cubes)
+	{
+//$object = $cubes[0]
+	vector $pose = `xform -q -ws -t $object`;
+	$cubesPoses[`size $cubesPoses`] = $pose;
+	}
+//print $cubesPoses
+
+int $lineNum = 0;
+for (; $lineNum < 20;)
+	{
+	$cubes = `ls -tr "*Cube*"`;
+	int $row = 0;
+	int $count = 0;
+	int $founded = 0;
+//print $lineNum
+	for (; $count < 10; $count++, $row++)
+		if (vectorExistsInt(<<$row, $lineNum, 0>>, $cubesPoses))
+			$founded++;
+//print $founded
+	if ($founded == 10)
+		{
+		for ($object in $cubes)
+			{
+		//$object = $cubes[0]
+			vector $pose = `xform -q -ws -t $object`;
+			if (ceil(($pose.y) -0.5) == $lineNum)
+				delete $object;
+			}
+		$cubes = `ls -tr "*Cube*"`;
+		string $cubesToMove[] = {};
+		for ($object in $cubes)
+			{
+		//$object = $cubes[0]
+			vector $pose = `xform -q -ws -t $object`;
+			if (($pose.y) > $lineNum)
+				$cubesToMove[`size $cubesToMove`] = $object;
+			}
+		//playWav -path "C://flexlm//tetrisSounds//lineDelete.wav";
+		int $countMove = 1;
+		for (; $countMove <= 10; $countMove++)
+			{
+			move -r 0 -0.1 0 $cubesToMove;
+			refresh -cv;
+			}
+		$cubesPoses = {};
+		for ($object in $cubes)
+			{
+		//$object = $cubes[0]
+			vector $pose = `xform -q -ws -t $object`;
+			$cubesPoses[`size $cubesPoses`] = $pose;
+			}
+		//deleteLine
+		$gTetrisLinesCount ++;
+		global float $gTetrisSpeed;
+		if ($gTetrisLinesCount > 0 && $gTetrisLinesCount % 3 == 0)
+			$gTetrisSpeed *= 0.9;
+		}
+	else
+		$lineNum++;
+	}
+tetrisCleanup;
+}
+
+
+
+
+
+
+global proc rotateFigure(int $ccw)
+{
+//int $ccw = 1;
+global int $gTetrisCube;
+if ($gTetrisCube)
+	return;
+string $figure[] = `ls -tr "*fig*"`;
+float $center[] = {};
+string $object;
+for ($object in $figure)
+	{
+//$object = $figure[0];
+	float $pos[] = `xform -q -ws -t $object`;
+	$center[0] += $pos[0];
+	$center[1] += $pos[1];
+	}
+int $x = ceil(($center[0] / `size $figure`) -0.5);
+int $y = ceil(($center[1] / `size $figure`) -0.5);
+vector $cent = <<$x, $y>>;
+//real center
+$cent = `xform -q -ws -t fig`;
+//center of first cubik
+//now we have center of figure
+
+vector $rotated[] = {};
+for ($object in $figure)
+	{
+//$object = $figure[0];
+	vector $pose = `xform -q -ws -t $object`;
+	vector $relative = $cent - $pose;
+	vector $rotate = `rot $relative (<<0,0,1>> * $ccw) (deg_to_rad(90))`;
+	vector $newPose = $cent + $rotate;
+	$rotated[`size $rotated`] = vectorInted($newPose);
+	}
+//get positions for query - can we rotate now or not
+
+string $cubes[] = `ls -tr "*Cube*"`;
+vector $cubesPoses[] = {};
+for ($object in $cubes)
+	{
+//$object = $cubes[0]
+	vector $pose = `xform -q -ws -t $object`;
+	$cubesPoses[`size $cubesPoses`] = vectorInted($pose);
+	}
+//now we know all cubes poses - static plast of killed figures
+
+int $weCanRotateCentry = 1;
+int $weCanRotateLefty = 1;
+int $weCanRotateRighty = 1;
+vector $vector;
+for ($vector in $rotated)
+	{
+//$vector = $rotated[0];
+//print $rotated
+	$vectorLefty = $vector + <<-1,0,0>>;
+	$vectorRighty = $vector + <<1,0,0>>;
+	if (vectorExistsInt($vector, $cubesPoses) || 		($vector.x) < 0 || ($vector.x) > 9 || ($vector.y) < 0 || ($vector.y) > 19)
+		$weCanRotateCentry = 0;
+	if (vectorExistsInt($vectorLefty, $cubesPoses) || 	($vectorLefty.x) < 0 || ($vectorLefty.x) > 9 || ($vectorLefty.y) < 0 || ($vectorLefty.y) > 19)
+		$weCanRotateLefty = 0;
+	if (vectorExistsInt($vectorRighty, $cubesPoses) || 	($vectorRighty.x) < 0 || ($vectorRighty.x) > 9 || ($vectorRighty.y) < 0 || ($vectorRighty.y) > 19)
+		$weCanRotateRighty = 0;
+	}
+//now we know can we rotate some how or not
+//print {$weCanRotateCentry, $weCanRotateLefty, $weCanRotateRighty};
+
+if (!$weCanRotateCentry && !$weCanRotateLefty && !$weCanRotateRighty)
+	return;
+//return if we cant rotate
+
+for ($object in $figure)
+	{
+//$object = $figure[0];
+	vector $pose = `xform -q -ws -t $object`;
+	vector $relative = $cent - $pose;
+	vector $rotate = `rot $relative (<<0,0,1>> * $ccw) (deg_to_rad(90))`;
+	vector $newPose = $cent + $rotate;
+	$newPose = vectorInted($newPose);
+	if ($weCanRotateCentry)
+		move ($newPose.x) ($newPose.y) ($newPose.z) $object;
+	else if ($weCanRotateLefty)
+		move (($newPose.x) - 1) ($newPose.y) ($newPose.z) $object;
+	else if ($weCanRotateRighty)
+		move (($newPose.x) + 1) ($newPose.y) ($newPose.z) $object;
+	}
+//rotate
+}
+
+
+
+
+
+global proc int moveFigure(string $direction)
+{
+string $figure[] = `ls -tr "*fig*"`;
+string $cubes[] = `ls -tr "*Cube*"`;
+vector $cubesPoses[] = {};
+for ($object in $cubes)
+	{
+//$object = $cubes[0]
+	vector $pose = `xform -q -ws -t $object`;
+	$cubesPoses[`size $cubesPoses`] = $pose;
+	}
+//now we know all cubes poses - static plast of killed figures
+
+int $weCanUp = 1;
+int $weCanDown = 1;
+int $weCanLeft = 1;
+int $weCanRight = 1;
+string $object;
+for ($object in $figure)
+	{
+//$object = $figure[0];
+	vector $pose = `xform -q -ws -t $object`;
+	if (vectorExistsInt(($pose + <<0,1,0>>), $cubesPoses) || ($pose.y) == 19)
+		$weCanUp = 0;
+	if (vectorExistsInt(($pose + <<0,-1,0>>), $cubesPoses) || ($pose.y) == 0)
+		$weCanDown = 0;
+	if (vectorExistsInt(($pose + <<-1,0,0>>), $cubesPoses) || ($pose.x) == 0)
+		$weCanLeft = 0;
+	if (vectorExistsInt(($pose + <<1,0,0>>), $cubesPoses) || ($pose.x) == 9)
+		$weCanRight = 0;
+	}
+
+if ($direction == "up" && $weCanUp)
+	move -r 0 1 0 $figure;
+else if ($direction == "down" && $weCanDown)
+	move -r 0 -1 0 $figure;
+else if ($direction == "right" && $weCanRight)
+	move -r 1 0 0 $figure;
+else if ($direction == "left" && $weCanLeft)
+	move -r -1 0 0 $figure;
+select -cl;
+return $weCanDown;
+}
+
+
+
+
+
+global proc int newFigure()
+{
+int $gameOver = 0;
+string $cubes[] = `ls -tr "*Cube*"`;
+vector $cubesPoses[] = {};
+for ($object in $cubes)
+	{
+//$object = $cubes[0]
+	vector $pose = `xform -q -ws -t $object`;
+	$cubesPoses[`size $cubesPoses`] = $pose;
+	}
+
+string $figure[] = `ls -tr "*fig*"`;
+string $object;
+for ($object in $figure)
+	rename $object pCube;
+
+int $rand = rand(1,8);
+global int $gTetrisCube;
+$gTetrisCube = 0;
+
+if ($rand == 1)
+{
+polyCube;
+move 4 18 0;
+rename fig;
+if (vectorExistsInt(<<4,18,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 4 17 0;
+rename fig;
+if (vectorExistsInt(<<4,17,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 18 0;
+rename fig;
+if (vectorExistsInt(<<5,18,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 19 0;
+rename fig;
+if (vectorExistsInt(<<5,19,0>>,$cubesPoses))
+	$gameOver = 1;
+}
+
+else if ($rand == 2)
+{
+polyCube;
+move 4 18 0;
+rename fig;
+if (vectorExistsInt(<<4,18,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 17 0;
+rename fig;
+if (vectorExistsInt(<<5,17,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 18 0;
+rename fig;
+if (vectorExistsInt(<<5,18,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 4 19 0;
+rename fig;
+if (vectorExistsInt(<<4,19,0>>,$cubesPoses))
+	$gameOver = 1;
+}
+
+else if ($rand == 3)
+{
+polyCube;
+move 4 18 0;
+rename fig;
+if (vectorExistsInt(<<4,18,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 4 17 0;
+rename fig;
+if (vectorExistsInt(<<4,17,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 4 19 0;
+rename fig;
+if (vectorExistsInt(<<4,19,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 17 0;
+rename fig;
+if (vectorExistsInt(<<5,17,0>>,$cubesPoses))
+	$gameOver = 1;
+}
+
+else if ($rand == 4)
+{
+polyCube;
+move 5 18 0;
+rename fig;
+if (vectorExistsInt(<<5,18,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 17 0;
+rename fig;
+if (vectorExistsInt(<<5,17,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 19 0;
+rename fig;
+if (vectorExistsInt(<<5,19,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 4 17 0;
+rename fig;
+if (vectorExistsInt(<<4,17,0>>,$cubesPoses))
+	$gameOver = 1;
+}
+
+else if ($rand == 5)
+{
+polyCube;
+move 5 18 0;
+rename fig;
+if (vectorExistsInt(<<5,18,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 19 0;
+rename fig;
+if (vectorExistsInt(<<5,19,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 4 18 0;
+rename fig;
+if (vectorExistsInt(<<4,18,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 4 19 0;
+rename fig;
+if (vectorExistsInt(<<4,19,0>>,$cubesPoses))
+	$gameOver = 1;
+
+$gTetrisCube = 1;
+}
+
+else if ($rand == 6)
+{
+polyCube;
+move 5 17 0;
+rename fig;
+if (vectorExistsInt(<<5,17,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 19 0;
+rename fig;
+if (vectorExistsInt(<<5,19,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 18 0;
+rename fig;
+if (vectorExistsInt(<<5,18,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 16 0;
+rename fig;
+if (vectorExistsInt(<<5,16,0>>,$cubesPoses))
+	$gameOver = 1;
+}
+
+else if ($rand == 7)
+{
+polyCube;
+move 4 18 0;
+rename fig;
+if (vectorExistsInt(<<4,18,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 4 17 0;
+rename fig;
+if (vectorExistsInt(<<4,17,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 4 19 0;
+rename fig;
+if (vectorExistsInt(<<4,19,0>>,$cubesPoses))
+	$gameOver = 1;
+
+polyCube;
+move 5 18 0;
+rename fig;
+if (vectorExistsInt(<<5,18,0>>,$cubesPoses))
+	$gameOver = 1;
+}
+select (`ls -tr "*fig*"`);
+string $material = createAndAssignShaderMy ("lambert", "");
+setAttr ($material + ".color") -type double3 (rand(0.0,1.0)) (rand(0.0,1.0)) (rand(0.0,1.0));
+setAttr ($material + ".incandescence") -type double3 (rand(0.0,1.0)) (rand(0.0,1.0)) (rand(0.0,1.0));
+
+select -cl;
+print "";
+return $gameOver;
+}
+
+
+global proc int vectorExistsInt(vector $vector, vector $vectors[])
+{
+//vector $vector = <<3,1,0>>;
+//$vector = $cubesPoses[4];
+//vector $vectors[] = {<<3,1,0>>};
+vector $vec;
+int $founded = 0;
+for ($vec in $vectors)
+	{
+//$vec = $vectors[0];
+	int $x = ceil(($vec.x) - 0.5);
+	int $x2 = ceil(($vector.x) - 0.5);
+	int $y = ceil(($vec.y) - 0.5);
+	int $y2 = ceil(($vector.y) - 0.5);
+	int $z = ceil(($vec.z) - 0.5);
+	int $z2 = ceil(($vector.z) - 0.5);
+	if ($x == $x2 && $y == $y2 && $z == $z2)
+		return 1;
+	}
+return 0;
+}
+
+//tetrisKey left
+
+
+global proc tetrisKey(string $action)
+{
+//left right down rotate
+//$action = "right";
+global int $gTetrisKeyHoldIndex;
+if ($gTetrisKeyHoldIndex == 0)
+	$gTetrisKeyHoldIndex = -1;
+if (`scriptJob -ex $gTetrisKeyHoldIndex`)
+	scriptJob -k $gTetrisKeyHoldIndex;
+if ($action == "release")
+	return;
+string $actionReal;
+if ($action == "left")
+	$actionReal = "moveFigure (\"left\")";
+if ($action == "right")
+	$actionReal = "moveFigure (\"right\")";
+if ($action == "down")
+	$actionReal = "moveFigure (\"down\")";
+if ($action == "rotate")
+	$actionReal = "rotateFigure (1)";
+
+eval $actionReal;
+if ($action == "rotate")
+	return;
+global float $gTetrisKeyStartTime;
+$gTetrisKeyStartTime = `timerX`;
+
+global float $gTetrisFirstPress;
+$gTetrisFirstPress = 1;
+global int $gTetrisKeyHoldIndex;
+
+string $command;
+if ($action != "down")
+	$command = "global float $gTetrisKeyStartTime; float $time = 0.065; global float $gTetrisFirstPress; if ($gTetrisFirstPress == 1) $time = 0.12;" +
+	"if (`timerX -startTime $gTetrisKeyStartTime` > $time){" + $actionReal + "; $gTetrisKeyStartTime = `timerX`; $gTetrisFirstPress = 0;}";
+else
+	$command = "global float $gTetrisKeyStartTime; float $time = 0.045;" +
+	"if (`timerX -startTime $gTetrisKeyStartTime` > $time){" + $actionReal + "; $gTetrisKeyStartTime = `timerX`; $gTetrisFirstPress = 0;}";	
+$gTetrisKeyHoldIndex = `scriptJob -kws -e idle $command`;
+}
+
+
+
+global proc tetrisCleanup()
+{
+string $materials[] = `ls -mat`;
+$materials = stringArrayRemove({"lambert1", "particleCloud1", "tetrisBack"}, $materials);
+
+int $count = 0;
+for ($mat in $materials)
+	{
+//$mat = $materials[0];
+	string $conns[] = `listConnections -type mesh ($mat + "SG")`;
+	if (`size $conns` == 0)
+		delete $mat ($mat + "SG");
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+//UTILS
+
+global proc vector vectorInted(vector $vector)
+{
+//$vector = <<0.9, 1,1>>;
+int $x = ceil(($vector.x) - 0.5);
+int $y = ceil(($vector.y) - 0.5);
+int $z = ceil(($vector.z) - 0.5);
+return <<$x,$y,$z>>;
+}
+
+
+global proc string createAndAssignShaderMy (string $type, string $item)
+//
+//	Create a shader of the given type and assign it to the
+//	given object.
+//
+//	$type = type of shader
+//	$item = object to act on, if empty then use the selection list
+//
+{
+	string $objs[];
+	string $assignString = $item;
+	if ($item == "") {
+		// No object was specified in the call to this procedure, so we will
+		// assign the shader to whatever is on the current selection list 
+		// instead.
+		//
+		$objs = `ls -selection`;
+		$assignString = "the selected objects";
+	}
+	else
+	{
+		//
+		// The $item is always an object, never a component (ie face).
+		// If the current selection contains faces of the specified item, then
+		// we would rather assign the new shader to the specifically selected
+		// faces rather than the object as a whole. In particular, this allows
+		// users to select faces of a poly object and use the RMB menu to
+		// assign shaders to them.
+		// 
+
+		string $selection[] = `ls -selection`;
+		int $i;
+
+		for ($i = 0; $i < size($selection); $i++)
+		{
+			if (`match ($item + "\\.f\\[.*\\]") $selection[$i]` != "")
+			{
+				// One part of the currently selection is faces of the
+				// specified item. We will add the selected faces to the list
+				// of objects to which the shader will be assigned.
+				//
+				$objs[size($objs)] = $selection[$i];
+				$assignString = ("the selected faces of " + $item);
+			}
+		}
+
+		if (size($objs) == 0)
+		{
+			// Try again with the shape. Face selection will be names
+			// after the shape when other shapes are parented below the
+			// transform.
+			string $shapes[] = `listRelatives -s $item`;
+			if (size($shapes) > 0 )
+			{
+				string $shape = $shapes[0];
+				for ($i = 0; $i < size($selection); $i++)
+				{
+					if (`match ($shape + "\\.f\\[.*\\]") $selection[$i]` != "")
+					{
+						$objs[size($objs)] = $selection[$i];
+						$assignString = ("the selected faces of " + $shape);
+					}
+				}
+			}
+		}
+
+		if (size($objs) == 0)
+		{
+			// There were no faces of the specified item in the current
+			// selection. Therefore, we will assign the shader to the entire
+			// object specified.
+			//
+			$objs[0] = $item;
+		}
+	}
+
+	$material = `shadingNode -asShader $type`;
+	$sg = `sets -renderable true -noSurfaceShader true 
+				-empty -name ($material + "SG")`;
+
+	// Connect the material to the shading group
+	//
+	defaultNavigation 
+		-connectToExisting 
+		-source $material
+		-destination $sg;
+
+	// Select the items to which the shading group is to be assigned.
+	//
+	select -r $objs;
+
+	// Assign the shading group to the selected objects.
+	//
+	if( $type == "oceanShader" ){
+		connectAttr -f ($material + ".displacement") ($sg + ".displacementShader");
+		connectAttr -f "time1.outTime" ($material + ".time");
+		assignOceanShader $sg;
+	} else {
+		hyperShade -assign $sg;
+	}
+	if( $type == "fluidShape" ){
+		connectAttr -f "time1.outTime" ($material + ".currentTime");
+	}
+
+//	print ("// Result: Created " + $type + " shader and assigned to "
+//		+ $assignString + ". //\n") ;
+
+//	showShadingGroupAE($sg);
+	
+//	string $state = `menuItem -q -cb attrEdPopupItem`;
+//	if ($state == 1)
+//	{
+//		string $cmd = ("showEditor " + $sg);
+//		evalEcho $cmd;
+//	}
+return $material;
+}
+
+
+global proc timerstart()
+{
+global float $GstartTime;
+$GstartTime = `timerX`;
+}
+
+global proc float timerquery()
+{
+global float $GstartTime;
+return (`timerX -startTime $GstartTime`);
+}

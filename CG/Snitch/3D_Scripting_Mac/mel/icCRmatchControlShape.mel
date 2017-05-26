@@ -1,0 +1,73 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRmatchControlShape.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jul 03, 2011
+//					created: Mar 11, 2009
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// match the shape of the selected FK control from one side to the other
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRmatchControlShape ()
+{
+	string $charSide;
+	string $charSideOpp;
+	string $shape[];
+	string $mirrorShape;
+	float $pos[];
+	int $spans;
+
+	//get the selected joint
+	string $sel[] = `ls -sl`;
+
+	for ($ctrl in $sel)
+	{
+		//get the connected shape node
+		$shape = `listRelatives -s $ctrl`;
+		if ($shape[0] == "")
+		{
+			error "Please select a node with a curve as the shape node!";
+		}
+		if (`nodeType $shape[0]` != "nurbsCurve")
+		{
+			error "The shape node is not a nurbs curve!";
+		}
+
+		for ($shp in $shape)
+		{
+			$charSide = `substring $shp 1 2`;
+			if ($charSide == "L_") $charSideOpp = "R_";
+			if ($charSide == "R_") $charSideOpp = "L_";
+			$mirrorShape = `substitute $charSide $shp $charSideOpp`;
+
+			if (!`objExists $mirrorShape`)
+			{
+				error "The shape doesn't exist on the other side of the character!";
+			}
+
+			//get the number of CVs in the shape
+			$spans = `getAttr ($shp + ".spans")`;
+			for ($c = 0; $c < $spans + 1; $c ++)
+			{
+				$pos = `xform -q -ws -t ($shp + ".cv[" + $c + "]")`;
+				move -a ($pos[0] * -1) $pos[1] $pos[2] ($mirrorShape + ".cv[" + $c + "]");
+			}
+		}
+	}
+}

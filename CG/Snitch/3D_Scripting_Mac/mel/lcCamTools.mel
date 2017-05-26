@@ -1,0 +1,178 @@
+/////////////////////////////////////////////////////////////////////////////////
+//   lcCamTools.mel
+//
+//   Written to help create and interact with HLSL or CGFX shader for maya's viewport
+//
+//   To use: run script with - lcCamTools;
+//
+//
+//   Author : Leonardo Covarrubias
+//   Created: 02/19/2010
+//   blog.leocov.com
+//   www.leocov.com
+//
+//   Thanks to:
+//   Bryan Ewert - maya@ewertb.com - getCurrentCamera()
+//
+//   Licenced under Creative Commons Attribution 3.0 Unported License
+//   http://creativecommons.org/licenses/by/3.0/
+//
+//   Changelist:
+//   1.0 - 02/19/2010 - initial release
+//   1.5 - 03/23/2010 - added camera overscan and camera render background color attrs
+//   1.6 - 08/03/2010 - 2 camera color options - color A controls viewport background, camera background render color, and top viewport background gradient color - color B is bottom viewport background gradient color
+//   1.7 - 08/03/2010 - seperated gradient colors from main viewport and camera env render color.
+//
+/////////////////////////////////////////////////////////////////////////////////
+
+
+//Current version number and latest update date
+global string $lcCT_version = "1.7";
+global string $lcCT_date = "August 03, 2010";
+
+
+/////////////////////////////////////////////////////////////////////////////////
+// UI Setup /////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+global proc lcCamTools()
+{
+    global string $lcCT_version;
+    global string $lcCT_date;
+    int $w = 200;
+
+//set main window
+    if (`window -q -ex lcCTWin`) deleteUI lcCTWin;
+
+    window -title ("lcCamTools - v"+$lcCT_version)
+           -rtf 1
+           -mxb 0
+           -w $w
+           lcCTWin;
+    
+    columnLayout -cw $w
+                 -cal "center"
+                 lcCT_mainCol;
+    separator -style "none"
+              -h 5
+              -w $w;
+    text -align "center" -fn "boldLabelFont" -w $w -l "Values Update for Active Camera";
+    separator -style "none"
+              -h 5
+              -w $w;             
+    rowColumnLayout -nc 2
+                    -cw 1 150
+                    -cw 2 50
+                    lcCT_doubleCol;
+                    
+    text -w 150 -l "Camera Focal Length";
+    floatField -ec ("lcCT_setCamAttr(getCurrentCamera())") -rfc ("lcCT_getCamAttr(getCurrentCamera())") -pre 1 -v 0 -w 50 "lcCT_fl"; 
+    
+    text -w 150 -l "Camera Near Clip Plane";
+    floatField -ec ("lcCT_setCamAttr(getCurrentCamera())") -rfc ("lcCT_getCamAttr(getCurrentCamera())") -pre 4 -v 0 -w 50 "lcCT_ncp";
+    
+    text -w 150 -l "Camera Far Clip Plane";
+    floatField -ec ("lcCT_setCamAttr(getCurrentCamera())") -rfc ("lcCT_getCamAttr(getCurrentCamera())") -pre 0 -v 0 -w 50 "lcCT_fcp";
+    
+    text -w 150 -l "Camera Overscan";
+    floatField -ec ("lcCT_setCamAttr(getCurrentCamera())") -rfc ("lcCT_getCamAttr(getCurrentCamera())") -pre 3 -v 0 -w 50 "lcCT_over";
+    
+    text -w 150 -l "Camera Background Color";
+    colorSliderGrp -cw1 50 -rgb 0.6 0.6 0.6  -cc ("lcCT_setCamAttr(getCurrentCamera())") "lcCT_camColor";
+    
+    text -w 150 -l "Camera Gradient Top";
+    colorSliderGrp -cw1 50 -rgb 1.0 0.96 0.93  -cc ("lcCT_setCamAttr(getCurrentCamera())") "lcCT_gradTop";
+    
+    text -w 150 -l "Camera Gradient Bottom";
+    colorSliderGrp -cw1 50 -rgb 0.1 0.2 0.25  -cc ("lcCT_setCamAttr(getCurrentCamera())") "lcCT_gradBottom";
+        
+    setParent "lcCT_mainCol";    
+    
+    button -l "Toggle Background Gradient"  -c "lcCT_toggleGrad()" -w $w -h 20 -al "center";
+                  
+    separator -style "in"
+              -h 10
+              -w $w;
+    text -label ("Leonardo Covarrubias - " + $lcCT_date + " ")
+         -al "right"
+         -w $w
+         lcCTCredit;
+    
+    lcCT_getCamAttr(getCurrentCamera());
+    lcCT_setCamAttr(getCurrentCamera());                 
+    showWindow lcCTWin;
+    
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+// Functions List ///////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+
+
+proc string getCurrentCamera() //Bryan Ewert - maya@ewertb.com
+{
+  string $camera;
+
+  // First get the panel that currently has focus
+  string $panel = `getPanel -wf`;
+
+  // Compare the panel's type to confirm it is a "modelPanel"
+  if ( "modelPanel" == `getPanel -to $panel` )
+  {
+    // Get the name of the camera using the ‘modelEditor’ command
+    $camera = `modelEditor -q -camera $panel`;
+  }
+
+  return $camera;
+}
+
+global proc lcCT_setCamAttr(string $camera)
+{
+	float $fl          = `floatField -q -v "lcCT_fl"`;
+	float $ncp         = `floatField -q -v "lcCT_ncp"`;
+	float $fcp         = `floatField -q -v "lcCT_fcp"`;
+	float $over        = `floatField -q -v "lcCT_over"`;
+	
+	float $color[]   = `colorSliderGrp -q -rgb "lcCT_camColor"`;
+	float $colorA[]  = `colorSliderGrp -q -rgb "lcCT_gradTop"`;	
+	float $colorB[]  = `colorSliderGrp -q -rgb "lcCT_gradBottom"`;
+	
+	setAttr ($camera+".focalLength") $fl;
+	setAttr ($camera+".farClipPlane") $fcp;
+	setAttr ($camera+".nearClipPlane") $ncp;
+	setAttr ($camera+".overscan") $over;
+	setAttr -type double3 ($camera+".backgroundColor") $color[0] $color[1] $color[2];
+	
+	displayRGBColor "background"       $color[0]  $color[1]  $color[2];
+	displayRGBColor "backgroundTop"    $colorA[0] $colorA[1] $colorA[2];
+  displayRGBColor "backgroundBottom" $colorB[0] $colorB[1] $colorB[2];
+}
+
+global proc lcCT_getCamAttr(string $camera)
+{
+	float $camfl    = `getAttr ($camera+".focalLength")`;
+	float $camncp   = `getAttr ($camera+".nearClipPlane")`;
+	float $camfcp   = `getAttr ($camera+".farClipPlane")`;
+	float $camover  = `getAttr ($camera+".overscan")`;
+	float $color[]  = `displayRGBColor -q "background"`;
+	float $colorA[] = `displayRGBColor -q "backgroundTop"`;
+	float $colorB[] = `displayRGBColor -q "backgroundBottom"`;
+	
+	floatField -e -v $camfl   "lcCT_fl";
+	floatField -e -v $camncp  "lcCT_ncp";
+	floatField -e -v $camfcp  "lcCT_fcp";
+	floatField -e -v $camover "lcCT_over";
+	colorSliderGrp -e -rgb $color[0]  $color[1]  $color[2]  "lcCT_camColor";
+	colorSliderGrp -e -rgb $colorA[0] $colorA[1] $colorA[2] "lcCT_gradTop";
+	colorSliderGrp -e -rgb $colorB[0] $colorB[1] $colorB[2] "lcCT_gradBottom";
+}
+
+global proc lcCT_toggleGrad()
+{
+	if(`displayPref -q -displayGradient`){
+	  displayPref -displayGradient false;
+  }else{
+	  displayPref -displayGradient true;
+	}
+}
+
+//EOC

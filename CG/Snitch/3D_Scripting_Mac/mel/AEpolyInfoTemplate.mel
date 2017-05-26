@@ -1,0 +1,60 @@
+
+//
+//  Creation Date:	Dec 05, 2008
+//
+//  Procedure Name:
+//	AEpolyinfoTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the polyinfo node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+//	Author:		Morteza Ramezanali (xDreamer)
+//				www.cgdna.com - moto@cgdna.com
+
+
+global proc AEpolyInfoTemplate ( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "polyInfo Attributes" -collapse 0;
+			
+			editorTemplate -addControl "inVertexId";
+			editorTemplate -addControl "vertexCount";
+			editorTemplate -addControl "wsVertexPosition" ;
+			editorTemplate -addControl "osVertexPosition";
+			editorTemplate -addControl "wsVertexNormal";
+			editorTemplate -addControl "osVertexNormal";
+			
+			editorTemplate -as;
+			
+			editorTemplate -addControl "inEdgeId";		
+			editorTemplate -addControl "edgeCount";
+			editorTemplate -addControl "wsEdgeCenterPosition";
+			editorTemplate -addControl "osEdgeCenterPosition";
+			editorTemplate -addControl "edgeLength";
+			
+			editorTemplate -as;
+			
+			editorTemplate -addControl "inFaceId";				
+			editorTemplate -addControl "faceCount";
+			editorTemplate -addControl "wsFacePosition";
+			editorTemplate -addControl "osFacePosition";
+			editorTemplate -addControl "wsFaceNormal";
+			editorTemplate -addControl "osFaceNormal";
+	
+			
+		editorTemplate -endLayout;
+
+	// include/call base class/node attributes
+	AEdependNodeTemplate $nodeName;
+
+	editorTemplate -addExtraControls;
+	editorTemplate -endScrollLayout;
+}

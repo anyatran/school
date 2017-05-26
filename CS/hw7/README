@@ -1,0 +1,97 @@
+			DUE: Wednesday, Nov. 19
+
+This assignment requires the use of POSIX system calls and the C
+programming language.  Your CCIS account allows you to do all of this
+assignment (and it provides the productivity tools, GDB, Makefile,
+and VI/EMACS).  You may develop the code on a different computer if you
+wish, but the computer will still be tested on a CCIS computer.
+Hence, it is recommended to develop directly on a CCIS computer.
+
+A Makefile is provided for you in this directory.  It allows you to do
+things like:
+  make run
+  make vi
+  make emacs
+  make gdb
+
+For the API to call the various POSIX threads functions, please use:
+  man 3 NAME
+(For example, see 'man 3 pthread_create', for pthread_create.)
+
+Some important POSIX thread functions that you will want to be familiar
+with are:
+  pthread_create    [ Creates a new thread ]
+  pthread_mutex_init
+  pthread_mutex_lock
+  pthread_mutex_unlock
+
+Note that most pthread system calls require the header in the C source code:
+#include <pthread.h>
+
+Furthermore, when compiling them, you will typically have to explicitly
+invoke the pthread library.  A typical compiler command is:
+           gcc -g -O0 -o myprog myprog.c -lpthread
+[ Here, I include "-g -O0" to make it easy to run your program with GDB:
+    gdb myprog
+]
+
+[ Do not worry about pthread_mutex_destroy.  Most programs create only a
+  small number of mutexes.  They don't bother to explicitly destroy
+  them, since they will be destroyed on process exit. ]
+
+This assignment has three parts.
+
+====
+PART I:
+
+    Implement the functions:
+  sem_init
+  sem_post
+  sem_wait
+where these functions should have the same signature as found in
+'man 3 sem_init', 'man 3 sem_post', 'man 3 sem_wait'.  (These three functions
+are already defined in the pthread library.  When you compile this, you will
+be writing your own definition of these functions.  Any definition in your
+program automatically supersedes any definition in a library (e.g., pthread
+library).)
+
+====
+PART II:
+
+  Test your definitions of sem_init, sem_post, sem_wait, of these
+three functions.  Your program should create two threads, a producer
+thread and a consumer thread.  You will also create a buffer with
+four slots.
+  int buffer[4];
+Each thread will wait a random amount of time, by invoking:
+  sleep( rand() % 5 );
+(See 'man 3 rand' for the definition of the rand system call.)
+
+PRODUCER THREAD:
+After waiting this random amount of time, the producer thread
+will then write an integer into the next available slot in the buffer.
+The producer will then loop back and again call 'sleep' over a random
+period of time.  The first integer written will be '1'.  On each
+iteration, it will continue by writing '2', '3', etc.
+
+CONSUMER THREAD:
+After waiting a random amount of time, the consumer thread
+will then read an integer from the next available slot in the buffer.
+The consumer thread will then print the integer, and loop back and again
+call 'sleep' over a random period of time.
+
+If your program works, you should expect to see 1, 2, 3, ... being
+printed to your screen.
+
+====
+PART III:
+
+Extend the above code to work with three producer threads and three
+consumer threads.
+
+If your program works, you should expect to see 1, 2, 3, ... being
+printed to your screen.  However, each integer will eventually be
+printed three times, since there are three producers, each of which
+is printing 1, 2, 3, ....  Naturally, the three copies of each integer
+may appear in a somewhat random order as part of the full sequence
+of integers.

@@ -1,0 +1,139 @@
+
+/*-------
+makefire TestV1.0
+
+by Sanggul.Park
+Email:withchangjie@yahoo.com.cn
+
+1.Select the surface object.
+2.Run script.
+3.Adjust the Size and Resolution.
+4.click fire.
+
+
+
+--------*/
+
+global proc make_fire()
+{
+string $window ="make_fire";
+if(`window -exists $window`)
+deleteUI $window;
+makefire_window($window);
+window -e -wh 400 150 $window;
+}
+
+global proc makefire_window(string $window)
+{
+window -title "Makefire TestV1.0" 
+-maximizeButton false 
+-menuBar true $window;
+showWindow $window;
+
+menu -label "see here!" -tearOff true;
+menuItem -label "U wanna know" -c("confirmDialog -title \"U wanna know\" -message \"1.Select the surface object.\\n2.Run script.\\n3.Adjust the Size and Resolution.\\n4.Click fire.\" -button \"OK\";");
+menuItem -label "Email me" -c("confirmDialog -title \"Email me\" -message \"Email:withchangjie@yahoo.com.cn\" -button \"OK\";");
+
+columnLayout -adjustableColumn true;
+floatFieldGrp -l "size" -numberOfFields 3 -value1 10 -value2 10 -value3 10 makefire_Size;
+floatFieldGrp -l "Resolution" -numberOfFields 3 -value1 30 -value2 30 -value3 30 makefire_Resolution;
+separator;
+rowLayout -numberOfColumns 2 -adj 1 -columnAlign2 "center" "center"
+-columnAttach2 "both" "both";
+button -l "Fire" -c "fire";
+button -l "Close" -c ("deleteUI " + $window);
+
+}
+
+global proc fire()
+{
+string $selects[]=`ls -sl`;
+string $select;
+	for($select in $selects)
+	{
+		//get select's xyz
+		float $selectX=`getAttr $selects.tx`;
+		float $selectY=`getAttr $selects.ty`;
+		float $selectZ=`getAttr $selects.tz`;
+		
+		
+		string $fluid=`create3DFluid 10 10 10 10 10 10`;//fluidshape
+		select $fluid;
+		string $flu[]=`pickWalk -d up`;//fluid
+		
+		//move container to select's position
+		move ($selectX,$selectY,$selectZ);
+	  
+	  //create fluidEmitter,make it emit from surface
+		string $fluidEmitter[]=`fluidEmitter -type surface $select ` ;
+		connectDynamic -em $fluidEmitter[0] $fluid; 
+		
+		//change Resolution,Size
+		float $rx=`floatFieldGrp -q -v1 makefire_Resolution`;
+		float $ry=`floatFieldGrp -q -v2 makefire_Resolution`;
+		float $rz=`floatFieldGrp -q -v3 makefire_Resolution`;
+		
+		float $sx=`floatFieldGrp -q -v1 makefire_Size`;
+		float $sy=`floatFieldGrp -q -v2 makefire_Size`;
+		float $sz=`floatFieldGrp -q -v3 makefire_Size`;
+		
+		setAttr ($fluid+".resolution")  $rx $ry $rz;
+		setAttr ($fluid+".dimensionsW") $sx;
+		setAttr ($fluid+".dimensionsH") $sy;
+		setAttr ($fluid+".dimensionsD") $sz;
+
+		//change boundaryY to -y side
+		setAttr ($fluid+".boundaryY") 2;
+		
+		//change contents Method,Temperature,Fuel to Dynamic Grid.
+		setAttr ($fluid+".temperatureMethod") 2;
+    setAttr ($fluid+".fuelMethod") 2;	
+    setAttr ($fluid+".voxelQuality") 2;
+    
+    //change some fluidEmitter's attr
+    setAttr ($fluidEmitter[1]+".fluidHeatEmission") 2;
+		setAttr ($fluidEmitter[1]+".fluidFuelEmission") 4;
+		setAttr ($fluidEmitter[1]+".turbulence") 5.6;
+		
+		//contents Details
+		setAttr ($fluid+".densityBuoyancy") 9;
+		setAttr ($fluid+".densityDissipation") 0.3;
+		setAttr ($fluid+".velocitySwirl") 15;
+		setAttr ($fluid+".turbulenceStrength") 0.05;
+    setAttr ($fluid+".temperatureScale") 1.98;
+    setAttr ($fluid+".buoyancy") 9;
+    setAttr ($fluid+".fuelScale") 1.967;
+    setAttr ($fluid+".reactionSpeed") 0.967;		
+		
+		//color
+		setAttr ($fluid+".color[0].color_Color") -type double3 0 0 0 ;
+		
+		//transparency
+		setAttr ($fluid+".transparency") -type double3 0.75206 0.75206 0.75206;
+		
+		//incandescence
+		setAttr ($fluid+".incandescence[0].incandescence_Color") -type double3 20 0 0 ;
+		setAttr ($fluid+".incandescence[0].incandescence_Color") -type double3 20 7.778 0 ;
+		setAttr ($fluid+".incandescence[0].incandescence_Color") -type double3 20 7.778 3.77 ;
+		setAttr ($fluid+".incandescence[2].incandescence_Color") -type double3 0 1 0 ;
+		setAttr ($fluid+".incandescence[2].incandescence_Color") -type double3 0 0 0 ;
+		setAttr ($fluid+".incandescence[2].incandescence_Color")-type double3 0 0 0 ;
+		
+		//opacity
+		setAttr ($fluid+".opacity[0].opacity_Position") 0.0785714;
+		setAttr ($fluid+".opacity[0].opacity_FloatValue") 0;
+		setAttr ("|"+$flu[0]+"|"+$fluid+".opacity[2].opacity_FloatValue") 0.28;
+		setAttr ("|"+$flu[0]+"|"+$fluid+".opacity[2].opacity_Position") 0.314286;
+		setAttr ("|"+$flu[0]+"|"+$fluid+".opacity[2].opacity_Interp") 1;
+		setAttr ($fluid+".opacity[2].opacity_Position") 0.121429;
+		setAttr ($fluid+".opacity[2].opacity_FloatValue") 0.86;
+		setAttr ($fluid+".opacity[1].opacity_Position") 0.992857;
+		setAttr ($fluid+".opacity[1].opacity_FloatValue") 0;
+		
+		setAttr ($fluid+".opacityInputBias") 0.28;
+		
+		//quality
+		setAttr ($fluid+".quality") 2;
+	}
+}
+make_fire()

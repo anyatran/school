@@ -1,0 +1,1181 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: simodoku
+''    Author:  
+''    Last Updated: Jan 02, 2007
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/games/4448.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+// author: Simon Connolly
+// simo_connolly@yahoo.com.au
+//
+// it sudoku!
+// Play the game, 
+// use the blank board mode to enter new puzzles from you sudoku books or magazines
+// then use the helper hints to help solve tricky puzzles
+//
+// Setup:
+// Copy the files to your scripts directory, start with command simodoku; 
+//
+// Use the options dialog to configure various settings:
+// - column and row summaries give quick visual reference to what numbers are in each row and column
+// - number hints on the left highlight spots on board with a certain number of possibilities. 
+//     The first box shows only positions with only 1 possibile solution, 
+//     the second shows 2 spots with 2 possibilities and so on.
+// - number hints along the bottom highlight every position each number can still be:
+//     first box shows all positions where number 1 can go,
+//     second box shows positions for 2 and so on
+// - auto complete hint simply fills in the number if it is the only valid case for it's row, column and gridbox
+//
+// save games in progress, or new base puzzles that can be reloaded with randomisation
+//
+// version 1.0.1 - added scaling thing to fix texture scaling using different units
+
+//set default options
+if (`optionVar -ex so_autoHintSuperComplete` == 0) optionVar -iv so_autoHintSuperComplete 0;
+if (`optionVar -ex so_clearMayaUI` == 0) optionVar -iv so_clearMayaUI 1;
+if (`optionVar -ex so_summaries` == 0) optionVar -iv so_summaries 0;
+if (`optionVar -ex so_helpers` == 0) optionVar -iv so_helpers 0;
+if (`optionVar -ex so_randomLoad` == 0) optionVar -iv so_randomLoad 0;
+if (`optionVar -ex so_hideIncorrectNumbers` == 0) optionVar -iv so_hideIncorrectNumbers 0;
+
+if (`optionVar -ex so_path` == 0) optionVar -sv so_path "default";
+
+//option window
+global proc simodokuOptionsUI (){
+	string $windowName = "simodoku";
+	string $windowTitle = "simodoku game options";
+	if( `window -exists $windowName` ) deleteUI $windowName;
+	window -title $windowTitle -resizeToFitChildren 0 -maximizeButton 0 -sizeable 0 -width 250 -height 250 $windowName;
+     columnLayout;
+       text "enable various helper aids:";
+       //checkBox -en 0 -v 0 -l "show incorrect";
+       //checkBox -en 1 -v `optionVar -q so_hideIncorrectNumbers` -l "hide incorrect numbers" -onc "optionVar -iv so_hideIncorrectNumbers 1;" -ofc "optionVar -iv so_hideIncorrectNumbers 0;";
+       checkBox -en 1 -v `optionVar -q so_summaries` -onc "optionVar -iv so_summaries 1; setAttr \"help_sums.visibility\" 1" -ofc "optionVar -iv so_summaries 0; setAttr \"help_sums.visibility\" 0" -l "column and row summaries";
+       checkBox -en 1 -v `optionVar -q so_helpers` -onc "optionVar -iv so_helpers 1; setAttr \"help_hints.visibility\" 1" -ofc "optionVar -iv so_helpers 0; setAttr \"help_hints.visibility\" 0" -l "number hint helpers";
+       checkBox -en 1 -v `optionVar -q so_autoHintSuperComplete` -l "auto complete number hint" -onc "optionVar -iv so_autoHintSuperComplete 1;" -ofc "optionVar -iv so_autoHintSuperComplete 0;";
+       
+       text -l "";
+       checkBox -en 1 -v `optionVar -q so_clearMayaUI` -l "clear maya UI" -onc "optionVar -iv so_clearMayaUI 1; so_clearUI;" -ofc "optionVar -iv so_clearMayaUI 0; so_restoreUI;";
+       
+       text -l "";
+       button -l "save game" -c "so_gameSave";
+       checkBox -en 1 -v `optionVar -q so_randomLoad` -l "randomise game on load" -onc "optionVar -iv so_randomLoad 1;" -ofc "optionVar -iv so_randomLoad 0;" loadRandomCB;
+       button -l "load game" -c ("eval \"so_gameLoad `checkBox -q -v loadRandomCB`\"");
+   showWindow;
+}
+
+
+//start game
+global proc simodoku (){
+   so_buildBoard;
+   so_scriptJob;
+   so_newGame;
+}
+
+//create script job
+global proc so_scriptJob(){
+  $job = `scriptJob -kws -e SelectionChanged "so_update;"`;
+  setAttr "ctrl_box.sudokuJob" -type "string" $job;
+}
+
+//
+global proc so_update(){
+  //int $autoHint = `getAttr "ctrl_box.sudokuAutoHint"`;
+  string $rows[] = {"A","B","C","D","E","F","G","H","I"};
+  string $sel[] = `ls -sl`;
+
+  //clear any hints on screen
+  if (size(`ls -tr "hintClear*"`)) delete (`ls -tr "hintClear*"`);
+
+  //do ya thang
+  if ($sel[0] != ""){
+    string $box = `getAttr ctrl_box.selected`;
+    string $let = `substring $box (size($box)-1) (size($box)-1)`;
+    string $num = `substring $box (size($box)) (size($box))`;
+
+    if (`gmatch $sel[0] "*pick_*"`){
+        //print ("you've picked a picker! and for number :"+$i+"!\n");
+        string $buffer[];
+        tokenize $sel[0] "_" $buffer;
+        int $i = $buffer[size($buffer)-1];
+        //print ("let = "+$let+"\n");
+        //print ("num = "+$num+"\n");
+       if (`objExists ("so_"+$let+$num+"|on_"+$i)`){
+          //unpick the box
+          so_boxNo ($let+$num) $i "off";
+       } else {
+          // pick the box!
+          so_boxNo ($let+$num) $i "on";
+          if (`so_countEmptyNo` == 0){
+            so_timeFinish;
+          }
+       }
+       setAttr ctrl_box.visibility 0;
+       select -cl;
+   } else if (`gmatch $sel[0] "maybe_*"`){
+       //print ("you've picked a maybe! and for number :"+$buffer[1]+"!\n");
+       string $buffer[];
+       tokenize $sel[0] "_" $buffer;
+       int $i = $buffer[size($buffer)-1];
+       if (`objExists ("so_"+$let+$num+"|p_"+$i)`){
+          so_boxNo ($let+$num) $i "maybeoff";//maybe the box
+       } else {
+          so_boxNo ($let+$num) $i "maybe";
+       }
+       setAttr ctrl_box.visibility 0;
+       select -cl;
+   } else if (`gmatch $sel[0] "so_clear"`){
+       setAttr ctrl_box.visibility 0;
+       select -cl;
+       so_clearGame;
+   } else if ($sel[0] == "so_newGame"){
+       setAttr ctrl_box.visibility 0;
+       select -r "so_template";
+       //print "lets make a new game!!\n";
+       so_newGame;
+   } else if ($sel[0] == "so_quit"){
+       setAttr ctrl_box.visibility 0;
+       select -r "so_template";
+       //print "you want to quit! ?\n";
+       //restore UI if fullscreened option is on
+       so_restoreUI;
+       delete `ls -as`;
+       confirmDialog -m "create a new scene to clear script job" -b "ok";
+       //file -f -new;
+       //so_Kill;
+       //NewScene;
+   } else if ($sel[0] == "so_option"){
+       setAttr ctrl_box.visibility 0;
+       select -r "so_template";
+       simodokuOptionsUI;
+   } else if (`gmatch $sel[0] "so_possC_[1-9]"`){  // highlight number of possibilities
+       string $poss = `substring $sel[0] (size($sel[0])) (size($sel[0]))`;
+       so_listBoxesWithGivenPC $poss;
+       setAttr ctrl_box.visibility 0;
+       select -r "so_template";
+   } else if (`gmatch $sel[0] "so_check_[1-9]"`){ // highlight where number can go on board
+       string $check = `substring $sel[0] (size($sel[0])) (size($sel[0]))`;
+       so_listBoxesThatFitNum $check;
+       setAttr ctrl_box.visibility 0;
+       select -r "so_template";
+   } else if (`gmatch $sel[0] "so_[A-I][1-9]"` && `objExists ($sel[0]+"|so_setBorder*")`){
+       setAttr ctrl_box.visibility 0;
+       select -r "so_template";
+   } else if (`gmatch $sel[0] "so_[A-I][1-9]"` && !`objExists ($sel[0]+"|so_setBorder*")`){
+
+     // update picker position
+     float $pos[] = `getAttr ($sel[0]+".translate")`;
+     setAttr ctrl_box.translateX $pos[0];
+     setAttr ctrl_box.translateY $pos[1];
+     setAttr ctrl_box.translateZ $pos[2];
+     setAttr ctrl_box.selected -type "string" $sel[0];
+
+     //update picker colours / pickbox visibilities...
+     string $box = `getAttr ctrl_box.selected`;
+     string $let = `substring $box (size($box)-1) (size($box)-1)`;
+     string $num = `substring $box (size($box)) (size($box))`;
+
+     
+     //show picker
+     setAttr ctrl_box.visibility 1;
+     select -r so_template;//select -cl;
+
+     int $px = 0;
+     for ($l = 1; $l< 10; $l++) if ($let == $rows[$l]) $px = $l;
+
+     setKeyframe -t 5 -v $px (`getAttr "ctrl_box.sudokuCam"`+".tx");
+     setKeyframe -t 5 -v (float ($num)) (`getAttr "ctrl_box.sudokuCam"`+".ty");
+
+     //bounce picker//
+     setKeyframe -t 0 -v 0.01 ctrl_box.scale;
+     setKeyframe -t 3 -v 1 ctrl_box.scale;
+
+     playbackOptions -min 0 -max 5 -loop "once";
+     currentTime 0;
+     play -w;
+
+     setKeyframe -t 0 -v $px (`getAttr "ctrl_box.sudokuCam"`+".tx");
+     setKeyframe -t 0 -v (float ($num)) (`getAttr "ctrl_box.sudokuCam"`+".ty");
+     
+     if (`optionVar -q so_hideIncorrectNumbers`) so_updatePickers $box;
+     
+   } else {
+     setAttr ctrl_box.visibility 0;
+     select -r "so_template";
+
+   }
+  } else {
+     setAttr ctrl_box.visibility 0;
+     select -r "so_template";
+  }
+  
+  
+}
+
+global proc so_updatePickers(string $box){
+  
+  if (`optionVar -q so_hideIncorrectNumbers`){
+    print "check em!\n";
+    for ($i=1;$i<10;$i++){
+      setAttr ("ctrl_box|pick_"+$i+".visibility") `so_boxPoss $box $i`;
+      setAttr ("ctrl_box|maybe_"+$i+".visibility") `so_boxPoss $box $i`;
+    }
+  } else if (!`optionVar -q so_hideIncorrectNumbers`) {
+    for ($i=1;$i<10;$i++){
+      setAttr ("ctrl_box|pick_"+$i+".visibility") 1;
+      setAttr ("ctrl_box|maybe_"+$i+".visibility") 1;
+    }
+  }
+
+}
+
+global proc so_updateButton( int $n ){
+  print ("you selected number "+$n+"\n");
+  if( `window -exists "simodoku_enter"` ) deleteUI "simodoku_enter";
+}
+
+global proc so_Kill (){
+   print "kill script job\n";
+   int $job = `getAttr "ctrl_box.sudokuJob"`;
+   scriptJob -k $job;
+}
+
+global proc so_clearGame (){
+  $confirm = `confirmDialog -m "are you sure you want to reset the board?" -b "yes" -b "no"`;
+  if ($confirm == "yes") so_clearBoard;
+}
+
+global proc so_newGame (){
+  $confirm = `confirmDialog -t "simodoku" -m "start a new game?" -b "Blank board" -b "Easy" -b "Medium" -b "Hard" -b "cancel" -dismissString "cancel"`;
+  if ($confirm != "cancel") {
+    so_clearBoard;
+    string $path = `so_getPath`;//getpath
+    if ($confirm!="Blank board") so_gameLoadFile ($path+$confirm+".sdu") 1;
+  }
+  so_timeStart;//start timer
+}
+
+global proc so_clearBoard(){
+  string $rows[] = {"A","B","C","D","E","F","G","H","I"};
+  for ($c = 1; $c < 10; $c++ ){
+    if (size(`listRelatives -f -type "transform" ("so_"+$c)`)) delete `listRelatives -f -type "transform" ("so_"+$c)`;
+    if (size(`listRelatives -f -type "transform" ("so_"+$rows[$c-1])`))delete `listRelatives -f -type "transform" ("so_"+$rows[$c-1])`;
+    for ($i = 1; $i < 10; $i++) if (size(`listRelatives -f -type "transform" ("so_"+$rows[$c-1]+$i)`)) delete `listRelatives -f -type "transform" ("so_"+$rows[$c-1]+$i)`;
+  }
+  setAttr ctrl_box.visibility 0;
+}
+
+//save current game
+
+global proc so_gameSave(){
+  string $file;
+ 	string $result = `promptDialog 
+ 		-title "Save game"
+ 		-message "Enter name:"
+ 		-button "OK" -button "Cancel"
+ 		-defaultButton "OK" -cancelButton "Cancel"
+ 		-dismissString "Cancel"`;
+ 
+ 	if ($result == "OK") {
+ 		$file = `promptDialog -query -text`;
+    so_gameSaveFile $file;
+ 	}
+}
+
+global proc so_gameSaveFile(string $file){
+  string $path = `so_getPath`;//getpath
+  $fname = ($path+$file+".sdu");
+  int $write = 1;
+  if (`filetest -r $fname`){
+    $done = `confirmDialog -title "File Exists!" -message ("Overwrite file:\n\n"+$fname+"\n\n?") -button "ok" -button "cancel"`;
+    if ($done!="ok")$write=0;
+  }
+  
+  if ($write){
+    string $vs[] = {};
+    string $rows[] = {"A","B","C","D","E","F","G","H","I"};
+    for ($r in $rows) for ($n=1;$n<10;$n++) $vs[size($vs)] = (`so_boxNo ($r+$n) 0 -q`);
+    //print $vs;
+    
+    so_fileWrite $fname $vs 1;
+  }
+}
+
+global proc so_gameLoad(int $random){
+  string $path = `so_getPath`;//getpath
+  string $file = `fileDialog -dm "d:/simodoku/*.sdu"`;
+  if ($file!="") so_gameLoadFile $file $random;
+}
+
+global proc so_gameLoadFile(string $file, int $random){
+  so_clearBoard;
+  string $vs[] = `so_fileRead $file 1`;
+  //print $vs;
+  int $v = 0;
+  string $rows[] = {"A","B","C","D","E","F","G","H","I"};
+  
+  if (!$random){
+    for ($r in $rows){
+      for ($n=1;$n<10;$n++){
+        if ($vs[$v])so_boxNo ($r+$n) $vs[$v] "on";
+        $v++;
+      }
+    }
+  } else {
+    int $Rrow[] = `so_randomRow`;//random sequence adjustment - !!keep 123, 456, 789 grouped
+    int $Rcol[] = `so_randomRow`;//random sequence adjustment - !!keep 123, 456, 789 grouped
+    int $Rnum[] = `so_randomSequence 9`;//random sequence adjustment - free for all
+  
+    // apply to board - also swap x and y randomly
+    if (rand(0,2)){
+     for ($r=0;$r<9;$r++){
+        for ($n=0;$n<9;$n++){
+          if ($vs[$v]) so_boxNo ($rows[$Rrow[$r]-1] + ($Rcol[$n])) $Rnum[int($vs[$v])-1] "setborder";
+          $v++;
+        }
+      }
+    } else {
+       for ($n=0;$n<9;$n++){
+         for ($r=0;$r<9;$r++){
+            if ($vs[$v]) so_boxNo ($rows[$Rrow[$r]-1] + ($Rcol[$n])) $Rnum[int($vs[$v])-1] "setborder";
+            $v++;
+          }
+        }
+       
+    }
+  
+  
+  }
+}
+
+
+global proc int[] so_randomRow(){
+  int $randRow[];
+  int $randBox[] = `so_randomSequence 3`;
+  for ($r in $randBox){
+    int $three[] = `so_randomSequence 3`;
+    for ($t in $three) $randRow[size($randRow)] = (int ($t) + int (($r-1) * 3) );
+  }
+  return $randRow;
+}
+
+global proc int[] so_randomSequence(int $count){
+  //string $base[] = {"1","2","3","4","5","6","7","8","9"};
+  string $base[];
+  for ($c = 0; $c < $count; $c++) $base[$c] = ($c+1);
+
+  string $new[];
+  int $random[];
+  int $used = 0;
+  for ($r = 0; $r < $count; $r++){
+    string $rem[] = stringArrayRemove($new, $base);
+    //int $i = ( rand( 0, size($base)-$used ) );
+    $new[$r] = $rem[int ( rand( 0, size($base)-$used ) )];//$rem[$i];
+    $random[$r] = ($new[$r]);
+    //print ("number "+$base[$r]+" -> "+$new[$r]+"\n");
+    clear $rem;
+    $used++;
+  }
+  return $random;
+}
+
+// set given $box, to number $i to on off maybe maybeoff setborder -q
+global proc string so_boxNo(string $box, int $i, string $func){
+  //print ("$box = "+$box+"\n");
+  //print ("$i = "+$i+"\n");
+  //print ("$func = "+$func+"\n");
+  string $return = "";
+  
+  string $let = `substring $box 1 1`;
+  string $num = `substring $box 2 2`;
+  string $rows[] = {"A","B","C","D","E","F","G","H","I"};
+  int $r = 0;
+  for ($x = 1; $x < 10; $x++) if ($rows[$x-1] == $let) $r = $x;
+  
+  if ($func == "setborder"){
+    //set border on preset boxes so users can see which numbers they added?
+    //string $border[] = `instance ("so_template|so_setBorder")`;
+    string $border[] = `instance ("so_setBorder")`;
+    move -r $r $num 0 $border[0];
+    parent $border[0] ("so_"+$let+$num);
+    
+    //print ("new border: "+$border[0]+"\n");
+    //print ("new border: "+`rename ("so_"+$let+$num+"|"+$border[0]) ("so_setBorder#")`);
+
+    $func = "on"; // set func so number also gets added
+  }
+  if ($func == "on" && `objExists ("so_"+$box+"|on_"+$i+"*")`){
+   //clear box
+    if (size(`listRelatives -f -type transform ("so_"+$box)`)) delete (`listRelatives -f -type transform ("so_"+$box)`);
+
+  } else if ($func == "on" && `so_boxPoss $box $i`){
+    //clear box
+    if (size(`listRelatives -f -type transform ("so_"+$box)`)) delete (`listRelatives -f -type transform ("so_"+$box)`);
+    //enter num
+    string $on[] = `instance ("so_template|on_"+$i)`;
+    move -r $r $num 0 $on[0];
+    parent $on[0] ("so_"+$let+$num);
+    rename ("so_"+$let+$num+"|"+$on[0]) ("on_"+$i);
+    //update hint boxes
+    string $pl[] = `instance ("so_template|p_"+$i)`;
+    move -r $r 11 0 $pl[0];
+    parent $pl[0] ("so_"+$let);
+    rename ("so_"+$let+"|"+$pl[0]) ("p_"+$i);
+
+    string $pn[] = `instance ("so_template|p_"+$i)`;
+    move -r 11 $num 0 $pn[0];
+    parent $pn[0] ("so_"+$num);
+    rename ("so_"+$num+"|"+$pn[0]) ("p_"+$i);
+
+    if (`objExists ("so_"+$box+"|p_"+$i)`) delete ("so_"+$box+"|p_"+$i);
+
+  } else if ($func == "on" && !`so_boxPoss $box $i`){ //set wrong number
+      //clear box
+    if (size(`listRelatives -f -type transform ("so_"+$box)`)) delete (`listRelatives -f -type transform ("so_"+$box)`);
+    string $on[] = `instance ("so_template|on_"+$i)`;
+    move -r $r $num 0 $on[0];
+    
+    parent $on[0] ("so_"+$let+$num);
+    rotate -os 0 0 8 ("so_"+$let+$num+"|"+$on[0]);
+    rename ("so_"+$let+$num+"|"+$on[0]) ("on_"+$i+"_wrong");
+
+    if (`objExists ("so_"+$box+"|p_"+$i)`) delete ("so_"+$box+"|p_"+$i);
+  } else if ($func == "off"){
+    if (`objExists ("so_"+$box+"|on_*")`) delete (`listRelatives -f -type transform ("so_"+$box)`);
+    
+    if (`objExists ("so_"+$let+"|p_"+$i)`) delete ("so_"+$let+"|p_"+$i);
+    if (`objExists ("so_"+$num+"|p_"+$i)`) delete ("so_"+$num+"|p_"+$i);
+  } else if ($func == "maybe"){
+    string $p[] = `instance ("so_template|p_"+$i)`;
+    move -r $r $num 0 $p[0];
+    parent $p[0] ("so_"+$let+$num);
+    rename ("so_"+$let+$num+"|"+$p[0]) ("p_"+$i);
+  } else if ($func == "maybeoff"){
+    if (`objExists ("so_"+$box+"|p_"+$i)`) delete ("so_"+$box+"|p_"+$i);
+  } else if ($func == "-q"){
+    
+    string $value[] = `listRelatives -f -type transform ("so_"+$box)`;
+    if ($value[0] != "") return `match "[1-9]$" $value[0]`;
+    else return "0";
+    
+  }
+  
+  return $return;
+  select -cl;
+}
+
+// tests given box is available for number $i
+global proc int so_boxPoss(string $box, int $i){
+  string $let = `substring $box 1 1`;
+  string $num = `substring $box 2 2`;
+  int $used = 0;
+  //check for row bit
+  if (`objExists ("so_"+$num+"|p_"+$i)`) $used++; //if (`getAttr ("so_"+$num+"|p_"+$i+".visibility")`) $used++;
+  //check for col bit
+  if (`objExists ("so_"+$let+"|p_"+$i)`) $used++;//if (`getAttr ("so_"+$let+"|p_"+$i+".visibility")`) $used++;
+  //check in grid
+  string $boxRI[] = `so_getBoxes $let $num`;
+  for ($p = 1; $p < 10; $p++){
+    if (`objExists ("so_"+$boxRI[$p-1]+"|on_"+$i)`) $used++;//if (`getAttr ("so_"+$boxRI[$p-1]+"|on_"+$i+".visibility")`) $used++;
+    //if (`objExists ("so_"+$boxRI[$p-1]+"|on_"+$i+"_wrong")`) $used++;// tag it if number is wrongly inserted??
+  }
+  //return the answer...
+  if ($used == 0) return 1;
+  else return 0;
+}
+
+global proc int so_poxPossCount(string $box){
+  int $pc = 0;
+  for ($i = 1; $i < 10; $i++) if (`so_boxPoss $box $i`) $pc++;
+  return $pc;
+}
+
+global proc so_listBoxesWithGivenPC(int $i){
+  string $rows[] = {"A","B","C","D","E","F","G","H","I"};
+  string $boxes[];
+  int $boxL[];
+  int $boxN[];
+
+  for ($r = 1; $r < 10; $r++){
+    for ($c = 1; $c < 10; $c++) {
+      if (!`objExists ("so_"+$rows[$r-1]+$c+"|on_*")`){
+        if (`so_poxPossCount ($rows[$r-1]+$c)` == $i){
+          //$boxes[size($boxes)] = ($rows[$r-1]+$c);
+          $boxL[size($boxL)] = $r;
+          $boxN[size($boxN)] = $c;
+        }
+      }
+    }
+  }
+
+  //print ("these boxes have "+$pc+" number of possibilities\n");
+  //print $boxes;
+  
+  string $hintsToClear[];
+   //show hintRing on check
+    string $hint[] = `instance ("so_template|so_hintRing")`;
+    move -r -1 $i 0 $hint[0];
+    parent $hint[0] ("so_possC_"+$i);
+    $hintsToClear[size($hintsToClear)] = `rename ("so_possC_"+$i+"|"+$hint[0]) ("hintClear#")`;//$hint[0];
+    
+   for ($cg = 0; $cg < size($boxL); $cg++){
+      //show hints on board
+     string $h[] = `instance ("so_template|so_hintRing")`;
+     move -r $boxL[$cg] $boxN[$cg] 0 $h[0];
+     parent $h[0] ("so_"+$rows[$boxL[$cg]-1]+$boxN[$cg]);
+     $hintsToClear[size($hintsToClear)] = `rename ("so_"+$rows[$boxL[$cg]-1]+$boxN[$cg]+"|"+$h[0]) ("hintClear#")`;//$h[0];
+   }
+}
+
+global proc so_listBoxesThatFitNum (int $i){
+   string $rows[] = {"A","B","C","D","E","F","G","H","I"};
+   int $canGoL[];
+   int $canGoN[];
+   for ($r = 1; $r < 10; $r++){
+     if (!`objExists ("so_"+$rows[$r-1]+"|p_"+$i)`){
+       //print ("col "+$r+" is missing has a "+$i+"\n");
+       //work down list to find possible spots
+       //check boxes first or row?
+       //don't check if box is used...
+
+       //for ($c = 1; $c < 10; $c++) if (!`objExists ("so_"+$rows[$r-1]+$c+"|on_*")` && `so_boxPoss ($rows[$r-1]+$c) $i`) $canGo[size($canGo)] = ($rows[$r-1]+$c);
+
+       for ($c = 1; $c < 10; $c++){
+         if (!`objExists ("so_"+$rows[$r-1]+$c+"|on_*")`){
+           if (`so_boxPoss ($rows[$r-1]+$c) $i`){
+             //print ($i + " can go in "+$rows[$r-1]+$c+"\n");//("looks like it fits in here...\n");
+             $canGoL[size($canGoL)] = $r;
+             $canGoN[size($canGoN)] = $c;
+           }
+         }
+       }
+
+     }
+   }
+
+   //print ("looks like number - "+$i+" can go in these spots:\n");
+   //print $canGo;
+   string $hintsToClear[];
+   //show hintRing on check
+    string $hint[] = `instance ("so_template|so_hintRing")`;
+    move -r $i -1 0 $hint[0];
+    parent $hint[0] ("so_check_"+$i);
+    $hintsToClear[size($hintsToClear)] = `rename ("so_check_"+$i+"|"+$hint[0]) ("hintClear#")`;//$hint[0];
+
+   for ($cg = 0; $cg < size($canGoL); $cg++){
+      //show hints on board
+     string $h[] = `instance ("so_template|so_hintRing")`;
+    move -r $canGoL[$cg] $canGoN[$cg] 0 $h[0];
+    parent $h[0] ("so_"+$rows[$canGoL[$cg]-1]+$canGoN[$cg]);
+    $hintsToClear[size($hintsToClear)] = `rename ("so_"+$rows[$canGoL[$cg]-1]+$canGoN[$cg]+"|"+$h[0]) ("hintClear#")`;//$h[0];
+   }
+
+   //print ("$hintsToClear:\n");
+   //print $hintsToClear;
+
+   if (`optionVar -ex so_autoHintSuperComplete` && `optionVar -q so_autoHintSuperComplete `){
+     //fill it out
+     string $boxesToFill[];
+     for ($f=0 ;$f< size($canGoL) ; $f++){
+       //if it's the only one in the row column or box
+       int $onlyOption = 0;
+       //print ("check rows and columns for unique box : "+$rows[$canGoL[$f]-1]+$canGoN[$f]+" can be a "+$i+"\n");
+
+       if (`so_intArrayCountItem $canGoL $canGoL[$f]` == 1) {
+         //print "this is the only one in the column!\n";
+         $onlyOption++;
+       } else if (`so_intArrayCountItem $canGoN $canGoN[$f]` == 1) {
+         //print "this is the only one in the row!\n";
+         $onlyOption++;
+       } else {
+         //check in grid
+         string $boxRI[] = `so_getBoxes $rows[$canGoL[$f]-1] $canGoN[$f]`;
+         int $spotsInBox = 0;
+         for ($b=0; $b<size($canGoL); $b++){
+           //compare each possible spot with gridbox
+           if (`so_stringArrayCountItem $boxRI ($rows[$canGoL[$b]-1]+$canGoN[$b])`)$spotsInBox++;
+         }
+         if ($spotsInBox == 1) $onlyOption++;
+       }
+
+       // add box to to do
+       //print ("$onlyOption " +$onlyOption+ "\n");
+       if ($onlyOption > 0) $boxesToFill[size($boxesToFill)] = $rows[$canGoL[$f]-1]+$canGoN[$f];
+
+     }
+     //print ("we can fill in "+$i+" for these boxes\n");
+     //print $boxesToFill;
+
+     if (size($boxesToFill)){
+       for ($tf in $boxesToFill) so_boxNo $tf $i "on";
+       //clear any hints on screen
+       if (size(`ls -tr "hintClear*"`)) delete (`ls -tr "hintClear*"`);
+       so_listBoxesThatFitNum $i;
+     }
+   }
+
+}
+
+global proc so_justFinishIt(){
+  int $auto = `optionVar -q so_autoHintSuperComplete`;
+  if (`so_countEmptyNo`){
+    for ($i = 1; $i < 10; $i++){
+      optionVar -iv so_autoHintSuperComplete 1;
+      so_listBoxesThatFitNum $i;
+      optionVar -iv so_autoHintSuperComplete $auto;
+    }
+  } else print "ALL DONE!!!\n";
+  if (`so_countEmptyNo`) so_justFinishIt;
+
+}
+
+global proc int so_countEmptyNo(){
+  return (81 - size(`listRelatives -c -type transform so_1 so_2 so_3 so_4 so_5 so_6 so_7 so_8 so_9`) );
+}
+
+global proc int so_stringArrayCountItem(string $array[], string $item){
+  int $count = 0;
+  for ($c in $array){
+      if ($c == $item) $count++;
+  }
+  return $count;
+}
+
+global proc int so_intArrayCountItem(int $array[], int $item){
+  int $count = 0;
+  for ($c in $array){
+      if ($c == $item) $count++;
+  }
+  return $count;
+}
+
+// returns string of nine boxes in grid square
+global proc string[] so_getBoxes(string $let, string $num){
+  string $boxR[];
+  if (`gmatch $let "[A-C]"`) $boxR = {"A", "B", "C"};
+  else if (`gmatch $let "[D-F]"`) $boxR = {"D", "E", "F"};
+  else if (`gmatch $let "[G-I]"`) $boxR = {"G", "H", "I"};
+  
+  int $boxI[];
+  if (`gmatch $num "[1-3]"`) $boxI = {1, 2, 3};
+  else if (`gmatch $num "[4-6]"`) $boxI = {4, 5, 6};
+  else if (`gmatch $num "[7-9]"`) $boxI = {7, 8, 9};
+  
+  string $boxRI[];
+  for ($br in $boxR) for ($bi in $boxI) $boxRI[size($boxRI)] = $br+$bi;
+  
+  return $boxRI;
+}
+
+global proc so_buildBoard(){
+  NewScene;
+  if (`optionVar -ex so_clearMayaUI` && `optionVar -q so_clearMayaUI`) so_clearUI;
+  string $rows[] = {"A","B","C","D","E","F","G","H","I"};
+
+  //get texture
+  string $path = `so_getPath`;//getpath
+  $texture = $path+"simodoku.tga";
+  
+  //figure unit for scaling UV projections
+  string $unit = `currentUnit -query -linear`;
+  float $scale = `convertUnit -fromUnit "cm" -toUnit $unit "1"`;
+  
+  //make shaders
+  string $shader_pick = `shadingNode -asShader lambert`; // pick boxes
+  string $shader_pick = `rename $shader_pick so_mPickBoxes`;
+  string $shader_pickSG = `sets -renderable true -noSurfaceShader true -empty -name ($shader_pick+"SG")`;
+  connectAttr -f ($shader_pick+".outColor") ($shader_pickSG+".surfaceShader");
+  setAttr ($shader_pick+".transparency") -type double3 0.8 0.8 0.8 ;
+
+  string $shader_game = `shadingNode -asShader lambert`; // textured game shader
+  string $shader_game = `rename $shader_game so_mGame`;
+  string $txFile = `shadingNode -asTexture file`;
+  string $txFile = `rename $txFile so_gameTexture`;
+  setAttr ($txFile+".fileTextureName") -type "string" $texture;
+  connectAttr -force ($txFile+".outColor") ($shader_game+".color");
+  string $shader_gameSG = `sets -renderable true -noSurfaceShader true -empty -name ($shader_game+"SG")`;
+  connectAttr -f ($shader_game+".outColor") ($shader_gameSG+".surfaceShader");
+
+  string $shader_fade = `shadingNode -asShader lambert`; // textured game shader
+  string $shader_fade = `rename $shader_fade so_mFade`;
+  setAttr ($txFile+".fileTextureName") -type "string" $texture;
+  connectAttr -force ($txFile+".outColor") ($shader_fade+".color");
+  string $shader_fadeSG = `sets -renderable true -noSurfaceShader true -empty -name ($shader_fade+"SG")`;
+  connectAttr -f ($shader_fade+".outColor") ($shader_fadeSG+".surfaceShader");
+  setAttr ($shader_fade+".transparency") -type double3 0.5 0.5 0.5 ;
+
+  string $shader_bar = `shadingNode -asShader lambert`; // pick boxes
+  string $shader_bar = `rename $shader_bar so_mBars`;
+  string $shader_barSG = `sets -renderable true -noSurfaceShader true -empty -name ($shader_bar+"SG")`;
+  connectAttr -f ($shader_bar+".outColor") ($shader_barSG+".surfaceShader");
+  setAttr ($shader_bar+".color") -type double3 0.1 0.1 0.15 ;
+
+  string $shader_red = `shadingNode -asShader lambert`; // pick boxes
+  string $shader_red = `rename $shader_red so_mRed`;
+  string $shader_redSG = `sets -renderable true -noSurfaceShader true -empty -name ($shader_red+"SG")`;
+  connectAttr -f ($shader_red+".outColor") ($shader_redSG+".surfaceShader");
+  setAttr ($shader_red+".color") -type double3 0.75 0.1 0.1 ;
+
+  //make separaters
+  string $bars[];
+  string $rungs[];
+  string $barA[] = `polyCylinder -r 0.025 -h 9 -sx 8 -sy 1 -sz 1 -ax 0 1 0 -tx 1 -ch 0`;
+  sets -e -forceElement $shader_barSG; //apply material
+  string $barB[] = `polyCylinder -r 0.025 -h 9 -sx 8 -sy 1 -sz 1 -ax 1 0 0 -tx 1 -ch 0`;
+  sets -e -forceElement $shader_barSG; //apply material
+
+  move -a 0.5 5 0 $barA[0];
+  move -a 5 0.5 0 $barB[0];
+
+  $bars[0] = $barA[0];
+  for ($b = 1; $b < 10; $b++){
+    string $newB[] = `instance $barA[0]`;
+    $bars[$b] = $newB[0];
+    move -r $b 0 0 $bars[$b];
+
+    string $newR[] = `instance $barB[0]`;
+    $rungs[$b] = $newR[0];
+    move -r 0 $b 0 $rungs[$b];
+
+  }
+  scale -r 3 1 1 $bars[3] $bars[6];
+  move -r 0 0 0.1 $bars[3] $bars[6];
+
+  scale -r 1 3 1 $rungs[3] $rungs[6];
+  move -r 0 0 0.1 $rungs[3] $rungs[6];
+
+  //make main boxes
+  string $cube[] = `polyCube -w 1 -h 1 -d .2 -sx 1 -sy 1 -sz 1 -ax 0 1 0 -tx 1 -ch 0`;
+  $cube[0] = `rename $cube[0] "so_template"`;
+  sets -e -forceElement $shader_pickSG $cube[0]; //apply material
+
+  for ($r = 1; $r < 10; $r++){
+    for ($c = 1; $c < 10; $c++){
+      string $new[] = `instance $cube[0]`;
+      move -r $r $c 0 $new[0];
+      rename $new[0] ("so_"+$rows[$r-1]+$c);
+    }
+  }
+
+  // make help groups
+  group -em -n "help_sums";
+  group -em -n "help_hints";
+  for ($h=1; $h < 10; $h++){
+    string $helpR[] = `instance $cube[0]`;
+    move -r $h 11 0 $helpR[0];
+    connectAttr "help_sums.visibility" ($helpR[0]+".visibility");
+    rename $helpR[0] ("so_"+$rows[$h-1]);
+
+    string $helpC[] = `instance $cube[0]`;
+    move -r 11 $h 0 $helpC[0];
+    connectAttr "help_sums.visibility" ($helpC[0]+".visibility");
+    rename $helpC[0] ("so_"+$h);
+
+    string $helpN[] = `instance $cube[0]`;
+    move -r $h -1 0 $helpN[0];
+    connectAttr "help_hints.visibility" ($helpN[0]+".visibility");
+    rename $helpN[0] ("so_check_"+$h);
+
+    string $helpP[] = `instance $cube[0]`;
+    move -r -1 $h 0 $helpP[0];
+    connectAttr "help_hints.visibility" ($helpP[0]+".visibility");
+    rename $helpP[0] ("so_possC_"+$h);
+  }
+  setAttr "help_sums.visibility" `optionVar -q so_summaries`;
+  setAttr "help_hints.visibility" `optionVar -q so_helpers`;
+  
+  //setAttr ($cube[0]+".visibility") 0;
+  //make control buttons
+  string $newG[];
+  string $newG[] = `polyPlane -w 1 -h 1 -sx 1 -sy 1 -ax 0 0 1 -tx 1 -ch 0`;
+  $newG[0] = `rename $newG[0] so_newGame`;
+  select -r `polyListComponentConversion -tf ($newG[0])`;
+  polyProjection -ch 0 -type Planar -ibd on -icx 0.586 -icy 0.414 -ra 0
+     -isu 0.16 -isv 0.16 -pcx 0 -pcy 0 -pcz 0 -psu (1/$scale) -psv (1/$scale) `filterExpand -sm 34`;
+  sets -e -forceElement so_mGameSG;
+  move -r -1 11 0 $newG[0];
+
+  string $option[];
+  string $option[] = `polyPlane -w 1 -h 1 -sx 1 -sy 1 -ax 0 0 1 -tx 1 -ch 0`;
+  $option[0] = `rename $option[0] so_option`;
+  select -r `polyListComponentConversion -tf ($option[0])`;
+  polyProjection -ch 0 -type Planar -ibd on -icx 0.75 -icy 0.414 -ra 0
+     -isu 0.16 -isv 0.16 -pcx 0 -pcy 0 -pcz 0 -psu (1/$scale) -psv (1/$scale) `filterExpand -sm 34`;
+  sets -e -forceElement so_mGameSG;
+  move -r -1 -1 0 $option[0];
+
+  string $quit[];
+  string $quit[] = `polyPlane -w 1 -h 1 -sx 1 -sy 1 -ax 0 0 1 -tx 1 -ch 0`;
+  $quit[0] = `rename $quit[0] so_quit`;
+  select -r `polyListComponentConversion -tf ($quit[0])`;
+  polyProjection -ch 0 -type Planar -ibd on -icx 0.914 -icy 0.414 -ra 0
+     -isu 0.16 -isv 0.16 -pcx 0 -pcy 0 -pcz 0 -psu (1/$scale) -psv (1/$scale) `filterExpand -sm 34`;
+  sets -e -forceElement so_mGameSG;
+  move -r 11 -1 0 $quit[0];
+
+  //make numbers
+  string $nums[];
+  string $numsP[] = `polyPlane -w 1 -h 1 -sx 1 -sy 1 -ax 0 0 1 -tx 1 -ch 0`;
+  $nums[size($nums)] = `rename $numsP[0] on_1`;
+  for ($b = 1; $b < 9; $b++){
+    string $nPs[] = `duplicate -rr $nums[0]`;
+    $nums[size($nums)] = $nPs[0];
+  }
+  move -a -1.03 1.03 0.02 $nums[0];
+  move -a 0 1.03 0.02 $nums[1];
+  move -a 1.03 1.03 0.02 $nums[2];
+  move -a -1.03 0 0.02 $nums[3];
+  move -a 0 0 0.02 $nums[4];
+  move -a 1.03 0 0.02 $nums[5];
+  move -a -1.03 -1.03 0.02 $nums[6];
+  move -a 0 -1.03 0.02 $nums[7];
+  move -a 1.03 -1.03 0.02 $nums[8];
+  
+  string $possibles[];
+  for ($m = 1; $m < 10; $m++){
+    rename `duplicate ("on_"+$m)` ("p_"+$m);
+    scale -r .8 .8 1 ("p_"+$m);
+    $possibles[size($possibles)] = ("p_"+$m);
+  }
+  
+  sets -e -forceElement $shader_gameSG $nums;
+  sets -e -forceElement $shader_fadeSG $possibles;
+
+  for ($i = 1; $i < 10; $i++){
+    select -r `polyListComponentConversion -tf ("on_"+$i)`;
+    polyProjection -ch 0 -type Planar -ibd on -icx 0.25 -icy 0.25 -ra 0
+     -isu 0.16 -isv 0.16 -pcx 0 -pcy 0 -pcz 0 -psu (1/$scale) -psv (1/$scale) `filterExpand -sm 34`;
+    select -r `polyListComponentConversion -tf ("p_"+$i)`;
+    polyProjection -ch 0 -type Planar -ibd on -icx 0.25 -icy 0.25 -ra 0
+     -isu 0.16 -isv 0.16 -pcx 0 -pcy 0 -pcz 0 -psu (1/$scale) -psv (1/$scale) `filterExpand -sm 34`;
+  }
+  
+  //update number positions and scales
+  for ($num in $nums) move -a 0 0 0.02 $num;
+  for ($p in $possibles) scale -r 0.3 0.3 1 $p;
+  move -a -0.3 0.3 0.1 p_1;
+  move -a 0 0.3 0.1 p_2;
+  move -a 0.3 0.3 0.1 p_3;
+  move -a -.3 0 0.1 p_4;
+  move -a 0 0 0.1 p_5;
+  move -a 0.3 0 0.1 p_6;
+  move -a -0.3 -.3 0.1 p_7;
+  move -a 0 -.3 0.1 p_8;
+  move -a 0.3 -.3 0.1 p_9;
+  
+  parent $nums $cube[0];
+  parent $possibles $cube[0];
+
+  //done------------------
+  
+  //-------------------------
+  //build control box thing
+  string $buttons[];
+  string $bP[] = `polyCylinder -r 0.45 -h .1 -sx 16 -sy 1 -sz 1 -ax 0 0 1 -tx 1 -ch 0`;
+  $buttons[size($buttons)] = `rename $bP[0] pick_1`;
+  for ($b = 1; $b < 9; $b++){
+    string $bPs[] = `duplicate -rr $buttons[0]`;
+    $buttons[size($buttons)] = $bPs[0];
+  }
+  move -a -1.03 1.03 0.2 $buttons[0];
+  move -a 0 1.03 0.2 $buttons[1];
+  move -a 1.03 1.03 0.2 $buttons[2];
+  move -a -1.03 0 0.2 $buttons[3];
+  move -a 0 0 0.2 $buttons[4];
+  move -a 1.03 0 0.2 $buttons[5];
+  move -a -1.03 -1.03 0.2 $buttons[6];
+  move -a 0 -1.03 0.2 $buttons[7];
+  move -a 1.03 -1.03 0.2 $buttons[8];
+  group -n ctrl_box $buttons;
+
+
+  string $maybes[];
+  for ($m = 1; $m < 10; $m++){
+    rename `duplicate ("pick_"+$m)` ("maybe_"+$m);
+    $maybes[size($maybes)] = ("maybe_"+$m);
+  }
+
+  //assign materials
+  sets -e -forceElement $shader_gameSG $buttons;
+  sets -e -forceElement $shader_gameSG $maybes;
+  
+  //setup UVs
+  for ($i = 1; $i < 10; $i++){
+    select -r `polyListComponentConversion -tf ("pick_"+$i)`;
+    polyProjection -ch 0 -type Planar -ibd on -icx 0.25 -icy 0.75 -ra 0
+     -isu 0.16 -isv 0.16 -pcx 0 -pcy 0 -pcz 0 -psu (1/$scale) -psv (1/$scale) `filterExpand -sm 34`;
+    select -r `polyListComponentConversion -tf ("maybe_"+$i)`;
+    polyProjection -ch 0 -type Planar -ibd on -icx 0.75 -icy 0.75 -ra 0
+     -isu 0.16 -isv 0.16 -pcx 0 -pcy 0 -pcz 0 -psu (1/$scale) -psv (1/$scale) `filterExpand -sm 34`;
+  }
+
+  //update scale and positions...
+  move -a -.77 .77 .2 pick_1;
+  move -a .77 .77 .2 pick_3;
+  move -a -.77 -.77 .2 pick_7;
+  move -a .77 -.77 .2 pick_9;
+  scale -a 0.7 0.7 1 pick_1;
+  scale -a 0.7 0.7 1 pick_3;
+  scale -a 0.7 0.7 1 pick_7;
+  scale -a 0.7 0.7 1 pick_9;
+  move -a 0 .9 .2 pick_2;
+  move -a -.9 0 .2 pick_4;
+  move -a .9 0 .2 pick_6;
+  move -a 0 -.9 .2 pick_8;
+  scale -a 0.85 0.85 1 pick_2;
+  scale -a 0.85 0.85 1 pick_4;
+  scale -a 0.85 0.85 1 pick_6;
+  scale -a 0.85 0.85 1 pick_8;
+  
+  for ($maybe in $maybes) scale -a 0.4 0.4 1 $maybe;
+  move -a -1.060689036 1.041899899 0.3 maybe_1;
+  move -a -0.2749478173 1.292421726 0.3 maybe_2;
+  move -a 1.048162944 1.066952081 0.3 maybe_3;
+  move -a -1.26173269 0.2693109644 0.3 maybe_4;
+  move -a 0.3507305583 0.3256783756 0.3 maybe_5;
+  move -a 1.26173269 0.3194153299 0.3 maybe_6;
+  move -a -1.036263046 -1.042526091 0.3 maybe_7;
+  move -a 0.3131522842 -1.199102233 0.3 maybe_8;
+  move -a 1.048789137 -1.036263046 0.3 maybe_9;
+  
+  //add ctrl_box frame bits...
+  string $pickBorder[] = `polyTorus -r .67 -sr 0.05 -tw 45 -sx 4 -sy 4 -ax 0 0 1 -tx 1 -ch 0`;
+  rotate -r -os 0 0 45;
+  move -r 0 0 0.1;
+  $pickBorder[0] = `rename $pickBorder[0] so_pickBorder`;
+
+  string $pickBarA[] = `polyCylinder -r 0.025 -h 1.5 -sx 4 -sy 1 -sz 1 -ax 0 1 0 -tx 1 -ch 0`;
+  move -r 0 0 0.15 $pickBarA[0];
+
+  string $pickBarB[] = `polyCylinder -r 0.025 -h 1.5 -sx 4 -sy 1 -sz 1 -ax 1 0 0 -tx 1 -ch 0`;
+  move -r 0 0 0.15 $pickBarB[0];
+
+  string $pickBarC[] = `polyCylinder -r 0.025 -h 1.8 -sx 4 -sy 1 -sz 1 -ax 0 1 0 -tx 1 -ch 0`;
+  rotate -r -ws 0 0 -45;
+  move -r 0 0 0.15 $pickBarC[0];
+
+  string $pickBarD[] = `polyCylinder -r 0.025 -h 1.8 -sx 4 -sy 1 -sz 1 -ax 0 1 0 -tx 1 -ch 0`;
+  rotate -r -ws 0 0 45;
+  move -r 0 0 0.15 $pickBarD[0];
+
+  parent $pickBorder[0] $pickBarA[0] $pickBarB[0] $pickBarC[0] $pickBarD[0] ctrl_box;
+
+  //add set border thing and hint ring bits
+  string $hidden[] = `polyCylinder -r 0.25 -h .1 -sx 16 -sy 1 -sz 1 -ax 0 0 1 -tx 1 -ch 0`;
+  setAttr ($hidden[0]+".visibility") 0;
+  rename $hidden[0] so_hiddenPick;
+
+
+  string $setBorderFrame[] = `polyTorus -r .67 -sr 0.05 -tw 45 -sx 4 -sy 4 -ax 0 0 1 -tx 1 -ch 0`;
+  sets -e -forceElement $shader_barSG; //apply material
+  rotate -r -os 0 0 45 ;
+  $setBorderFrame[0] = `rename $setBorderFrame[0] so_setBorder`;
+  parent $setBorderFrame[0] so_template;
+
+  string $hintRing[] = `polyTorus -r .45 -sr 0.05 -tw 0 -sx 16 -sy 4 -ax 0 0 1 -tx 1 -ch 0`;
+  $hintRing[0] = `rename $hintRing[0] so_hintRing`;
+  parent $hintRing[0] so_template;
+
+  move -r -3 0 0 ctrl_box;
+
+  // finish setting up ctrl box
+  addAttr -ln "selected" -dt "string" ctrl_box;
+  addAttr -ln "sudokuJob" -dt "string" ctrl_box;
+  //addAttr -ln "sudokuAutoHint" -dt "string" ctrl_box;
+  addAttr -ln "sudokuCam" -dt "string" ctrl_box;
+  addAttr -ln "sudokuAim" -dt "string" ctrl_box;
+  
+  addAttr -ln "time0_y" -at "float" ctrl_box;
+  addAttr -ln "time0_m" -at "float" ctrl_box;
+  addAttr -ln "time0_d" -at "float" ctrl_box;
+  addAttr -ln "time0_h" -at "float" ctrl_box;
+  addAttr -ln "time0_min" -at "float" ctrl_box;
+  addAttr -ln "time0_sec" -at "float" ctrl_box;
+  
+  //setAttr "ctrl_box.sudokuAutoHint" -type "string" "0"; // set auto hint on for now
+  //----------------ctrl_box done
+  
+  setAttr ctrl_box.visibility 0;
+  setAttr ($cube[0]+".visibility") 0;
+  rename $cube[0] "so_template";
+  
+  //make camera
+  camera -centerOfInterest 5 -focalLength 30 -lensSqueezeRatio 1 -cameraScale 1 -horizontalFilmAperture 1.41732 -horizontalFilmOffset 0 -verticalFilmAperture 0.94488 -verticalFilmOffset 0 -filmFit Fill -overscan 1 -motionBlur 0 -shutterAngle 144 -nearClipPlane 0.01 -farClipPlane 1000 -orthographic 0 -orthographicWidth 30;
+  objectMoveCommand;
+  cameraMakeNode 2 "";
+  string $cameraBits[] = `ls -sl`;
+  string $cam = `rename $cameraBits[0] "sudo_Cam"`;
+  string $aim = `rename $cameraBits[1] "sudo_CamAim"`;
+  setAttr "ctrl_box.sudokuCam" -type "string" $cam;
+  setAttr "ctrl_box.sudokuAim" -type "string" $aim;
+  move -r 5 5 17.5 $cam;
+  move -a 5.5 5 0 $aim;
+  
+  // First get the panel that currently has focus
+  string $panel = `getPanel -wf`;
+  if ( "modelPanel" == `getPanel -to $panel` ) {
+    modelEditor -e -camera $cam $panel; // Compare the panel's type to confirm it is a "modelPanel"
+    modelEditor -e -grid 0 $panel;
+    DisplayShadedAndTextured;
+  }
+  //so_clearGame;
+
+}
+
+// from bonus tools
+global proc so_clearUI(){
+   global string $gMainWindow;
+   //contains procs for setting prefs
+	source createPrefWndUI.mel;
+   toggleMenuBarsInPanels false;
+	window -e -mbv false $gMainWindow;
+	HideUIElements;
+	optionVar -iv LT_uiVisibility 0;
+}
+
+global proc so_restoreUI(){
+   global string $gMainWindow;
+   //contains procs for setting prefs
+	source createPrefWndUI.mel;
+   toggleMenuBarsInPanels true;
+	window -e -mbv true $gMainWindow;
+	RestoreUIElements;
+	optionVar -iv LT_uiVisibility 1;
+}
+
+//
+global proc float[] getDateTimeNow ()
+{
+  string $date[];
+  string $time[];
+  
+	$pipe = popen( ("date"), "r" );	
+ 	while ( !feof( $pipe ) ) {
+		$date[size( $date )] = fgetline( $pipe );
+	}
+	pclose( $pipe );
+  
+  $pipe = popen( ("time"), "r" );	
+ 	while ( !feof( $pipe ) ) {
+		$time[size( $time )] = fgetline( $pipe );
+	}
+	pclose( $pipe );
+  
+  string $dbuffer[];
+  tokenize $date[0] " /" $dbuffer;
+  string $tbuffer[];
+  tokenize $time[0] " :" $tbuffer;
+  
+  float $dateTime[] = {};
+  $dateTime[0] = $dbuffer[size($dbuffer)-2];
+  $dateTime[1] = $dbuffer[size($dbuffer)-3];
+  $dateTime[2] = $dbuffer[size($dbuffer)-4];
+  
+  $dateTime[3] = $tbuffer[size($tbuffer)-3];
+  $dateTime[4] = $tbuffer[size($tbuffer)-2];
+  $dateTime[5] = $tbuffer[size($tbuffer)-1];
+  
+	return $dateTime;
+}
+
+global proc so_timeStart(){
+  float $startTime[] = `getDateTimeNow`;
+  //print "game started:\n";
+  //print $startTime;
+  setAttr "ctrl_box.time0_y" $startTime[0];
+  setAttr "ctrl_box.time0_m" $startTime[1];
+  setAttr "ctrl_box.time0_d" $startTime[2];
+  setAttr "ctrl_box.time0_h" $startTime[3];
+  setAttr "ctrl_box.time0_min" $startTime[4];
+  setAttr "ctrl_box.time0_sec" $startTime[5];
+}
+
+global proc so_timeFinish(){
+  float $end[] = `getDateTimeNow`;
+  //print "game finished:\n";
+  //print $end;
+  
+  float $start[]={};
+  $start[0] = `getAttr "ctrl_box.time0_y"`;
+  $start[1] = `getAttr "ctrl_box.time0_m"`;
+  $start[2] = `getAttr "ctrl_box.time0_d"`;
+  $start[3] = `getAttr "ctrl_box.time0_h"`;
+  $start[4] = `getAttr "ctrl_box.time0_min"`;
+  $start[5] = `getAttr "ctrl_box.time0_sec"`;
+  
+  print "started at:\n";
+  print $start;
+  float $elapsed[] = {};
+  for ($e=0;$e<size($start);$e++) $elapsed[$e] = $end[$e]-$start[$e];
+  
+  //fix seconds
+  if ($elapsed[5]<0){
+    $elapsed[5]=$elapsed[5]+60;
+    $end[4]=$end[4]-1;
+    $elapsed[4]=$end[4]-$start[4];
+  }
+  
+  //fix minutes
+  if ($elapsed[4]<0){
+    $elapsed[4]=$elapsed[4]+60;
+    $end[3]=$end[3]-1;
+    $elapsed[3]=$end[3]-$start[3];
+  }
+  
+  //fix hours
+  if ($elapsed[3]<0){
+    $elapsed[3]=$elapsed[3]+24;
+    $end[2]=$end[2]-1;
+    $elapsed[2]=$end[2]-$start[2];
+  }
+  
+  
+  //print "time taken\n";
+  //print $elapsed;
+  string $msg = "hooray! it's finished and it took you:\n\n";
+  if ($elapsed[3]) $msg+=($elapsed[3]+" hours,\n");
+  if ($elapsed[4]) $msg+=($elapsed[4]+" minutes,\n");
+  if ($elapsed[5]) $msg+=($elapsed[5]+" seconds!");
+  confirmDialog -m $msg -b "hooray!";
+}
+
+global proc string[] so_fileRead(string $file, int $stripBreaks){
+  string $contents[]= {};
+  $fileId=fopen($file,"r");  
+  string $nextLine = `fgetline $fileId`;
+    while ( size( $nextLine ) > 0 ) {
+      if ($stripBreaks) $nextLine = `substitute "\n$" $nextLine ""`;
+      $contents[size($contents)]= $nextLine;
+      $nextLine = `fgetline $fileId`;
+    }
+  fclose $fileId;
+  return $contents;
+}
+
+global proc string[] so_fileWrite(string $file, string $contents[], int $addBreaks){
+  $fileId=fopen($file,"w");
+  for ($c=0;$c<size($contents);$c++){
+    if ($addBreaks) $contents[$c] = $contents[$c] + "\n";
+    fprint $fileId $contents[$c];
+  }
+  fflush $fileId;
+  fclose $fileId;
+  return $contents;
+}
+
+global proc string so_getPath(){
+  string $path = `optionVar -q so_path`;
+  if ($path == "default"){
+    $path = `whatIs simodoku`;
+    $path = `substitute "^Mel procedure found in: " $path ""`;
+    $path = `substitute "simodoku.mel$" $path ""`;
+  }
+  return $path;
+}

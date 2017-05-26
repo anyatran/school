@@ -1,0 +1,49 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Velvet Shader
+''    Author:  
+''    Last Updated: May 01, 2009
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/plugins/rendering/mental_ray/2752.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+////////////////////////////////////////////
+//                                    	//
+// COPYRIGHT (C) 2002 - 2004 DigiTeck3D   //
+// FILE NAME: AEvelvetTemplate.mel		//
+//                                    	//
+// AUTHOR: Miguel A Santiago        	//
+// EMAIL: miguel@digiteck3d.com		//
+//                                    	//
+// DATE: Sept 14, 2004             		//
+//                                    	//
+// DESCRIPTION: Velvet shader UI		//
+//							//
+////////////////////////////////////////////
+
+global proc AEvelvetTemplate( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+ 		AElambertCommon $nodeName;
+		editorTemplate -beginLayout "Velvet Shader Attributes" -collapse true;
+			editorTemplate -addControl "roughness"; 
+			editorTemplate -addControl "edginess";
+			editorTemplate -addControl "backscatter";
+			editorTemplate -addControl "specularColor"; 
+        	editorTemplate -endLayout;
+	      editorTemplate -beginLayout "Hardware Texturing" -collapse true;
+        	    AEhardwareTextureTemplate $nodeName
+                	("color transparency ambientColor incandescence "+
+	                 "normalCamera diffuse roughness ");
+        	editorTemplate -endLayout;
+		editorTemplate -addExtraControls;  
+	editorTemplate -endScrollLayout;
+	editorTemplate -suppress "caching";
+	editorTemplate -suppress "nodeState";
+}

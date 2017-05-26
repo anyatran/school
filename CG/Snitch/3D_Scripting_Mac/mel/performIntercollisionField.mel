@@ -1,0 +1,200 @@
+//
+// Mel by Lalo
+//
+
+// references:	performDynamics.mel
+//		dynCreateLayout.mel
+//		dynApplyCallback.mel
+//		getOptionBox.mel
+
+source performDynamics.mel;
+
+global proc intercollisionFieldSetOptionVars ( int $setFactorySettings )
+{
+	if ( $setFactorySettings || !`optionVar -exists intercollisionName` ) 
+	{
+		optionVar -stringValue intercollisionName ""; 
+	} 
+	if ( $setFactorySettings || !`optionVar -exists intercollisionBounciness` ) 
+	{
+		optionVar -floatValue intercollisionBounciness 1.0; 
+	} 
+	if ( $setFactorySettings || !`optionVar -exists intercollisionHandleInterpenetration` ) 
+	{
+		optionVar -intValue intercollisionHandleInterpenetration true; 
+	} 
+	if ( $setFactorySettings || !`optionVar -exists intercollisionInterpenetrationRepulsion` ) 
+	{
+		optionVar -floatValue intercollisionInterpenetrationRepulsion 1.0; 
+	} 
+}
+
+global proc intercollisionFieldSetOptionControls ( string $parent, int $setFactorySettings )
+{
+	// Retrieve the option settings
+	//
+	intercollisionFieldSetOptionVars ( $setFactorySettings );
+	
+	setParent $parent;
+	
+	// Query the optionVar's and set the values into the controls
+	//	
+	textFieldGrp -e 
+		-text `optionVar -query intercollisionName` 
+		intercollisionName;
+	floatSliderGrp -e 
+		-v `optionVar -query intercollisionBounciness` 
+		intercollisionBounciness;
+	checkBoxGrp -e 
+		-v1 `optionVar -query intercollisionHandleInterpenetration`
+		intercollisionHandleInterpenetration;
+	floatSliderGrp -e 
+		-v `optionVar -query intercollisionInterpenetrationRepulsion` 
+		intercollisionInterpenetrationRepulsion;
+
+	// Enable/disable the Interpenetration Repulsion float slider
+	floatSliderGrp -e -enable `optionVar -q intercollisionHandleInterpenetration` intercollisionInterpenetrationRepulsion;
+}
+
+global proc intercollisionFieldApplyCallback ( string $parent, int $executeCmd )
+{
+	global int $dynIsCreate;
+
+	setParent $parent;
+
+	optionVar -stringValue intercollisionName `textFieldGrp -q -text intercollisionName`;
+	optionVar -floatValue intercollisionBounciness `floatSliderGrp -q -v intercollisionBounciness`;
+	optionVar -intValue intercollisionHandleInterpenetration `checkBoxGrp -q -v1 intercollisionHandleInterpenetration`;
+	optionVar -floatValue intercollisionInterpenetrationRepulsion `floatSliderGrp -q -v intercollisionInterpenetrationRepulsion`;
+
+	if ( $executeCmd )
+	{
+		performIntercollisionField $dynIsCreate 0;
+		string $lastCmd = "performIntercollisionField " + $dynIsCreate + " 0";
+		addToRecentCommandQueue $lastCmd "Intercollision";
+	}
+}
+
+global proc createIntercollisionLayout ( string $parent )
+{
+    textFieldGrp -l "Intercollision Field Name" intercollisionName;
+
+    separator;
+   
+ 	floatSliderGrp -label "Bounciness"
+		-ann "How much of the particle's velocity is reflected after collisions"
+		-field true
+		-min 0.0 -max 1.0
+		-pre 3 -step 0.1
+		intercollisionBounciness;
+
+    separator;
+
+ 	string $HIcBG = `checkBoxGrp -l "Handle Interpenetration" 
+		-ann "If true, try to separate interpenetrating particles"
+ 		-ncb 1 -l1 ""
+ 		intercollisionHandleInterpenetration`;
+
+ 	string $IRfSG = `floatSliderGrp -label "Interpenetration Repulsion"
+		-ann "The amount of separation applied to interpenetrating particles"
+		-field true
+		-min 0.0 -max 1.0
+		-pre 3 -step 0.1
+		-enable false
+		intercollisionInterpenetrationRepulsion`;
+
+ 	checkBoxGrp -edit
+ 		-on1 ( "floatSliderGrp -edit -enable true " + $IRfSG )
+ 		-of1 ( "floatSliderGrp -edit -enable false " + $IRfSG )
+ 		$HIcBG;
+
+    separator;
+}
+
+global proc createIntercollisionFieldOptions ()
+{
+    string $setOptionControls = "intercollisionFieldSetOptionControls ";
+    string $applyCallback = "intercollisionFieldApplyCallback ";
+    string $layout = getOptionBox();
+    setParent $layout;
+    setUITemplate -pushTemplate DefaultTemplate;
+    waitCursor -state 1;
+    tabLayout -scr true -tv false;
+    string $parent = `columnLayout -adjustableColumn 1`;
+    dynCreateLayout $parent "Intercollision" 1;
+    waitCursor -state 0;
+    setUITemplate -popTemplate;
+    string $applyBtn = getOptionBoxApplyBtn();
+    $executeCmd = 1;
+    button -edit -l "Create" -command ($applyCallback + " " + $parent + " " + $executeCmd) $applyBtn;
+    string $saveBtn = getOptionBoxSaveBtn();
+    $executeCmd = 0;
+    button -edit -command ($applyCallback + " " + $parent + " " + $executeCmd + "; hideOptionBox") $saveBtn;
+    string $resetBtn = getOptionBoxResetBtn();
+    $resetToDefaults = 1;
+    button -edit -command ($setOptionControls + " " + $parent + " " + $resetToDefaults) $resetBtn;
+    setOptionBoxTitle "Intercollision Options";
+    $resetToDefaults = 0;
+    eval (($setOptionControls + " " + $parent + " " + $resetToDefaults));      
+    showOptionBox();
+}
+
+global proc string[] intercollisionField ( string $name, float $bounciness,
+				int $handleInterpenetration, float $interpenetrationRepulsion )
+{
+	if ( ! `pluginInfo -query -loaded intercollisionField` )
+		loadPlugin intercollisionField;
+
+	string $field;
+	if ( $name != "" )
+		$field = `createNode -n $name intercollisionField`;
+	else
+		$field = `createNode intercollisionField`;
+	setAttr ( $field + ".bounciness" ) $bounciness;
+	setAttr ( $field + ".handleInterpenetration" ) $handleInterpenetration;
+	setAttr ( $field + ".interpenetrationRepulsion" ) $interpenetrationRepulsion;
+
+	return {$field};
+}
+
+global proc string setIntercollisionCmdString ()
+{
+	string $cmd = "intercollisionField ";
+	string $name = `optionVar -query intercollisionName`;
+	if ( $name != "" )
+		$cmd = $cmd + $name + " ";
+	else
+		$cmd = $cmd + "intercollisionField1 ";
+	$cmd = $cmd + `optionVar -query intercollisionBounciness` + " ";
+	$cmd = $cmd + `optionVar -query intercollisionHandleInterpenetration` + " ";
+	$cmd = $cmd + `optionVar -query intercollisionInterpenetrationRepulsion`;
+
+	return $cmd;
+}
+
+global proc string performIntercollisionField ( int $createFlag, int $flag )
+{
+	string $cmd;
+
+	if ( $flag == 1 )
+	    	// Create the options box and set the values of the
+	    	// controls based on the option vars.
+	    	//
+	    	createIntercollisionFieldOptions ();
+	else
+	{
+		// Create and set the option vars, if they don't exist already.
+		// The second arg means don't reset the values to default if the
+		// option vars already exist.
+		//
+		intercollisionFieldSetOptionVars ( false );
+
+		$cmd = setIntercollisionCmdString ();
+		if ($flag == 0)
+			dynExecuteFieldCommands ( $createFlag, $cmd );
+		else if ( $createFlag )
+			$cmd = dynSetCreateFieldShelfCommand ( $cmd );
+	}
+
+	return $cmd;
+}

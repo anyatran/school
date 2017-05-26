@@ -1,0 +1,49 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRaddStretchFactorContainer.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jan 27, 2009
+//					created: Jan 27, 2009
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+//  create an empty transform to hold the stretch curve values as an animation curve
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRaddStretchFactorContainer ( string $attr, int $mid, int $last, float $startVal,
+												float $midVal, string $charName )
+{
+	string $scaleHolder = ("characterScale_grp" + $charName);
+	if (!`objExists $scaleHolder`)
+	{
+		//create an empty group for the character scale
+		rename (`CreateEmptyGroup`) $scaleHolder;
+		//alias the scale y with the scale value name
+		aliasAttr "rescale" ($scaleHolder + ".sy");
+		connectAttr -f ($scaleHolder + ".rescale") ($scaleHolder + ".sx");
+		connectAttr -f ($scaleHolder + ".rescale") ($scaleHolder + ".sz");
+		icCRlockHideAttr ( $scaleHolder, "tx,ty,tz,rx,ry,rz,sx,sz,v");
+		addAttr -ln "height" -at "float" -k 1 ("characterScale_grp" + $charName);
+		addAttr -ln "limbsStretchScale" -k 1 -at "enum" -en "Curves:" $scaleHolder;
+		setAttr -l 1 ($scaleHolder + ".limbsStretchScale");
+	}
+
+	addAttr -ln $attr -at "float" -k 1 $scaleHolder;
+	setKeyframe -t 1 -v $startVal -itt "flat" -ott "flat" -at $attr $scaleHolder;
+	setKeyframe -t $mid -v $midVal -itt "flat" -ott "flat" -at $attr $scaleHolder;
+	setKeyframe -t $last -v $startVal -itt "flat" -ott "flat" -at $attr $scaleHolder;
+}

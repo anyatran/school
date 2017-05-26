@@ -1,0 +1,1 @@
+//Make My Locatorstring $locMkr[]= `spaceLocator`;string $rnmLoc = `rename $locMkr "loc"`;

@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="593.27734"
+   height="1036.7266"
+   id="svg1378"
+   sodipodi:version="0.32"
+   inkscape:version="0.47 r22583"
+   sodipodi:docname="robot_rg1024.svg"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape"
+   sodipodi:modified="true"
+   version="1.0">
+  <defs
+     id="defs1380">
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="0 : 394.44937 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_z="529.25897 : 394.44937 : 1"
+       inkscape:persp3d-origin="264.62949 : 262.96625 : 1"
+       id="perspective2534" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.25"
+     inkscape:cx="97.660409"
+     inkscape:cy="141.14055"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     inkscape:window-width="1600"
+     inkscape:window-height="838"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     showgrid="false"
+     showguides="true"
+     inkscape:guide-bbox="true"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata1383">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Livello 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(27.630905,-38.088004)">
+    <g
+       id="g3625"
+       transform="matrix(1.0927559,0,0,1.0927559,-52.467052,-99.695408)">
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="rect1386"
+         d="m 179.2441,231.84782 c -13.56421,-23.49389 251.38998,-1.80857 251.38998,-1.80857 37.97978,-5.42567 15.56556,120.5023 -3.61713,153.72768 0,23.5113 -220.03808,22.20275 -245.96429,7.23425 0,0 14.00988,-131.75501 -1.80856,-159.15336 z"
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:7.51960993;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="rect2114"
+         d="m 157.58607,400.86685 c 52.82383,23.27124 367.51585,0.56876 326.69389,7.9136 -29.34979,41.3416 -16.72344,279.84779 -16.72344,279.84779 -21.70273,-19.89418 -164.1053,-25.23859 -330.92055,-6.27255 1.04744,-29.41986 20.9501,-281.48884 20.9501,-281.48884 z"
+         style="fill:none;stroke:#000000;stroke-width:6.39159012;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="rect2842"
+         d="m 67.337124,435.99401 c 36.521626,-11.20178 66.620676,-6.51043 66.620676,-6.51043 l -11.00287,214.93731 -82.807638,-9.67181 c 0,0 32.615514,-160.77529 27.189832,-198.75507 z"
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:7.51960993;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="rect2844"
+         d="m 485.45622,437.22937 c 54.23884,-11.25847 66.63927,0.99494 66.63927,0.99494 0,0 -10.57102,124.83999 9.96072,215.21595 l -80.7928,4.02259 c 12.65993,-108.51366 -10.15904,-168.65633 4.19281,-220.23348 z"
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:7.18049002;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="rect2846"
+         d="m 193.7126,700.2651 c 39.93195,-23.05472 94.04517,-5.42569 94.04517,-5.42569 l 0,307.45539 c 0,0 -31.14207,-8.51437 -106.7051,0 3.61713,-27.12839 12.65993,-302.0297 12.65993,-302.0297 z"
+         style="fill:#ffffff;fill-opacity:0.97058818;fill-rule:evenodd;stroke:#000000;stroke-width:7.51999998;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="rect2848"
+         d="m 421.91199,695.16981 c -30.0692,-16.58475 -99.43269,-6.08504 -99.43269,-6.08504 10.87942,50.46649 -2.03837,307.44867 -2.03837,307.44867 47.02259,1.80856 33.7033,-2.3813 99.54063,-10.19168 -1.60469,-30.75684 -5.47151,-265.90062 1.93043,-291.17195 z"
+         style="fill:#ffffff;fill-opacity:0.97058818;fill-rule:evenodd;stroke:#000000;stroke-width:7.51960993;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         transform="matrix(0.796074,0,0,0.788107,459.056,16.0314)"
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="csssc"
+         id="path2858"
+         d="m -210.11173,347.2757 c 0,25.64979 -18.55448,46.46701 -41.41625,46.46701 -22.86178,0 -41.41626,-20.81722 -41.41626,-46.46701 0,-25.6498 26.16799,-52.87575 49.02977,-52.87575 22.86177,0 33.80274,27.22595 33.80274,52.87575 z"
+         style="fill:#ffffff;fill-opacity:0.94117599;fill-rule:evenodd;stroke:#000000;stroke-width:8.39999962;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="rect2862"
+         d="m 244.35229,385.5755 20.20447,-0.95914 5.11538,40.74748 -25.31985,0 0,-39.78834 z"
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:7.51960993;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="rect2864"
+         d="m 376.38666,386.84493 19.88475,-2.17372 0,46.11831 -22.76216,-2.87741 2.87741,-41.06718 z"
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:7.51960993;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="path2868"
+         d="m 358.83078,654.78151 19.88475,4.15625 -3.61712,35.26694 -19.14504,8.87824 2.87741,-48.30143 z"
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:7.51960993;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="path2870"
+         d="m 230.42294,658.39863 19.88476,4.15626 0.90428,43.40546 -23.66644,-6.49453 2.8774,-41.06719 z"
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:7.51960993;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="path2872"
+         d="m 497.01953,449.12315 8.37933,21.74678 -50.08998,0.52851 -3.4979,-24.60694 45.20855,2.33165 z"
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:7.88634014;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="path2874"
+         d="m 160.80996,444.7626 0.34732,20.31152 -38.8018,8.80521 -2.23124,-22.83456 40.68572,-6.28217 z"
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:7.51960993;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         style="fill:#ffffff;fill-opacity:0.94117599;fill-rule:evenodd;stroke:#000000;stroke-width:6.65347576;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0"
+         d="m 339.50964,282.85156 c 2.36487,-20.07596 18.9535,-34.64152 37.02819,-32.51239 18.0747,2.12913 30.8247,20.15066 28.45983,40.22662 -2.36487,20.07599 -25.56368,38.94857 -43.63838,36.81944 -18.07469,-2.12912 -24.21452,-24.45768 -21.84964,-44.53367 z"
+         id="path2551"
+         sodipodi:nodetypes="csssc" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         style="fill:#ffffff;fill-opacity:0.94117599;fill-rule:evenodd;stroke:none"
+         d="m 378.54376,471.72761 c 0.59813,-5.275 4.79376,-9.10213 9.36524,-8.5427 4.57149,0.55944 7.79624,5.29463 7.19812,10.56963 -0.59813,5.27501 -6.46562,10.23382 -11.03711,9.67439 -4.57148,-0.55944 -6.12437,-6.42631 -5.52625,-11.70132 z"
+         id="path2555"
+         sodipodi:nodetypes="csssc" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         id="path3331"
+         d="m 375.79876,646.44044 69.70052,19.1929 9.09137,-88.89343 c 0,0 -6.06091,45.45687 -25.25381,59.599 -19.1929,14.14214 -58.58885,11.11168 -53.53808,10.10153 z"
+         style="fill:#ffffff;fill-opacity:0.75;fill-rule:evenodd;stroke:none" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccc"
+         id="path3343"
+         d="m 338.4961,348.9724 1.26514,27.26236 -53.74748,6.9023 0,-34.16466 52.48234,0 z"
+         style="fill:#ffffff;fill-opacity:0.78431396;fill-rule:evenodd;stroke:#000000;stroke-width:7.51960993;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dashoffset:0" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="ccccccccc"
+         transform="translate(36.3875,217.156)"
+         id="rect3345"
+         d="m 250.67283,141.89874 49.15434,4.5 c 0.0957,0 0.17283,0.0771 0.17283,0.17284 l 0,8.15433 c 0,0.0958 -0.0771,0.17283 -0.17283,0.17283 l -47.65434,0 c -0.0958,0 0.32717,2.42292 0.32717,2.32717 L 252,146.57158 c 0,-0.0958 -1.42292,-4.67284 -1.32717,-4.67284 z"
+         style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:4;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         transform="translate(36.3875,217.156)"
+         d="m 240,60.898743 c 0,10.49341 -6.49187,19 -14.5,19 -8.00813,0 -14.5,-8.50659 -14.5,-19 0,-10.493411 6.49187,-19 14.5,-19 8.00813,0 14.5,8.506589 14.5,19 z"
+         sodipodi:ry="19"
+         sodipodi:rx="14.5"
+         sodipodi:cy="60.898743"
+         sodipodi:cx="225.5"
+         id="path3348"
+         style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:4;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+         sodipodi:type="arc" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:type="arc"
+         style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:4;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+         id="path3350"
+         sodipodi:cx="225.5"
+         sodipodi:cy="60.898743"
+         sodipodi:rx="14.5"
+         sodipodi:ry="19"
+         d="m 240,60.898743 c 0,10.49341 -6.49187,19 -14.5,19 -8.00813,0 -14.5,-8.50659 -14.5,-19 0,-10.493411 6.49187,-19 14.5,-19 8.00813,0 14.5,8.506589 14.5,19 z"
+         transform="translate(146.3875,217.156)" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:nodetypes="cccc"
+         transform="translate(36.3875,217.156)"
+         id="path3352"
+         d="m 185.26198,-58.215181 c 42.42641,8.48528 87.68124,67.8822506 87.68124,67.8822506 L 247.48737,8.252856 185.26198,-58.215181 z"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         transform="translate(56.3875,283.156)"
+         d="m 176.7767,-126.80454 c 0,8.20101 -6.64823,14.84924 -14.84924,14.84924 -8.20101,0 -14.84924,-6.64823 -14.84924,-14.84924 0,-8.20101 6.64823,-14.84924 14.84924,-14.84924 8.20101,0 14.84924,6.64823 14.84924,14.84924 z"
+         sodipodi:ry="14.849242"
+         sodipodi:rx="14.849242"
+         sodipodi:cy="-126.80454"
+         sodipodi:cx="161.92746"
+         id="path3354"
+         style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+         sodipodi:type="arc" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         d="m 440.96781,150.45554 c -42.42641,8.48528 -120.20815,74.95332 -120.20815,74.95332 l 25.45585,-1.41421 94.7523,-73.53911 z"
+         id="path3356"
+         sodipodi:nodetypes="cccc" />
+      <path
+         inkscape:export-ydpi="90"
+         inkscape:export-xdpi="90"
+         inkscape:export-filename="/media/disk/clases_pef2009/programacion/robotijo.png"
+         sodipodi:type="arc"
+         style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+         id="path3358"
+         sodipodi:cx="161.92746"
+         sodipodi:cy="-126.80454"
+         sodipodi:rx="14.849242"
+         sodipodi:ry="14.849242"
+         d="m 176.7767,-126.80454 c 0,8.20101 -6.64823,14.84924 -14.84924,14.84924 -8.20101,0 -14.84924,-6.64823 -14.84924,-14.84924 0,-8.20101 6.64823,-14.84924 14.84924,-14.84924 8.20101,0 14.84924,6.64823 14.84924,14.84924 z"
+         transform="matrix(-1,0,0,1,607.70288,269.74179)" />
+      <path
+         transform="translate(36.387487,126.08801)"
+         id="path2901"
+         d="M 25.455844,512.27109 -9.8994949,540.55536 2.8284271,605.60918 16.970563,597.1239 11.313709,549.04064 41.012193,532.07008 25.455844,512.27109 z"
+         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:7.51999998;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:7.51999998;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+         d="m 74.571253,639.53067 35.355337,28.28427 -12.72792,65.05382 -14.142136,-8.48528 5.656854,-48.08326 -29.698484,-16.97056 15.556349,-19.79899 z"
+         id="path3675" />
+      <path
+         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:7.51999998;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
+         d="m 517.2201,649.67281 -35.35534,28.28427 12.72792,65.05382 14.14214,-8.48528 -5.65686,-48.08326 29.69849,-16.97056 -15.55635,-19.79899 z"
+         id="path3677" />
+      <path
+         id="path3679"
+         d="m 525.94802,650.84438 35.35534,28.28427 -12.72792,65.05382 -14.14214,-8.48528 5.65686,-48.08326 -29.69849,-16.97056 15.55635,-19.79899 z"
+         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:7.51999998;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         sodipodi:nodetypes="ccccc"
+         id="rect3681"
+         d="m 201.38749,1009.0546 64,1 32,56 -144,-4 48,-53 z"
+         style="fill:#ffffff;fill-opacity:0.97058818;stroke:#000000;stroke-width:7.51999998;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:1" />
+      <path
+         style="fill:#ffffff;fill-opacity:0.97058818;stroke:#000000;stroke-width:7.51999998;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:1"
+         d="m 341.38749,1002.0546 64,1.2105 32,67.7895 -124,-4.8421 28,-64.1579 z"
+         id="path3686"
+         sodipodi:nodetypes="ccccc" />
+      <path
+         transform="translate(36.387487,126.08801)"
+         id="path3694"
+         d="m 165,633.96661 26,-12"
+         style="fill:none;stroke:#000000;stroke-width:6;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path3696"
+         d="m 209.38749,737.05462 11,36"
+         style="fill:none;stroke:#000000;stroke-width:6;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+    </g>
+  </g>
+</svg>

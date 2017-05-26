@@ -1,0 +1,58 @@
+
+
+//
+//
+// For use with the optGroundPlane node
+//
+// Jeremy Pronk - 28/07/2002
+// jeremy@emeraldcitydesign.com
+
+global proc createOptGroundPlane ( int $patchSpansU, int $patchSpansV )
+{
+	//
+	// cam (use one if it is selected)
+	string $camNames[];
+	select -hi;
+	string $selectedCamera[] = `ls -selection -showType`;
+	if ( $selectedCamera[3] == "camera" )
+	{
+		print( "Using selected camera " + $selectedCamera[2] + "\n");
+		$camNames[0] = $selectedCamera[0];
+		$camNames[1] = $selectedCamera[2];
+	}
+	else
+	{
+		print( "Creating new camera\n");
+		$camNames = eval( "camera" );
+	}
+
+	//
+	// displacement texture
+	string $textureName = eval( "shadingNode -asTexture ocean" );
+	string $texturePlace = eval( "shadingNode -asUtility place2dTexture" );
+	eval( "connectAttr " + $texturePlace + ".outUV " + $textureName + ".uv" );
+	eval( "connectAttr " + $texturePlace + ".outUvFilterSize " + $textureName + ".uvFilterSize" );
+	eval( "expression -s \"" + $textureName + ".time=time;\"  -o " + $textureName + " -ae 1 -uc all" );
+
+	//
+	// mesh geo
+	string $meshName[] = eval( "nurbsPlane -p 0 0 0 -ax 0 1 0 -w 1 -lr 1 -d 3 -u " + $patchSpansU + " -v " + $patchSpansV + " -ch 1" );
+	//eval( "rebuildSurface -ch 1 -rpo 1 -rt 0 -end 1 -kr 0 -kcp 0 -kc 0 -su " + $patchSpansU + " -du 3 -sv " + $patchSpansV + " -dv 3 -tol 0.01  -dir 2 \"" + $meshName[0] + "\"");
+
+	//
+	// optGroundPlane
+	string $optGroundPlaneName[] = eval( "deformer -type optGroundPlane " + $meshName[0] );
+
+	//
+	// connections to optGroundPlane
+	eval( "setAttr " + $optGroundPlaneName[0] + ".textureName -type \"string\" " + $textureName + ".outColor" );
+	eval( "connectAttr -f " + $camNames[0] + ".worldMatrix[0] " + $optGroundPlaneName[0] + ".camWorldMatrix" );
+	eval( "connectAttr -f " + $camNames[1] + ".farClipPlane " + $optGroundPlaneName[0] + ".camClipPlane" );
+	eval( "expression -s \"" + $optGroundPlaneName[0] + ".frame = frame;\"  -o " + $optGroundPlaneName[0] + " -ae 1 -uc all" );
+	eval( "expression -s \"" + $optGroundPlaneName[0] + ".cameraHorizFOV = `camera -q -horizontalFieldOfView " + $camNames[1] + "`;\"  -o " + $optGroundPlaneName[0] + " -ae 1 -uc all" );
+	eval( "expression -s \"" + $optGroundPlaneName[0] + ".cameraVertFOV = `camera -q -verticalFieldOfView " + $camNames[1] + "`;\"  -o " + $optGroundPlaneName[0] + " -ae 1 -uc all" );
+
+
+	eval( "setAttr \"" + $camNames[1] + ".overscan\" 2.0;" );
+	eval( "setAttr \"" + $camNames[1] + ".displayFilmGate\" 1;" );
+}

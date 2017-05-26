@@ -1,0 +1,56 @@
+/* usage: makeUV_DefaultClr
+
+   makeUV_DefaultClr v.1.0
+   CyberArts Script File
+   Creation Date: 11/17/03
+   Update: ---
+   Author: Robert Rusick
+
+   Creates a 4 color ramp with no p2dTx.
+    black corner = min U&V
+      red corner = max U
+    green corner = max V
+   yellow corner = max U&V
+   
+   Hooks this up as the color of the initial shader.
+
+   Requires no parameters.
+   
+   Note that while I've called this a 'UV Color Ramp',
+   because its color correlates to the UV surface coordinates,
+   there *is* a ramp type called 'UV Ramp',
+   which this is definitely *not*.
+   
+   ---
+   
+
+   ==============================================================================
+           MAKE A UV PARAMETER COLOR RAMP AND CONNECT TO INITIAL SHADER
+   ============================================================================== 
+*/
+
+global proc string makeUV_DefaultClr ()
+{
+  string $notice = ( "Default notice from 'makeUV_DefaultClr' procedure; " + 
+                     "should get replaced by name of the created ramp..."
+                   );
+  string $name  = "UV_DefaultClr";
+  string $ramp  = `shadingNode -asTexture ramp -n ($name + "Ramp")`;
+
+  setAttr ($ramp + ".type") 7;  // four corner ramp
+
+  setAttr ($ramp + ".colorEntryList[1].position") 0.334;
+  setAttr ($ramp + ".colorEntryList[2].position") 0.667;
+  setAttr ($ramp + ".colorEntryList[3].position") 1.000;
+
+  setAttr ($ramp + ".colorEntryList[0].color") -type double3 0 0 0; //  black corner -- min U&V
+  setAttr ($ramp + ".colorEntryList[1].color") -type double3 1 0 0; //    red corner -- max U  
+  setAttr ($ramp + ".colorEntryList[2].color") -type double3 0 1 0; //  green corner -- max V  
+  setAttr ($ramp + ".colorEntryList[3].color") -type double3 1 1 0; // yellow corner -- max U&V
+  
+  // connect color to initial shader
+  connectAttr -force ($ramp + ".outColor") lambert1.color;
+
+  $notice = $ramp;
+  return $notice;
+}

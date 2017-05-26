@@ -1,0 +1,40 @@
+
+//
+//  Creation Date:	Jan 9, 2007
+//
+//  Procedure Name:
+//	AElimitMinMaxTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the limit node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+//	Author:		Morteza Ramezanali (xDreamer)
+//				www.cgdna.com - moto@cgdna.com
+
+global proc AElimitMinMaxTemplate ( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "Limit MinMax Attributes" -collapse 0;
+			editorTemplate -addControl "operation";
+			editorTemplate -addControl "input1D";
+			editorTemplate -addControl "output1D";
+			editorTemplate -addControl "input2D";
+			editorTemplate -addControl "output2D";
+			editorTemplate -addControl "input3D";
+			editorTemplate -addControl "output3D";
+		editorTemplate -endLayout;
+
+	// include/call base class/node attributes
+	AEdependNodeTemplate $nodeName;
+
+	editorTemplate -addExtraControls;
+	editorTemplate -endScrollLayout;
+}

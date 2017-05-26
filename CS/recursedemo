@@ -1,0 +1,31 @@
+.data
+    head: .asciiz  "Done\n"
+    .text
+main:
+  move $ra, $t0
+  addi $a0, $zero, 3
+  jal recurse
+  move $t0, $ra
+  
+  li $v0, 10
+  syscall
+  jr $ra
+
+recurse:
+  move $t0, $a0
+  beq $t0, $zero, myreturn
+  
+  subi $a0, $t0, 1
+  
+  subi $sp, $sp, 20
+  sw $ra, 0($sp)
+  jal recurse
+  lw $ra, 0($sp)
+  addi $sp, $sp, 20
+
+  myreturn:
+    
+    la   $a0, head        # load address of the print heading string
+    li   $v0, 4           # specify Print String service
+    syscall               # print the heading string
+    jr $ra

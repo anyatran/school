@@ -1,0 +1,161 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1265
+{\fonttbl\f0\fnil\fcharset0 Cambria;\f1\ftech\fcharset77 Symbol;\f2\fmodern\fcharset0 CourierNewPSMT;
+\f3\fnil\fcharset128 HiraKakuProN-W3;\f4\ftech\fcharset0 Wingdings-Regular;}
+{\colortbl;\red255\green255\blue255;}
+{\*\listtable{\list\listtemplateid1\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid1\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid2\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li1440\lin1440 }{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid3\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li2160\lin2160 }{\listname ;}\listid1}}
+{\*\listoverridetable{\listoverride\listid1\listoverridecount0\ls1}}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\ri720
+
+\f0\fs24 \cf0 Design \
+\
+\pard\pardeftab720\li720\fi-360\ri720
+\ls1\ilvl0
+\f1 \cf0 \'a5	
+\f0 Player Class\
+\pard\pardeftab720\li1440\fi-360\ri720
+\ls1\ilvl1
+\f2 \cf0 o	
+\f0 It is the class that represents the player that the user is controlling.\
+\ls1\ilvl1
+\f2 o	
+\f0 The only variable for the player is the position as nothing else changes about the player as the game continues.\
+\ls1\ilvl1
+\f2 o	
+\f0 The player class also contains the playerImage() method that portrays the player on the position where it is supposed to be located.\
+\ls1\ilvl1
+\f2 o	
+\f0 The player class also has a method called movePlayer() that moves \
+       the player according to the key is pressed (left, right) while still keeping the player at the bottom of the scene\
+\ls1\ilvl1
+\f2 o	
+\f0 The last method defined in the player class is called borders(). When the Player passes the left or right borders of the window, he just jumps to the other side of the window.\
+\
+\pard\pardeftab720\li720\fi-360\ri720
+\ls1\ilvl2
+\f1 \cf0 \'a5	
+\f0 Stone Class\
+\pard\pardeftab720\li1440\fi-360\ri720
+\ls1\ilvl1
+\f2 \cf0 o	
+\f0 This class represents one stone \
+\ls1\ilvl1
+\f2 o	
+\f0 The only variable for the stone is its position as nothing else changes about the stone as the game continues.\
+\ls1\ilvl1
+\f2 o	
+\f0 The stone class also contains the stoneImage() method that portrays the stone on the scene.\
+\ls1\ilvl1
+\f2 o	
+\f0 moveStone() is in charge of moving the stone by 6 px each tick. If the stone passed the bottom of the scene, it recycles back to top and fall again\
+\
+\ls1\ilvl1
+\f2 o	
+\f0 randomIntX() is a helper functions that creates a random number in the interval of -10 to the  width border of the window.\
+\pard\pardeftab720\li2160\fi-360\ri720
+\ls1\ilvl2
+\f3 \cf0 \uc0\u9827 
+\f4 	
+\f0 randomIntX creates a random number that will become the x position of the new recycled stone.\
+\pard\pardeftab720\li1440\fi-360\ri720
+\ls1\ilvl1
+\f2 \cf0 o	
+\f0 randomIntY is a helper functions that creates a random number in the range of -100 to 0.\
+\pard\pardeftab720\li2160\fi-360\ri720
+\ls1\ilvl2
+\f3 \cf0 \uc0\u9827 
+\f4 	
+\f0 randomIntY creates a random number that will become the Y position of the new stone, from where it will start falling. \
+\pard\pardeftab720\li1440\fi-360\ri720
+\ls1\ilvl1
+\f2 \cf0 o	
+\f0 back() checks if the Stone has hit the bottom and if it has it then recreates a new stone at the top of the screen.\
+\ls1\ilvl1
+\f2 o	
+\f0 Hit () takes in the position of a player and checks if the stone has hitter the player if the distance between the stone and the player is smaller than the given number\
+\ls1\ilvl1
+\f2 o	
+\f0 Distance() takes the players position and calculates the distance between a player and a stone, it is also a helper function to hit. \
+\pard\pardeftab720\li720\fi-360\ri720
+\ls1\ilvl1
+\f1 \cf0 \'a5	
+\f0 ILos interface\
+\pard\pardeftab720\li1440\fi-360\ri720
+\ls1\ilvl1
+\f2 \cf0 o	
+\f0 It is the interface for the list of stones that will keep falling from the top of the window.\
+\ls1\ilvl1
+\f2 o	
+\f0 It includes moveAllStones, drawStones, and getHit, which are all implemented by the classes in the interface.\
+\pard\pardeftab720\li720\fi-360\ri720
+\ls1\ilvl1
+\f1 \cf0 \'a5	
+\f0 MtLos Class (implements ILos)\
+\pard\pardeftab720\li1440\fi-360\ri720
+\ls1\ilvl1
+\f2 \cf0 o	
+\f0 Represents the empty list in the interface of a list of stones.\
+\ls1\ilvl1
+\f2 o	
+\f0 moveAllStones(): moves all the stones in a list, but because in this class it is an empty list, the function just returns the list back.\
+\ls1\ilvl1
+\f2 o	
+\f0 drawStones() takes in the list of images and the gameWorld and draws the stones from the list, but again because this class is an empty list, this function just returns the world image with the background and the player only\
+\ls1\ilvl1
+\f2 o	
+\f0 getHit() checks if any of the stones in the list has hit the player based on its position but because it is an empty list this function in this class will always return false.\
+\pard\pardeftab720\li720\fi-360\ri720
+\ls1\ilvl1
+\f1 \cf0 \'a5	
+\f0 ConsLos Class (implements ILos)\
+\pard\pardeftab720\li1440\fi-360\ri720
+\ls1\ilvl1
+\f2 \cf0 o	
+\f0 This class implements the interface ILOS and represents a non-empty list of stones.\
+\ls1\ilvl1
+\f2 o	
+\f0 It has two parts to the class, Stone first (the first stone in a list) and ILoS rest (which represents the rest of the stones in the list).\
+\ls1\ilvl1
+\f2 o	
+\f0 Here moveAllStones() takes the entire list of stones and moves all the stones in the list down using the function moveStone() from the Stone class.\
+\ls1\ilvl1
+\f2 o	
+\f0 drawStones() takes the GameWorld and draw all the stones in this list\
+\ls1\ilvl1
+\f2 o	
+\f0 getHit ()checks if any of the Stones in the list hit the player using the function hit() from the stone class.\
+\
+\pard\pardeftab720\li720\fi-360\ri720
+\ls1\ilvl1
+\f1 \cf0 \'a5	
+\f0 GameWorld Class (implements World)\
+\pard\pardeftab720\li1440\fi-360\ri720
+\ls1\ilvl1
+\f2 \cf0 o	
+\f0 This class extends the World from the imported java library.\
+\ls1\ilvl1
+\f2 o	
+\f0 It defines the window of the game as having a width of 400 and a height of 500.\
+\ls1\ilvl1
+\f2 o	
+\f0 It also takes in a player, and a list of stones.\
+\ls1\ilvl1
+\f2 o	
+\f0 onKeyEvent() represents the movePlayer() function from the player class in the gameWorld. It only in charge of moving the player but not the stones.\
+\ls1\ilvl1
+\f2 o	
+\f0 bg() takes the player\'92s image and the background and overlays the player onto the window.\
+\ls1\ilvl1
+\f2 o	
+\f0 makeimage() takes in the list of stones and bg() and overlays all the Stones on the image from bg()\
+\ls1\ilvl1
+\f2 o	
+\f0 lastImage draws the text that tells the user that the game is over, when the player is hit by a Stone.\
+\ls1\ilvl1
+\f2 o	
+\f0 onTick runs the function moveAllStones and makes the stones move.\
+\ls1\ilvl1
+\f2 o	
+\f0 worldEnds ends all running function and then the lastImage function when the Player is hit by a Stone\
+}

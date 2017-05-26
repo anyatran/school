@@ -1,0 +1,214 @@
+// --------------------------------------------------------------------------
+// randomizer.mel - MEL Script
+// --------------------------------------------------------------------------
+//
+// DESCRIPTION:
+//	A tool to easily assign random transform attributes and materials.
+//
+// USAGE:
+//	source "randomizer.mel";
+//
+// AUTHOR:
+//	Christian Staschinski - info@staschi.com - www.staschi.com
+//
+// COPYRIGHT:	
+//	Copyright © 2011 Christian Staschinski - All Rights Reserved.
+//
+// VERSION:
+//	1.00 - 07-01-11 - Initial Release.
+//
+// --------------------------------------------------------------------------
+
+// --------------------------------------------------------------------------
+// Start Procedure
+// --------------------------------------------------------------------------
+global proc randomizer_start()
+{
+	randomizer_deleteWindow();
+	randomizer_createUserInterface();
+}
+
+// --------------------------------------------------------------------------
+// Delete Window Procedure
+// --------------------------------------------------------------------------
+global proc randomizer_deleteWindow()
+{
+	if (`window -exists randomizer_window`)
+	{
+		print ("// randomizer: restart. //\n");
+		deleteUI -window randomizer_window;
+	}
+	else
+	{
+		print ("// randomizer: start. //\n");
+	}
+}
+
+// --------------------------------------------------------------------------
+// Create User Interface Procedure
+// --------------------------------------------------------------------------
+global proc randomizer_createUserInterface()
+{
+	// Create UI elements
+	window -t "randomizer" -s 0 -wh 248 700  -rtf 0 randomizer_window;
+		columnLayout -w 248 -h 700 mainColumnLayout;
+		separator -w 240 -h 10 -st "none" selectedTransformObjectsSeparator;
+		text -w 240 -h 24 -l "selected transform Objects" -al "center" -fn "boldLabelFont" selectedTransformObjectsText;
+		textScrollList -w 240 -h 40 selectedTransformObjectsTextScrollList;
+		button -w 240 -h 28 -l "load transform Objects" -c "randomizer_loadSelection(0)" loadObjectsButton;
+		separator -w 240 -h 10 -st "none" selectedMaterialsSeparator;
+		text -w 240 -h 24 -l "selected Materials" -al "center" -fn "boldLabelFont" selectedMaterialsText;
+		textScrollList -w 240 -h 40 selectedMaterialsTextScrollList;
+		button -w 240 -h 28 -l "load Materials" -c "randomizer_loadSelection(1)" loadMaterialsButton;
+		separator -w 240 -h 10 -st "none" transformAttributesSeparator;
+		text -w 240 -h 24 -l "randomize Attributes" -al "center" -fn "boldLabelFont" randomizeAttributesText;
+		checkBoxGrp -w 240 -h 24 -ncb 4 -l1 "Translate" -l2 "Rotate" -l3 "Scale" -l4 "Material" -cw 1 67 -cw 2 57 -cw 3 50 -cw 4 57 randomizeAttributesCheckBoxGrp;
+		separator -w 240 -h 10 -st "none" translateAttributesSeparator;
+		text -w 240 -h 24 -l "Translate" -al "center" -fn "boldLabelFont" translateText;
+		floatFieldGrp -bgc 0.25 0 0 -w 240 -h 24 -l "min X" -el "max X" -nf 2 -pre 3 -v1 0 -v2 0 -cw 1 60 -cw 2 60 -cw 3 60 -cw 4 60 minMaxXtranslateFloatFieldGrp;
+		floatFieldGrp -bgc 0 0.25 0 -w 240 -h 24 -l "min Y" -el "max Y" -nf 2 -pre 3 -v1 0 -v2 0 -cw 1 60 -cw 2 60 -cw 3 60 -cw 4 60 minMaxYtranslateFloatFieldGrp;
+		floatFieldGrp -bgc 0 0 0.25 -w 240 -h 24 -l "min Z" -el "max Z" -nf 2 -pre 3 -v1 0 -v2 0 -cw 1 60 -cw 2 60 -cw 3 60 -cw 4 60 minMaxZtranslateFloatFieldGrp;
+		separator -w 240 -h 10 -st "none" rotateAttributesSeparator;
+		text -w 240 -h 24 -l "Rotate" -al "center" -fn "boldLabelFont" rotateText;
+		floatFieldGrp -bgc 0.25 0 0 -w 240 -h 24 -l "min X" -el "max X" -nf 2 -pre 3 -v1 0 -v2 0 -cw 1 60 -cw 2 60 -cw 3 60 -cw 4 60 minMaxXrotateFloatFieldGrp;
+		floatFieldGrp -bgc 0 0.25 0 -w 240 -h 24 -l "min Y" -el "max Y" -nf 2 -pre 3 -v1 0 -v2 0 -cw 1 60 -cw 2 60 -cw 3 60 -cw 4 60 minMaxYrotateFloatFieldGrp;
+		floatFieldGrp -bgc 0 0 0.25 -w 240 -h 24 -l "min Z" -el "max Z" -nf 2 -pre 3 -v1 0 -v2 0 -cw 1 60 -cw 2 60 -cw 3 60 -cw 4 60 minMaxZrotateFloatFieldGrp;
+		separator -w 240 -h 10 -st "none" scaleAttributesSeparator;
+		text -w 240 -h 24 -l "Scale" -al "center" -fn "boldLabelFont" scaleText;
+		floatFieldGrp -bgc 0.25 0 0 -w 240 -h 24 -l "min X" -el "max X" -nf 2 -pre 3 -v1 1 -v2 1 -cw 1 60 -cw 2 60 -cw 3 60 -cw 4 60 minMaxXscaleFloatFieldGrp;
+		floatFieldGrp -bgc 0 0.25 0 -w 240 -h 24 -l "min Y" -el "max Y" -nf 2 -pre 3 -v1 1 -v2 1 -cw 1 60 -cw 2 60 -cw 3 60 -cw 4 60 minMaxYscaleFloatFieldGrp;
+		floatFieldGrp -bgc 0 0 0.25 -w 240 -h 24 -l "min Z" -el "max Z" -nf 2 -pre 3 -v1 1 -v2 1 -cw 1 60 -cw 2 60 -cw 3 60 -cw 4 60 minMaxZscaleFloatFieldGrp;
+		separator -w 240 -h 10 -st "none" randomizeSelectionSeparator;
+		button -w 240 -h 28 -l "randomize Selection" -c "randomizer_randomizeSelection" randomizeSelectionButton;
+		button -w 240 -h 28 -l "undo" -c "undo" undoButton;
+		iconTextButton -w 240 -h 28 -st "textOnly" -l "www.staschi.com" -c "randomizer_loadHelpWebsite" staschiIconTextButton;
+		setParent ..;
+	setParent ..;
+	// Display UI
+	showWindow randomizer_window;
+}
+
+// --------------------------------------------------------------------------
+// Load Selection Procedure
+// --------------------------------------------------------------------------
+global proc randomizer_loadSelection(int $_selectedType)
+{
+	global int $_selectedType=0;
+	string $loadedTransformObjects[] = `ls -sl -tr`;
+	int $numberOfTransformObjects = size($loadedTransformObjects);
+	string $loadedMaterial[] = `ls -sl -mat`;
+	int $numberOfMaterial = size($loadedMaterial);
+	int $i=0;
+	if ((!$_selectedType)&&($numberOfTransformObjects))
+	{
+		textScrollList -e -ra selectedTransformObjectsTextScrollList;
+		for($i;$i<$numberOfTransformObjects;$i++)
+		{
+			textScrollList -e -a $loadedTransformObjects[$i] selectedTransformObjectsTextScrollList;
+		}		
+	}
+	else if (($_selectedType)&&($numberOfMaterial))
+	{
+		textScrollList -e -ra selectedMaterialsTextScrollList;
+		for($i;$i<$numberOfMaterial;$i++)
+		{
+			textScrollList -e -a $loadedMaterial[$i] selectedMaterialsTextScrollList;
+		}
+	}	
+	else
+	{
+		print ("// randomizer: Not the right selection. List will not be updated. //\n");
+	}
+}
+// --------------------------------------------------------------------------
+// randomize Selection Procedure
+// --------------------------------------------------------------------------
+global proc randomizer_randomizeSelection()
+{
+	int $translateCheckbox = `checkBoxGrp -q -v1 randomizeAttributesCheckBoxGrp`;
+	int $rotateCheckbox = `checkBoxGrp -q -v2 randomizeAttributesCheckBoxGrp`;
+	int $scaleCheckbox = `checkBoxGrp -q -v3 randomizeAttributesCheckBoxGrp`;
+	int $materialCheckbox = `checkBoxGrp -q -v4 randomizeAttributesCheckBoxGrp`;
+	string $selectedTransformObjects[] = `textScrollList -q -ai selectedTransformObjectsTextScrollList`;
+	string $selectedMaterials[] = `textScrollList -q -ai selectedMaterialsTextScrollList`;
+	int $numberOfObjects = size($selectedTransformObjects);
+	int $numberOfMaterial = size($selectedMaterials);
+	float $minXtranslateRandomValue = `floatFieldGrp -q -v1 minMaxXtranslateFloatFieldGrp`;
+	float $maxXtranslateRandomValue = `floatFieldGrp -q -v2 minMaxXtranslateFloatFieldGrp`;
+	float $minYtranslateRandomValue = `floatFieldGrp -q -v1 minMaxYtranslateFloatFieldGrp`;
+	float $maxYtranslateRandomValue = `floatFieldGrp -q -v2 minMaxYtranslateFloatFieldGrp`;
+	float $minZtranslateRandomValue = `floatFieldGrp -q -v1 minMaxZtranslateFloatFieldGrp`;
+	float $maxZtranslateRandomValue = `floatFieldGrp -q -v2 minMaxZtranslateFloatFieldGrp`;
+	float $minXrotateRandomValue = `floatFieldGrp -q -v1 minMaxXrotateFloatFieldGrp`;
+	float $maxXrotateRandomValue = `floatFieldGrp -q -v2 minMaxXrotateFloatFieldGrp`;
+	float $minYrotateRandomValue = `floatFieldGrp -q -v1 minMaxYrotateFloatFieldGrp`;
+	float $maxYrotateRandomValue = `floatFieldGrp -q -v2 minMaxYrotateFloatFieldGrp`;
+	float $minZrotateRandomValue = `floatFieldGrp -q -v1 minMaxZrotateFloatFieldGrp`;
+	float $maxZrotateRandomValue = `floatFieldGrp -q -v2 minMaxZrotateFloatFieldGrp`;
+	float $minXscaleRandomValue = `floatFieldGrp -q -v1 minMaxXscaleFloatFieldGrp`;
+	float $maxXscaleRandomValue = `floatFieldGrp -q -v2 minMaxXscaleFloatFieldGrp`;
+	float $minYscaleRandomValue = `floatFieldGrp -q -v1 minMaxYscaleFloatFieldGrp`;
+	float $maxYscaleRandomValue = `floatFieldGrp -q -v2 minMaxYscaleFloatFieldGrp`;
+	float $minZscaleRandomValue = `floatFieldGrp -q -v1 minMaxZscaleFloatFieldGrp`;
+	float $maxZscaleRandomValue = `floatFieldGrp -q -v2 minMaxZscaleFloatFieldGrp`;
+	int $i=0;
+	if ((!$translateCheckbox)&&(!$rotateCheckbox)&&(!$scaleCheckbox)&&(!$materialCheckbox))
+	{
+		print ("// randomizer: No randomize attribute selected. Please select the desired attribute and enter min / max values. //\n");
+	}
+	else {
+		for($i;$i<$numberOfObjects;$i++)
+		{
+			if ($translateCheckbox)
+			{
+				float $randomTranslateX = rand($minXtranslateRandomValue,$maxXtranslateRandomValue);
+				float $randomTranslateY = rand($minYtranslateRandomValue,$maxYtranslateRandomValue);
+				float $randomTranslateZ = rand($minZtranslateRandomValue,$maxZtranslateRandomValue);
+				setAttr ($selectedTransformObjects[$i] + ".translateX") $randomTranslateX; 
+				setAttr ($selectedTransformObjects[$i] + ".translateY") $randomTranslateY; 
+				setAttr ($selectedTransformObjects[$i] + ".translateZ") $randomTranslateZ;
+			}
+			if ($rotateCheckbox)
+			{
+				float $randomRotateX = rand($minXrotateRandomValue,$maxXrotateRandomValue);
+				float $randomRotateY = rand($minYrotateRandomValue,$maxYrotateRandomValue);
+				float $randomRotateZ = rand($minZrotateRandomValue,$maxZrotateRandomValue);
+				setAttr ($selectedTransformObjects[$i] + ".rotateX") $randomRotateX; 
+				setAttr ($selectedTransformObjects[$i] + ".rotateY") $randomRotateY; 
+				setAttr ($selectedTransformObjects[$i] + ".rotateZ") $randomRotateZ;
+			}
+			if ($scaleCheckbox)
+			{
+				float $randomScaleX = rand($minXscaleRandomValue,$maxXscaleRandomValue);
+				float $randomScaleY = rand($minYscaleRandomValue,$maxYscaleRandomValue);
+				float $randomScaleZ = rand($minZscaleRandomValue,$maxZscaleRandomValue);
+				setAttr ($selectedTransformObjects[$i] + ".scaleX") $randomScaleX; 
+				setAttr ($selectedTransformObjects[$i] + ".scaleY") $randomScaleY; 
+				setAttr ($selectedTransformObjects[$i] + ".scaleZ") $randomScaleZ;
+			}
+			if ($materialCheckbox)
+			{
+				float $randomMaterialFloat = rand(0,$numberOfMaterial-1);
+				int $randomMaterialInt = floor($randomMaterialFloat+0.5);
+				select -r $selectedTransformObjects[$i]; 
+				hyperShade -assign $selectedMaterials[$randomMaterialInt];
+				select -cl;
+			}
+		}
+	}	
+	clear($selectedTransformObjects);
+}
+
+/// --------------------------------------------------------------------------
+// Load Help Website Procedure
+// --------------------------------------------------------------------------
+global proc randomizer_loadHelpWebsite()
+{
+	showHelp -absolute "http://www.staschi.com/script/randomizer/";
+	print ("// randomizer: help website loaded. //\n");
+}
+
+// --------------------------------------------------------------------------
+// Calling Start Procedure
+// --------------------------------------------------------------------------
+randomizer_start();

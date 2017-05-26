@@ -1,0 +1,279 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Grass Generator RD
+''    Author: rahulroyrd350 
+''    Last Updated: Jan 22, 2009
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/modeling/misc/2712.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+//RDGrasser//////////FileName:GenerateGrass.mel//////////////////////////////////////////////////////////////////////////////////////
+//This script will generate different types of polygon grass of different amounts of detail and areal density over x-z plane/////////
+//Author:Rahul Roy///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//version:0.1.0//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Usage: generateGrass <short / normal/ very_long> < low / medium / high> <density(max is 100)> <minimum x> <maximum x> <minimum z> <maximum z>
+//Eg:generateGrass long low 20 -1 1 -1 1;//////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+ 
+
+// This procedure is to generate a single blade of grass
+proc string generateBlade (string $style ,string $detail)
+{
+ //Decleration of variables
+ float $grassRadius= `rand 0.02 0.06`;
+ float $grassHeight;
+ float $grassCurl;
+ float $envelopeVal;
+ float $grassDetail;
+ 
+ // change the height and the bend of the grass from user input using switch
+ 
+ switch ($style)
+ {
+  case "short":
+  {
+   $grassHeight=`rand 0.4 0.8`;
+   $grassCurl=`rand 0 (-0.1)`;
+   $envelopeVal=`rand 0.9 1.0`;
+   
+   switch ($detail)
+   {
+    case "low":
+	 $grassDetail=1;
+	 break;
+    case "medium":
+	 $grassDetail=3;
+	 break;
+    case "high":
+     $grassDetail=5;
+	 break;
+	}
+  }
+  break;
+  
+  
+  case "normal":
+  {
+   $grassHeight=`rand 0.7 1.2`;
+   $grassCurl=`rand (-0.25) (-1.0)`;
+   $envelopeVal=`rand 0.6 1.0`;
+   
+   switch ($detail)
+   {
+    case "low":
+	 $grassDetail=3;
+	 break;
+    case "medium":
+	 $grassDetail=5;
+	 break;
+    case "high":
+     $grassDetail=10;
+	 break;
+	} 
+  }
+  break;
+  
+  case "long":
+  {
+   $grassHeight=`rand 1 1.6`;
+   $grassCurl=`rand (-0.35) (-1.25)`;
+   $envelopeVal=`rand 0.5 1.0`;
+   
+   switch ($detail)
+   {
+    case "low":
+	 $grassDetail=4;
+	 break;
+    case "medium":
+	 $grassDetail=7;
+	 break;
+    case "high":
+     $grassDetail=11;
+	 break;
+   }
+  }
+  break;
+  
+  case "very_long":
+  {
+   $grassHeight=`rand 2 3.5`;
+   $grassCurl=`rand (-1) (-1.5)`;
+   $envelopeVal=`rand 0.5 0.85`;
+   
+   switch ($detail)
+   {
+    case "low":
+	 $grassDetail=5;
+	 break;
+    case "medium":
+	 $grassDetail=8;
+	 break;
+    case "high":
+     $grassDetail=13;
+	 break;
+   } 	 
+  }
+  break;
+  
+  default:
+  {
+   warning ("type " + $style + "is unknown.using default settings.");
+   $grassHeight=`rand 0.7 1.2`;
+   $grassCurl=`rand (-0.25) (-1)`;
+   $envelopeVal=`rand 0.6 1.0`;
+   
+   switch ($detail)
+   {
+    case "low":
+	 $grassDetail=3;
+	 break;
+    case "medium":
+	 $grassDetail=6;
+	 break;
+    case "high":
+     $grassDetail=10;
+	 break;
+   }	 
+  }
+  break;
+ }
+ 
+ //Creation of blade with a polyCone
+ 
+ string $blades[]=`polyCone
+					-radius $grassRadius
+					-height $grassHeight
+					-subdivisionsX 3
+					-subdivisionsY $grassDetail
+					-subdivisionsZ 0
+					-axis 0 1 0
+					-createUVs 2
+					-constructionHistory off`
+					;
+ //Bring the bottom of the cone to ground level
+ 
+ setAttr ($blades[0] + ".translateY") ($grassHeight * 0.5);
+ 
+ //harden the edges of the cone
+ 
+ polySoftEdge
+	-angle 1
+	-constructionHistory off
+	($blades[0] + ".e[0:59]")
+	;
+	
+ //ensuring tht the edges are deselected and the blade is selected in object mode
+ 
+ changeSelectMode -object;
+ select -replace $blades;
+ 
+ //making blade thin
+ 
+ setAttr ($blades[0] + ".scaleX") 0.25;
+ 
+ // resetting transformations and pivot point
+ 
+ makeIdentity
+	-apply true
+	-translate true
+	-rotate true
+	-scale true
+	$blades[0]
+	;
+ 
+ // adding bend deformer ,capturing the name to a variable and then moving it
+ 
+ string $bend[]=`nonLinear
+					-type bend
+					-lowBound 0
+					-highBound 2
+					-curvature $grassCurl`
+					;
+ 
+ setAttr($bend[1] + ".ty" ) 0;
+ setAttr($bend[0] + ".envelope") $envelopeVal;
+ 
+ //select the cone and delete the history
+ 
+ select -replace $blades;
+ delete -constructionHistory $blades;
+ 
+ return $blades[0];
+ }
+ 
+
+global proc generateGrass( string $style, 
+						   string $detail,
+						   int $density,
+						   float $minX,
+						   float $maxX,
+						   float $minZ,
+						   float $maxZ)
+ {
+  // Declare variables
+  
+  string $createdGrass[];
+  
+  int $amountToCreate= (($maxX-$minX)*($maxZ-$minZ)*($density/100.0)*325);
+  
+  // for loop to create multiple blades of grass
+  
+  for($i=0;$i<$amountToCreate;$i++)
+  {
+   $createdGrass[$i]=`generateBlade $style $detail`;
+   
+   // Generate Random values for translation of the blade
+   
+   float $randomX= `rand -5 5`;
+   float $randomZ= `rand -5 5`;
+   float $randomRotation =`rand 0 360`;
+   
+   //Assignment of random values to the attributes
+   
+   setAttr ($createdGrass[$i] + ".translateX" ) $randomX;
+   setAttr ($createdGrass[$i] + ".translateZ" ) $randomZ;
+   setAttr ($createdGrass[$i] + ".rotateY" ) $randomRotation;
+   
+   if(`size createdGrass` > 3000)
+   {
+    string $united[]=`polyUnite 
+						-constructionHistory off
+						$createdGrass`
+						;
+	clearArray $createdGrass;
+	$createdGrass=$united;
+	flushUndo;
+   }
+  }
+   
+  //Final Combine
+  polyUnite
+	-constructionHistory off
+	$createdGrass;
+	
+ flushUndo;
+}
+
+
+ 
+	
+	
+   
+   
+  
+   
+   
+   
+   
+   

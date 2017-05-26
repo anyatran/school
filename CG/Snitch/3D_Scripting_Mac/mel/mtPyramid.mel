@@ -1,0 +1,85 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: mtPyramid
+''    Author: 2000mand 
+''    Last Updated: Jan 18, 2008
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/modeling/poly_tools/1878.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+// mtPyramid()
+// author: Mads Tuxen
+// http://www.grafiskkooperativ.dk/mads
+// mail madstuxen@gmail.com
+//
+// usage: script generates pyramid with rows of tris 
+// takes one argument : integer number of rows 
+// smallest number is 1 script gets slow with big numbers
+// put in script-folder.
+
+
+
+
+
+global proc mtPyramid(int $rows){
+string $start_text="polyUnite -ch 0 ";//string til at samle alle objekter til en side	
+string $side="";
+// loops to create one side
+for ($i=0;$i<$rows;$i++){
+	// antal polys i hver raekke
+	int $ant=(($i+1)*2)-1;
+	int $switch=-1; //starter switchen med at være -1 hver gang
+	float $x;
+	float $y=$i*-1.42;
+	float $z=$i;
+	// nyt loop der kopierer de to trekanter
+	for ($ii=0;$ii<$ant;$ii++){
+		if ($switch==-1){
+			string $pu[]=`polyCreateFacet -ch 0 -tx 1 -s 1 -p -1 0 1 -p 1 0 1 -p 0 1.42 0`;
+			$side=$side+$pu[0]+" " ;
+			$x=$ii-($ant/2);
+			move $x $y $z $pu[0];
+		}else{
+			string $pd[]=`polyCreateFacet -ch 0 -tx 1 -s 1 -p -1 1.42 0 -p 0 0 1 -p 1 1.42 0`;
+			$side=$side+$pd[0]+" " ;
+			$x=$ii-($ant/2);
+			move $x $y $z $pd[0];		
+			}
+		$switch=$switch*-1;
+		}
+	}
+	
+string $oneside;	
+if ($rows==1){
+
+	$oneside=$side;
+	
+}else{
+	
+	string $temp[]=`eval ($start_text+$side)`;	//combine all tris to one mesh
+	$oneside=$temp[0];	
+	}
+
+string $twoside[]=`duplicate $oneside`;
+string $threeside[]=`duplicate $oneside`;
+string $fourside[]=`duplicate $oneside`;
+rotate -r -os 0 90 0 $twoside[0] ;
+rotate -r -os 0 180 0 $threeside[0] ;
+rotate -r -os 0 270 0 $fourside[0] ;
+
+string $pp[]=`polyPlane -w ($rows*2) -h ($rows*2) -sx $rows -sy $rows -ax 0 -1 0 -cuv 2 -ch 0`;
+move 0 (-1.42*($rows-1)) 0 $pp[0];
+
+string $samlet[]=`polyUnite -ch 0 -n "polyPyramid" $oneside $twoside[0] $threeside[0] $fourside[0] $pp[0]`;
+polyMergeVertex  -d 0.01 -am 1 -ch 0 $samlet[0];
+move 0 (1.42*($rows-1)) 0 $samlet[0];
+makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $samlet[0];
+xform -a -piv 0 0 0 $samlet[0];
+select -cl  ;
+select $samlet[0];
+}

@@ -1,0 +1,56 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRaddMsgAttr.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jan 02, 2005
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// add a message attribute with the given options to the given object
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRaddMsgAttr ( string $obj, int $multi, int $index, string $attrName,
+									string $oldAttrName )
+{
+	//first check if there is already a message attribute; if, delete it to avoid
+	//double connections when connection to the character group node
+
+	//get all user defined attributes of the current object
+	string $objAttrs[] = `listAttr -ud $obj`;
+	for ($attr in $objAttrs)
+	{
+		//and see if the message attribute exists
+		if ($oldAttrName != "" && `gmatch $attr $oldAttrName`)
+		{
+			deleteAttr ($obj + "." + $attr);
+		}
+	}
+
+	//add the attribute only if it doesn't already exist
+	if (!`attributeExists $attrName $obj`)
+	{
+		//now the attribute can be created
+		if ($multi == 1)
+		{
+			addAttr -at message -m -im $index -ln $attrName $obj;
+		}
+		else
+		{
+			addAttr -at message -ln $attrName $obj;
+		}
+	}
+}

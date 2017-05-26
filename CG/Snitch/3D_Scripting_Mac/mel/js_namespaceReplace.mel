@@ -1,0 +1,47 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Namespace Replace
+''    Author: jschieck 
+''    Last Updated: Apr 01, 2009
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/utility_external/import/2879.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+/*  NAMESPACE REPLACE SCRIPT
+    JACOB SCHIECK
+    10/05/07
+    http://www.jacobschieck.com
+    
+    E-mail any issues or bugs to jschieck@gmail.com
+    
+    USAGE: Just source the code :D
+*/
+
+global proc namespaceFix() {
+string $old = `textField -q -tx oldField`;
+string $new = `textField -q -tx newField`;
+if ($new == ":") {
+  namespace -force -mv $old $new;
+}
+else {
+  namespace -add $new;
+  namespace -force -mv $old $new;
+}
+namespace -rm $old;
+}
+
+if(`window -ex namespaceReplaceWin`) deleteUI namespaceReplaceWin;
+window -t "Namespace Replace" namespaceReplaceWin;
+string $layout = `columnLayout`;
+text -p $layout -l "Enter old namespace:";
+textField -w 150 -p $layout oldField;
+text -p $layout -l "Enter new namespace. Enter : for root";
+textField -w 150 -p $layout newField;
+button -p $layout -l "Replace Namespace" -c "namespaceFix" theButton;
+showWindow namespaceReplaceWin;
+window -e -h 130 -w 200 namespaceReplaceWin;

@@ -1,0 +1,504 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Tentacles 
+''    Author: ganeshmohan 
+''    Last Updated: Mar 11, 2008
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/dynamics/1985.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+/*
+Tentacles.mel
+Author: Ganesh Mohan
+This script will create tentacles growing around the selected object. The base of the tentacle will grow slowly as the scene progress.  Select an object and call the script. Currently it will work only for a nurbs surface.
+Pl. select the shape node of the object (nurbs/poly) and execute the script
+If the object is poly, the uv's should be unitized (must be between 0-1) before running the script
+Currently it works only for one object selection
+After sourceing execute the script by calling createTentacles;
+UI:  
+	No of tentacles to grow							:  int  (countOfTentacles) default 5
+   	radius of the tentacles  						:  float (radius)          default : .1
+   	growth rate of the base  						:  float (growthFactor)    default : .01
+   	retain history while rebuilding surface				:  y/n   (cHistoryYN)  default :  Y
+   	continue the tentacles after reaching other end of the object:  y/n  (continueYN)  :  Y
+      show curve									:   y/n   (showCurveYN)
+      show tentacle                                               :   y/n   (showTentacleYN)
+   	time slider or (st frame and end frame)				:        (timeslider;startFrame;EndFrame)   
+*/
+
+//  
+//
+
+
+ global int $debug = 0;
+
+ // set the above to 1 to debug the script
+ 
+ global int   $countofTentacles;
+ global float $tentacleRadius;
+ global float $baseGrowthrate;
+ global string $cHistoryYN;
+ global string $continueYN;
+ global string $showCurveYN;
+ global string $showTentacleYN;
+ global string $obj[];
+ global string $dupObj[];
+ global string $tentacleEmitterName = "tentacleEmitter";
+ global string $tentacleParticleName = "tentacleParticle";
+ global string $tentacleObject = "tentacleObject";
+ global string $obj[];
+ global int $startTime;
+ global int $endTime;
+ global int $prevStartTime;
+ global int $prevEndTime;
+
+
+global proc createTentacles()
+{
+ global int $debug; 
+global int   $countofTentacles;
+ global float $tentacleRadius;
+ global float $baseGrowthrate;
+ global string $cHistoryYN;
+ global string $continueYN;
+ global string $showCurveYN;
+ global string $showTentacleYN;
+ global string $obj[];
+ global string $dupObj[];
+ global string $tentacleEmitterName;
+ global string $tentacleParticleName;
+ global string $tentacleObject;
+ global string $obj[];
+ global int $startTime;
+ global int $endTime;
+ $obj = `ls -sl -dagObjects -type mesh -type nurbsSurface`;
+ if (($a =size($obj)) == 0)
+   {
+    error "no objects selected";
+    }
+ if ($a > 1)
+  { error "more than one object selected.  Pl. select only one Object";
+   }
+
+ global string $win = "tentaclesWin";
+
+ if (`window -exists $win`) deleteUI -window $win;       
+        window -title "Create Tentacles"
+        -minimizeButton true -maximizeButton false -rtf true
+        -wh 300 150 $win;
+
+                columnLayout -adjustableColumn true -cal "left" ColumnLayout;
+               // frameLayout -labelVisible false -marginWidth 0 -marginHeight 0 rainFrame;       
+                columnLayout;
+			      intSliderGrp
+                                -label "Number of tentacle " -field true 
+                                -value 5 -minValue 1 -maxValue 25 -fmx 50 -sliderStep 1
+                                countofTentacles;
+				floatSliderGrp
+                                -label "Radius of tentacle " -field true -pre 3
+                                -value .1 -minValue .010-maxValue .5 -sliderStep .001
+                                tentacleRadius;
+
+                floatSliderGrp
+                                -label "Growthrate of base" -field true -pre 3
+                                -value .01 -minValue .001 -maxValue .1 -sliderStep .001
+                                baseGrowthrate;
+                                
+                intSliderGrp -label "Start Time: " -cc fldStartTime -f true -value $startTime -min 1 -max 500 -fmx 5000 startTimeSlider;
+  				intSliderGrp -label "End Time: " -cc fldEndTime -f true -value $endTime -min 1 -max 500 -fmx 5000 endTimeSlider;
+  				checkBox -l "Use Time Slider" -cc checkTimeSlider -v false chkTS;
+
+                checkBox -label "Retain Cons.History after rebuild:"  -value true cHistoryYN;
+                checkBox -label "Continue after reaching other end:" -value true continueYN;
+				checkBox -label "Show Curves on tentacles path :" -cc checkShowCurves -value false showCurveYN;
+				checkBox -label "Show Tentacles:" -value true showTentacleYN;
+                        
+                setParent tentaclesWin|ColumnLayout;
+                        textField -text "Tentacles 1.0 - creates tentacles around the selected Object" -editable false StatusLine; 
+                        
+                rowColumnLayout -numberOfRows 1 -rowHeight 1 30;
+                        
+                        button -label "Create" -w 130 -c "Tentacles()" butcreate;
+                        button -label "Cancel" -w 130 -c "cancelChanges" butcancel;
+                        button -label "Reset values" - w 130 -c "doReset" butReset;
+                        button -label "Close" -w 130 -c ("window -e -vis 0 "+$win) closeBtn;
+                        setParent tentaclesWin;
+
+
+        intSliderGrp -edit -changeCommand "showStatus \"Number of tentacles - \"" countofTentacles;
+	    floatSliderGrp -edit -changeCommand "showStatus \"Radius of the tentacle- \"" tentacleRadius;
+        floatSliderGrp -edit -changeCommand "showStatus \"Radius to grow by -\"" baseGrowthrate;
+doReset;              
+showWindow $win;
+}
+
+//
+//  Housekeeping() -  check if min/max U/V is o-1 else rebuild the surface or duplicate 
+global proc housekeeping()
+{
+global int $debug; 
+global string $dupObj[];
+global string $cHistoryYN;
+global string $obj[];
+global string $tentacleObject;
+global int $startTime;
+global int $endTime;
+if ($debug) print("in housekeeping"+"\n");
+$cHistoryYN     = `checkBox -q -v cHistoryYN`;
+if ($endTime <= $startTime)
+    error("Start Time must be > End Time");
+
+if (`objExists circleGroup`)
+      { delete circleGroup;
+       } 
+  if (`objExists curveGroup`)
+      { delete curveGroup;
+       } 
+  if (`objExists tentacleGroup`)
+      { delete tentacleGroup;
+       } 
+  if (`objExists tentacleParticle`)
+      { delete tentacleParticle;
+       } 
+  if (`objExists tentacleEmitter`)
+      { delete tentacleEmitter;
+       } 
+    if (`objExists tentacleObject`)
+      { delete tentacleObject;
+       }
+if (nodeType($obj[0]) == "surface") 
+{
+ $shape = getShape($obj[0]);     // get the shape node of the object
+    $s = $shape+".mnu";
+ $mnu = `getAttr $s`;
+    $s = $shape+".mxu";
+ $mxu = `getAttr $s`; 
+    $s = $shape+".mnv";
+ $mnv = `getAttr $s`;
+    $s = $shape+".mxv";
+ $mxv = `getAttr $s`;
+    $s = $shape+".su";
+ $su	= `getAttr $s`;
+    $s = $shape+".sv";
+ $sv	= `getAttr $s`;
+ if ((($mnu !=0)||($mxu!=1))&&(($mnv!=0)||($mxv!=1)))
+   {
+     $dupObj = `rebuildSurface -ch (int($cHistoryYN)) -rpo 0 -rt 0 -end 1 -kr 0 -kcp 0 -kc 0 -su $su -du 3 -sv $sv -dv 3 -tol 0.01 -fr 0  -dir 2 $obj`;
+    }
+ else 
+   {
+   $dupObj = `duplicate $obj`;
+    }
+ }
+ else
+ {//assume it as poly if it is not a nurbs
+   $dupObj = `duplicate $obj`;
+  }
+   rename $dupObj[0] $tentacleObject; 
+}
+
+global proc Tentacles()
+{
+//  emit particles from the duplicated object (surface emitter); set the object as goal with gw =1 
+//     set  max count = countOfTentacles
+//     add following attributes to the particleShape
+//         - goalU, goalV, parentU, parentV, tubeRadius, tubeGrowth,firstCVPP (?),
+//     set the particle expression
+//     set the playback options and play
+
+global int $debug;
+global string $tentacleEmitterName;
+global string $tentacleParticleName;
+global int   $countofTentacles;
+global float $tentacleRadius;
+global float $baseGrowthrate;
+global string $cHistoryYN;
+global string $continueYN;
+global string $showCurveYN;
+global string $showTentacleYN;
+global string $tentacleObject;
+global int $startTime;
+global int $endTime;
+
+global string $dupObj[];
+
+  if ($debug) print("in tentacles"+"\n");
+  housekeeping();
+  loadVariables();
+  if (nodeType($tentacleObject) != "surface") 
+       {$shape = getShape($tentacleObject); 
+        select -r $shape;     
+        }
+  string $aa[] = `emitter -type surface -r 50 -sro 0 -nuv 1 -cye none -cyi 1 -spd 2 -srn 0 -nsp 1 -tsp 0 -mxd 0 -mnd 0 -n $tentacleEmitterName`;
+  particle -n $tentacleParticleName; 
+  connectDynamic -em $tentacleEmitterName $tentacleParticleName;
+  goal -w 1.0 -utr 0   -g $tentacleObject $tentacleParticleName;
+  select -r $tentacleParticleName;
+  string $s[] = `listRelatives -s -path $tentacleParticleName`;
+  // $s[0] has the particle shape name
+  // add goalU, goalV, parentU, parentV, tubeRadius, tubeGrowth,firstCVPP (?) to particleshape,
+  // set lifespanPP to lifespanPP only (lifespanMode =3
+
+addAttr -ln goalV -dt doubleArray  ($s[0]); 
+addAttr -ln goalV0 -dt doubleArray ($s[0]); 
+addAttr -ln goalU -dt doubleArray  ($s[0]); 
+addAttr -ln goalU0 -dt doubleArray ($s[0]); 
+addAttr -ln parentU -dt doubleArray  ($s[0]); 
+addAttr -ln parentU0 -dt doubleArray ($s[0]); 
+addAttr -ln parentV -dt doubleArray  ($s[0]); 
+addAttr -ln parentV0 -dt doubleArray ($s[0]); 
+addAttr -ln goalOffset -dt vectorArray  ($s[0]); 
+addAttr -ln goalOffset0 -dt vectorArray ($s[0]); 
+ 
+addAttr -is true -ln "tubeRadius" -at "float" ($s[0]); 
+
+addAttr -is true -ln "tubeGrowth" -at "float" ($s[0]); 
+
+addAttr -is true -ln "firstCVPP0" -dt doubleArray ($s[0]); 
+addAttr -is true -ln "firstCVPP" -dt doubleArray ($s[0]); 
+addAttr -is true -ln "userScalar1PP0" -dt doubleArray ($s[0]); 
+addAttr -is true -ln "userScalar1PP" -dt doubleArray ($s[0]); 
+
+
+addAttr -ln showCurves -at short  ($s[0]);
+setAttr -e -keyable true ($s[0]+".showCurves");
+addAttr -ln showTentacles -at byte  ($s[0]);
+setAttr -e -keyable true ($s[0]+".showTentacles");
+addAttr -ln continueAfterGoalReached -sn cagr -at byte  ($s[0]);
+setAttr -e -keyable true ($s[0]+".continueAfterGoalReached");
+
+setAttr ($s[0] + ".continueAfterGoalReached") (int($continueYN));
+setAttr ($s[0] + ".maxCount") $countofTentacles;
+setAttr ($s[0] + ".tubeRadius") $tentacleRadius;
+setAttr ($s[0] + ".tubeGrowth") $baseGrowthrate;
+setAttr ($s[0] + ".lifespanMode") 3;
+
+group -em -n curveGroup;
+group -em -n circleGroup;
+group -em -n tentacleGroup;
+
+//set creation expression
+string $exp  = "goalV =  parentV;\n";
+   $exp = $exp + "goalU = parentU;\n";
+   $exp = $exp + "int $pi=particleId;\n";
+   $exp = $exp + "string $seed = \"particle\"+$pi;\n";
+   $exp = $exp + "seed $seed $pi;\n";
+   $exp = $exp + "userScalar1PP = rand(0,180);\n";
+   $exp = $exp + "string $crvp = \"curve\"+$pi;\n";
+   $exp = $exp + "vector $pos = position;\n";
+   $exp = $exp + "$x = $pos.x;\n";
+   $exp = $exp + "$y = $pos.y;\n";
+   $exp = $exp + "$z = $pos.z;\n";
+   $exp = $exp + "$crv = `curve -d 3 -p $x $y $z`;\n";
+   $exp = $exp + "$r = `rename $crv  $crvp`;\n";
+   $exp = $exp + "select -r $crvp;\n";
+   $exp = $exp + "select -add curveGroup;\n";
+   $exp = $exp + "parent;\n";
+   $exp = $exp + "firstCVPP = 1;\n";
+   $exp = $exp + "cycleCheck -e off;\n";
+
+dynExpression -s ($exp) - c ($s[0]);
+
+//set run time expression
+
+$exp = "float $f  = time;\n";
+   $exp = $exp + "float $radius  = tubeRadius;\n";
+   $exp = $exp + "float $scaleFactor = tubeGrowth;\n";
+   $exp = $exp + "int $pi=particleId;\n";
+   $exp = $exp + "goalU += noise($f-$pi)/10;\n";
+   $exp = $exp + "goalV += noise($f+$pi)/10;\n";
+   $exp = $exp + "if ((goalU>= 1.0) || (goalV>= 1.0))\n";
+   $exp = $exp + "    {if (!continueAfterGoalReached)\n";
+   $exp = $exp + "        { firstCVPP = 3;\n";
+   $exp = $exp + "         }\n";
+   //$exp = $exp + "     else\n";
+   //$exp = $exp + "        if (goalU >= 1.0) goalU = goalU - 1;\n";
+   //$exp = $exp + "        if (goalV >= 1.0) goalV = goalV - 1;\n";
+   $exp = $exp + "    }\n";  
+   $exp = $exp + "string $crvp = \"curve\"+$pi;\n";
+   $exp = $exp + "string $circlep = \"circle\"+$pi;\n";
+   $exp = $exp + "vector $pos = position;\n";
+   $exp = $exp + "$x = $pos.x;\n";
+   $exp = $exp + "$y = $pos.y;\n";
+   $exp = $exp + "$z = $pos.z;\n";
+   $exp = $exp + "if (firstCVPP != 3)\n";
+   $exp = $exp + "   {\n";
+   $exp = $exp + "    $crv = `curve -a -p $x $y $z $crvp`;\n";
+   $exp = $exp + "    }\n";
+   $exp = $exp + "if (firstCVPP == 1)\n";
+   $exp = $exp + " {\n";
+   $exp = $exp + "  firstCVPP = 0;\n";
+   $exp = $exp + "  $cvP = $crvp+\".cv[0]\";\n";
+   $exp = $exp + "  delete $cvP;\n";
+   $exp = $exp + "  $cir = `circle -c $x $y $z -nr $x $y $z -sw 360 -r $radius -d 3 -ut 0 -tol 0.01 -s 8 -ch 1`;\n";
+   $exp = $exp + "  $rc = `rename $cir[0]  $circlep`;\n";
+   $exp = $exp + "  select -r $circlep;\n";
+   $exp = $exp + "  select -add circleGroup;\n";
+   $exp = $exp + "  parent;\n";
+
+   $exp = $exp + "  $cirSP = $crvp+\".scalePivot\";\n";
+   $exp = $exp + "  $cirRP = $crvp+\".rotatePivot\";\n";
+   $exp = $exp + "  move -r $x $y $z $cirSP $cirRP;\n";
+   $exp = $exp + "  vector $pivotS = `getAttr $cirSP`;\n";
+   $exp = $exp + "  vector $pivotR = `getAttr $cirRP`;\n";
+   $exp = $exp + "  $cirSP = $circlep+\".scalePivot\";\n";
+   $exp = $exp + "  $cirRP = $circlep+\".rotatePivot\";\n";
+   $exp = $exp + "  move -r $x $y $z $cirSP $cirRP; \n";
+   $exp = $exp + "  }\n";
+   $exp = $exp + "else\n";
+   $exp = $exp + " if ( firstCVPP == 0)\n";
+   $exp = $exp + "   {\n";
+   $exp = $exp + "     firstCVPP = 2;\n";
+   if ($showTentacleYN)
+      {$exp = $exp + "   $e =  `extrude -ch true -rn false -po 0 -et 2 -ucp 1 -fpt 1 -upn 1 -rotation 0 -scale $scaleFactor -rsp 1 $circlep $crvp`;\n";
+           $exp = $exp + "  select -r $e;\n";
+           $exp = $exp + "  select -add tentacleGroup;\n";
+           $exp = $exp + "  parent;\n";   
+      }
+   $exp = $exp + "    }\n";
+dynExpression -s ($exp) -rbd ($s[0]);
+
+hide $tentacleObject;
+if ($showCurveYN)
+    ;
+else 
+  {hide curveGroup;}
+hide circleGroup;
+
+int $loop =0;
+for ($loop=$startTime; $loop < ($endTime+1); $loop++)
+  {
+   currentTime -edit $loop;
+   }
+
+
+}
+
+global proc loadVariables()
+{
+ global int $debug;
+ if ($debug) print("in loadVariables"+"\n"); 
+ global int   $countofTentacles;
+ global float $tentacleRadius;
+ global float $baseGrowthrate;
+//global string $cHistoryYN;    
+ global string $continueYN;
+ global string $showCurveYN;
+ global string $showTentacleYN;
+
+
+ $countofTentacles = `intSliderGrp -q -v countofTentacles`;
+ $tentacleRadius = `floatSliderGrp -q -v tentacleRadius`;
+ $baseGrowthrate = `floatSliderGrp -q -v baseGrowthrate`;
+//$cHistoryYN     = `checkBox -q -v cHistoryYN`;  - done in housekeeping as it is needed there
+ $continueYN     = `checkBox -q -v continueYN`;
+ $showCurveYN    = `checkBox -q -v showCurveYN`;
+
+ $showTentacleYN = `checkBox -q -v showTentacleYN`;
+
+}
+
+global proc string getShape( string $xform )
+{
+  global int $debug;
+  if ($debug) print("in getShape"+"\n");
+
+  string $shapes[];
+  $shapes[0] = $xform;
+  
+  // If given node is not a transform, assume it is a shape 
+  // and pass it through.
+  if ( "transform" == `nodeType $xform` )
+        $shapes = `listRelatives  -shapes $xform`;    
+  return $shapes[0];
+}
+
+global proc showStatus (string $newStatus) 
+{
+    textField -edit -text $newStatus StatusLine;
+}
+global proc fldStartTime()
+
+{
+  global int $startTime;
+
+  $startTime = `intSliderGrp -q -v startTimeSlider`;
+}
+
+global proc fldEndTime()
+
+{
+  global int $endTime;
+
+  $endTime = `intSliderGrp -q -v endTimeSlider`;
+}
+global proc checkTimeSlider()
+
+{
+  global int $prevStartTime, $prevEndTime;
+  global int $startTime;
+  global int $endTime;
+
+  if (`checkBox -q -v chkTS`) {
+    $prevStartTime = $startTime;
+    $prevEndTime = $endTime;
+    $startTime = `playbackOptions -q -min`;
+    $endTime = `playbackOptions -q -max`;
+    intSliderGrp -e -en false -v $startTime startTimeSlider;
+    intSliderGrp -e -en false -v $endTime endTimeSlider;
+  } else {
+    $startTime = $prevStartTime;
+    $endTime = $prevEndTime;
+    intSliderGrp -e -en true -v $startTime startTimeSlider;
+    intSliderGrp -e -en true -v $endTime endTimeSlider;
+  }
+}
+global proc checkShowCurves ()
+
+{
+   if (`checkBox -q -v showCurveYN`) {
+      checkBox -e -en false -value false showTentacleYN;
+   }
+   else {
+      checkBox -e -en true -value true showTentacleYN;
+   }
+}
+
+global proc doReset ()
+
+{
+  global int $startTime;
+  global int $endTime;
+  global int $prevStartTime;
+  global int $prevEndTime;
+  global int   $countofTentacles;
+  global float $tentacleRadius;
+  global float $baseGrowthrate;
+  global string $cHistoryYN;
+  global string $continueYN;
+  global string $showCurveYN;
+  global string $showTentacleYN;
+
+  $startTime = $laststartTime = 1;
+  $endTime = $lastEndTime = 150;
+  
+
+  checkBox -e -en true -v false chkTS;
+  checkBox -e -en true -v true cHistoryYN;
+  checkBox -e -en true -v false showCurveYN;
+  checkBox -e -en true -v true showTentacleYN;
+  checkBox -e -en true -v true continueYN;
+
+  intSliderGrp -e -en true -v $startTime startTimeSlider;
+  intSliderGrp -e -en true -v $endTime endTimeSlider;
+  floatSliderGrp -e -en true -v .1 tentacleRadius;
+  intSliderGrp -e -en true -v 5 countofTentacles;
+  floatSliderGrp -e -en true -v .01 baseGrowthrate;
+
+}
+

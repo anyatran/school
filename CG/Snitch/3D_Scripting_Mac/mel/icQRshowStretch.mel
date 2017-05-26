@@ -1,0 +1,35 @@
+//----------------------------------------------------------------------------------------------
+//
+//	icQRshowStretch
+//
+//	SCRIPT:			icQRshowStretch.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//					
+//	DATE:			Jun 16, 2011
+//					created: Jun 16, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// creates a stretch attribute and connects it to the stretch factor multiplier node
+//
+//----------------------------------------------------------------------------------------------
+
+
+global proc icQRshowStretch ( string $ctrl, string $factorNode )
+{
+	addAttr -ln "stretch" -at "float" -dv 0 -k 1 $ctrl;
+	connectAttr -f ($factorNode + ".outputX") ($ctrl + ".stretch");
+	setAttr -l 1 ($ctrl + ".stretch");
+}

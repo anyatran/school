@@ -1,0 +1,39 @@
+
+//
+//  Creation Date:	Jan 15, 2007
+//
+//  Procedure Name:
+//	AEanimcurveSpeedTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the limitAnimCurve node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+//	Author:		Morteza Ramezanali (xDreamer)
+//				www.cgdna.com - moto@cgdna.com
+
+global proc AEanimcurveSpeedTemplate ( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "Animcurve Speed Attributes" -collapse 0;
+			editorTemplate -addControl "operation";
+			editorTemplate -addControl "inputCurve";
+			editorTemplate -addControl "inputTime";
+			editorTemplate -addControl "sample";
+			editorTemplate -addControl "accuracy";
+			editorTemplate -addControl "output";
+		editorTemplate -endLayout;
+
+	// include/call base class/node attributes
+	AEdependNodeTemplate $nodeName;
+
+	editorTemplate -addExtraControls;
+	editorTemplate -endScrollLayout;
+}

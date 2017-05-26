@@ -1,0 +1,37 @@
+
+//
+//  Creation Date:	Dec 28, 2006
+//
+//  Procedure Name:
+//	AEangularTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the angular node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+//	Author:		Morteza Ramezanali (xDreamer)
+//				www.cgdna.com - moto@cgdna.com
+
+global proc AEangularTemplate ( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "Angular Attributes" -collapse 0;
+			editorTemplate -addControl "source";
+			editorTemplate -addControl "target";
+			editorTemplate -addControl "input";
+			editorTemplate -addControl "output";
+		editorTemplate -endLayout;
+
+	// include/call base class/node attributes
+	AEdependNodeTemplate $nodeName;
+
+	editorTemplate -addExtraControls;
+	editorTemplate -endScrollLayout;
+}

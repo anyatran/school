@@ -1,0 +1,29 @@
+global proc string[] dirNameExt ( string $file )
+{
+	string $tb[];
+	tokenize $file "/" $tb;
+
+	string $path, $fileRoot, $fileExt;
+
+	for ( $i = 0; $i < ( `size $tb` - 2 ); $i++ )
+		$path = ( $path + $tb[$i] + "/" );
+	
+	tokenize $tb[( `size $tb` - 1 )] "." $tb;
+
+	// accounts for possibility of multi "." in name
+	for ( $i = 0; $i < ( `size $tb` - 1 ); $i++ )
+		$fileRoot = ( $fileRoot + $tb[$i] + "." );
+
+	// Strips off the last . in file name
+	int $sizString = `size $fileRoot`;
+	$fileRoot = `substring $fileRoot 1 ($sizString-1)`;
+
+	$fileExt = $tb[( `size $tb` - 1 )];
+
+	string $returner[];
+
+	$returner[0] = $path;
+	$returner[1] = $fileRoot;
+	$returner[2] = $fileExt;
+	return $returner;
+}

@@ -1,0 +1,91 @@
+global proc flowerMaker(){
+
+
+	int $numPetals=10;
+	$createShader = 1;
+	
+	//Check for Shader
+	string $shads[] = `ls -mat`;
+	for ($myNode in $shads){
+	if($myNode =="petalColor")
+	$createShader = 0;
+	}
+
+	switch ($createShader){
+	case 0:
+		print "The Shader is already there \n";
+		break;
+	case 1:
+		//build our shader network
+		shadingNode -asShader lambert -n "petalColor";
+		shadingNode -asTexture ramp -n "petalRamp";
+		sets -renderable true -noSurfaceShader true
+			-empty -n petalColorSG;
+		connectAttr -f petalColor.outColor petalColorSG.surfaceShader;
+		connectAttr petalRamp.outColor petalColor.color;
+
+		setAttr "petalRamp.colorEntryList[3].color" -type double3 1 0 0;
+		setAttr "petalRamp.colorEntryList[3].position"  1;
+
+		setAttr "petalRamp.colorEntryList[2].color" -type double3 1 1 0;
+		setAttr "petalRamp.colorEntryList[2].position"  .5;
+
+		setAttr "petalRamp.colorEntryList[1].color" -type double3 1 0 0;
+		setAttr "petalRamp.colorEntryList[1].position"  0;
+		setAttr petalRamp.type 8;
+
+		break;
+	
+	}
+
+		
+	//build the flower core
+	sphere -ax 0 1 0 -n "core";
+	string $myCore[]=`ls -sl`;
+	scale 1 .5 1;
+	move 0 0.2 0;
+
+
+	//build the petal
+	sphere -ax 0 1 0;
+	move 0 0 -1.6;
+	scale .7 .3 1.7;
+	FreezeTransformations;
+	ResetTransformations;
+
+	string $myPetal[]=`ls -sl`;
+	parent $myPetal $myCore;
+	select $myPetal[0];
+	pickWalk -d down;
+	string $myPetalShape[]=`ls -sl`;
+	sets -edit -forceElement petalColorSG $myPetalShape[0];
+
+	//move the tip of the petal
+	select ($myPetal[0]+".cv[3] [7]");
+	move -r 0 2 0;
+
+	//Select the inner part of the petal pull down
+	//One loop for the U direction
+	for ($uCV=5;$uCV<=6;$uCV++){
+	for ($vCV=0;$vCV<=7;$vCV++){
+
+	select($myPetal[0]+".cv["+$uCV+"]["+$vCV+"]");
+	move -r 0 -0.4 0;
+}
+
+
+
+	}
+
+	select $myPetal[0];
+	float $degreeApart = (360/$numPetals);
+	for($i=2;$i<=$numPetals;$i++){
+	duplicate;
+	rotate -r 0 $degreeApart 0;
+	}
+
+	select $myCore;
+	rename "Flower";
+
+
+}

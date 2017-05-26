@@ -1,0 +1,159 @@
+//
+//	Mel by Lalo
+//
+//  Procedure Name:
+//	AEintercollisionFieldTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the intercollisionField node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+
+
+//
+//  Procedure Name:
+//	AEintercollisionFieldHIchanged
+//
+
+global proc AEintercollisionFieldHIchanged ( string $affectedControlName, string $nodeName )
+{
+	editorTemplate -dimControl $nodeName $affectedControlName (1-`getAttr ($nodeName+".handleInterpenetration")`);
+}
+
+
+//
+//  Procedure Name:
+//	AEintercollisionFieldUSSchanged
+//
+
+global proc AEintercollisionFieldUSSchanged ( string $affectedControlName1, string $affectedControlName2,
+						string $affectedControlName3, string $nodeName )
+{
+	int $controlState = 1-`getAttr ($nodeName+".useSpaceSplit")`;
+
+	editorTemplate -dimControl $nodeName $affectedControlName1 $controlState;
+	editorTemplate -dimControl $nodeName $affectedControlName2 $controlState;
+	editorTemplate -dimControl $nodeName $affectedControlName3 $controlState;
+}
+
+
+//
+//  Procedure Name:
+//	AEintercollisionFieldTemplate
+//
+
+global proc AEintercollisionFieldTemplate ( string $nodeName )
+{
+	editorTemplate -beginScrollLayout;
+		
+		AEtransformMain $nodeName;
+
+		editorTemplate -beginLayout "Intercollision Field Attributes" -collapse false;
+
+			editorTemplate -addControl "bounciness";
+
+			editorTemplate -beginNoOptimize;
+			editorTemplate -addControl "handleInterpenetration" "AEintercollisionFieldHIchanged interpenetrationRepulsion";
+			editorTemplate -endNoOptimize;
+			editorTemplate -addControl "interpenetrationRepulsion";
+
+			editorTemplate -addControl "radius";
+
+			editorTemplate -beginLayout "Optimization Attributes" -collapse true;
+				editorTemplate -addControl "useSpaceSplit" "AEintercollisionFieldUSSchanged autoUpdateElemPerCel initialIPSSElemPerCel initialICSSElemPerCel";
+				
+				editorTemplate -beginLayout "Space Split Cels" -collapse true;
+					editorTemplate -label "Auto Update Cel Sizes" -addControl "autoUpdateElemPerCel";
+					editorTemplate -label "Interpenetration Size" -addControl "initialIPSSElemPerCel";
+					editorTemplate -label "Intercollision Size" -addControl "initialICSSElemPerCel";
+					editorTemplate -label "Last Interpenetration Size" -addControl "lastIPElemPerCel";
+					editorTemplate -dimControl $nodeName "lastIPElemPerCel" true;
+					editorTemplate -label "Last Intercollision Size" -addControl "lastICElemPerCel";
+					editorTemplate -dimControl $nodeName "lastICElemPerCel" true;
+				editorTemplate -endLayout;
+			editorTemplate -endLayout;
+		editorTemplate -endLayout;
+		
+		// suppressed attributes
+		//
+		editorTemplate -suppress "magnitude";
+		editorTemplate -suppress "attenuation";
+		editorTemplate -suppress "maxDistance";
+		editorTemplate -suppress "applyPerVertex";
+		editorTemplate -suppress "useMaxDistance";
+		editorTemplate -suppress "volumeShape";
+		editorTemplate -suppress "volumeExclusion";
+		editorTemplate -suppress "volumeOffsetX";
+		editorTemplate -suppress "volumeOffsetY";
+		editorTemplate -suppress "volumeOffsetZ";
+		editorTemplate -suppress "sectionRadius";
+		editorTemplate -suppress "volumeSweep";
+		editorTemplate -suppress "caching";
+		editorTemplate -suppress "nodeState";
+		editorTemplate -suppress "visibility";
+		editorTemplate -suppress "intermediateObject";
+		editorTemplate -suppress "template";
+		editorTemplate -suppress "instObjGroups";
+		editorTemplate -suppress "useObjectColor";
+		editorTemplate -suppress "objectColor";
+		editorTemplate -suppress "drawOverride";
+		editorTemplate -suppress "renderInfo";
+		editorTemplate -suppress "rotatePivot";
+		editorTemplate -suppress "rotatePivotTranslate";
+		editorTemplate -suppress "scalePivot";
+		editorTemplate -suppress "scalePivotTranslate";
+		editorTemplate -suppress "minTransLimit";
+		editorTemplate -suppress "maxTransLimit";
+		editorTemplate -suppress "minTransLimitEnable";
+		editorTemplate -suppress "minTransXLimitEnable";
+		editorTemplate -suppress "minTransYLimitEnable";
+		editorTemplate -suppress "minTransZLimitEnable";
+		editorTemplate -suppress "maxTransLimitEnable";
+		editorTemplate -suppress "maxTransXLimitEnable";
+		editorTemplate -suppress "maxTransYLimitEnable";
+		editorTemplate -suppress "maxTransZLimitEnable";
+		editorTemplate -suppress "minRotLimit";
+		editorTemplate -suppress "maxRotLimit";
+		editorTemplate -suppress "minRotLimitEnable";
+		editorTemplate -suppress "maxRotLimitEnable";
+		editorTemplate -suppress "minScaleLimit";
+		editorTemplate -suppress "maxScaleLimit";
+		editorTemplate -suppress "minScaleLimitEnable";
+		editorTemplate -suppress "maxScaleLimitEnable";
+		editorTemplate -suppress "geometry";
+		editorTemplate -suppress "selectHandle";
+		editorTemplate -suppress "displayHandle";
+		editorTemplate -suppress "displayScalePivot";
+		editorTemplate -suppress "displayRotatePivot";
+		editorTemplate -suppress "displayLocalAxis";
+		editorTemplate -suppress "dynamics";
+		editorTemplate -suppress "showManipDefault";
+		editorTemplate -suppress "owner";
+		editorTemplate -suppress "fromWhere";
+		editorTemplate -suppress "subsetId";
+		editorTemplate -suppress "ownerCentroid";
+		editorTemplate -suppress "ownerPosData";
+		editorTemplate -suppress "ownerVelData";
+		editorTemplate -suppress "magnitude";
+		editorTemplate -suppress "attenuation";
+		editorTemplate -suppress "maxDistance";
+		editorTemplate -suppress "applyPerVertex";
+		editorTemplate -suppress "useMaxDistance";
+		editorTemplate -suppress "inputData";
+		editorTemplate -suppress "inputForce";
+		editorTemplate -suppress "volumeOffset";
+		editorTemplate -suppress "collided";
+		editorTemplate -suppress "reboundDirection";
+		editorTemplate -suppress "collideDirection";
+
+		// add Extra Attributes
+		//
+		editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

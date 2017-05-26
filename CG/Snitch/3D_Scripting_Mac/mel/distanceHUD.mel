@@ -1,0 +1,58 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: distanceHUD
+''    Author:  
+''    Last Updated: Sep 14, 2008
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/interface_display/5337.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+
+// Returns the distance between two selected objects in a heads up display
+// Assign the script to a hotkey or shelf button to toggle display on & off
+
+global proc distanceHUD()
+{	if (`headsUpDisplay -ex hudDist`)
+		headsUpDisplay -rem hudDist;
+
+	else	{	
+		int $blockNumber = `headsUpDisplay -nfb 1`;
+		
+		headsUpDisplay -s 1 -b $blockNumber -ba "center" -dw 50 -dp 3 -l "Distance:" 
+			-c "getDistance" -ev SelectionChanged hudDist;
+	}
+}
+
+global proc float getDistance()
+{
+	float $distance;
+	float $objAPos[];
+	float $objBPos[];
+	float $difference[];
+	string $obj[] = `ls -sl`;
+
+	if ($obj[0] == "")
+		$distance = 0;
+
+	else if ($obj[1] == "")
+		$distance = 0;
+
+	else
+	{
+		$objAPos = `xform -q -ws -piv $obj[0]`;
+		$objBPos = `xform -q -ws -piv $obj[1]`;
+
+		$difference[0] = $objAPos[0] - $objBPos[0];
+		$difference[1] = $objAPos[1] - $objBPos[1];
+		$difference[2] = $objAPos[2] - $objBPos[2];
+
+		$distance = `mag <<$difference[0], $difference[1], $difference[2]>>`;
+	}
+
+	return $distance;
+}

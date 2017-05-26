@@ -1,0 +1,385 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name:  Davvey\'s Bearing Generator
+''    Author: Davvey 
+''    Last Updated: Jan 15, 2007
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/modeling/poly_tools/1027.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+
+
+/*
+	int $Shader;
+
+	for ($i=0; $i< 19; $i++)
+		{	
+			$Shader = $i;
+			DVY_Shaders($Shader);
+		}
+*/
+
+/*
+		int $Shader = 19;
+		DVY_Shaders($Shader);	
+
+*/
+
+global proc string DVY_Shaders(int $Shader)
+	
+ {
+	string $ShaderName,$NameOfShader, $Name;
+	float $DVYColour[], $DVYSpColour[], $DVYDiffColour[], $DVYEccenColour[],
+		  $DVYSpRollOffColour[], $DVYReflectColour[];
+	
+	switch ($Shader)
+	  {
+			  case 0:
+					$ShaderName = "Teeth";
+					$DVYColour = {0.75, 0.75, 0.75};
+					$DVYSpColour = {0.5, 0.5, 0.5};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			   break;
+			  case 1:
+					$ShaderName = "Gear";
+					$DVYColour = {0.0, 0.0, 0.7};
+					$DVYSpColour = {0.1, 0.1, 0.1};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 2:
+				  $ShaderName = "GearHub";
+					$DVYColour = {0.0, 0.0, 0.7};
+					$DVYSpColour = {0.0, 0.0, 0.0};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 3:
+					$ShaderName = "Sprocket";
+					$DVYColour = {0.5, 0.0, 0.0};
+					$DVYSpColour = {0.25, 0.25, 0.25};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 4:
+				  $ShaderName = "SprocketHub";
+					$DVYColour = {0.6, 0.0, 0.0};
+					$DVYSpColour = {0.0, 0.0, 0.0};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 5:
+					$ShaderName = "WormWheel";
+					$DVYColour = {0.80, 0.475, 0.0};
+					$DVYSpColour = {0.25, 0.25, 0.25};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 6:
+				  $ShaderName = "Wheel";
+					$DVYColour = {0.05, 0.50, 0.5};
+					$DVYSpColour = {0.0, 0.0, 0.0};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 7:
+					$ShaderName = "Pulley";
+					$DVYColour = {0.55, 0.5, 0.5};
+					$DVYSpColour = {0.5, 0.5, 0.5};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 8:
+				  $ShaderName = "PulleyHub";
+					$DVYColour = {0.65, 0.6, 0.6};
+					$DVYSpColour = {0.45, 0.45, 0.45};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 9:
+				  $ShaderName = "Shaft";
+					$DVYColour = {0.88, 0.88, 1.0};
+					$DVYSpColour = {0.5, 0.5, 0.5};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 10:
+				  $ShaderName = "Key";
+					$DVYColour = {0.47, 0.47, 0.55};
+					$DVYSpColour = {0.4, 0.4, 0.4};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 11:
+				  $ShaderName = "SetScrew";
+					$DVYColour = {0.10, 0.10, 0.35};
+					$DVYSpColour = {0.3, 0.3, 0.3};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 12:
+				  $ShaderName = "Spoke";
+					$DVYColour = {0.65, 0.65, 0.65};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+					$DVYSpColour = {0.1, 0.1, 0.1};
+			break;
+			  case 13:
+				  $ShaderName = "DriveChain";
+					$DVYColour = {0.1, 0.1, 0.3};
+					$DVYSpColour = {0.3, 0.3, 0.3};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 14:
+				$ShaderName = "ChainRoller";
+					$DVYColour = {0.47, 0.47, 0.55};
+					$DVYSpColour = {0.4, 0.4, 0.4};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 15:
+				$ShaderName = "ChainPin";
+					$DVYColour = {0.1, 0.1, 0.2};
+					$DVYSpColour = {0.3, 0.3, 0.3};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 16:
+				$ShaderName = "TankWheel";
+					$DVYColour = {0.0, 0.30, 0.0};
+					$DVYSpColour = {0.1, 0.1, 0.1};
+					$DVYDiffColour = {0.5, 0.5, 0.5};
+			break;
+			  case 17:
+				$ShaderName = "TankWheelShaft";
+					$DVYColour = {0.0, 0.4, 0.0};
+					$DVYSpColour = {0.1, 0.1, 0.1};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 18:
+				$ShaderName = "TankTread";
+					$DVYColour = {0.0, 0.25, 0.0};
+					$DVYSpColour = {0.1, 0.1, 0.1};
+					$DVYDiffColour = {0.5, 0.5, 0.5};
+			break;
+			  case 19:
+					$ShaderName = "Black";
+					$DVYColour = {0.80, 0.475, 0.0};
+					$DVYSpColour = {0.25, 0.25, 0.25};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 20:
+					$ShaderName = "Grey";
+					$DVYColour = {0.80, 0.475, 0.0};
+					$DVYSpColour = {0.25, 0.25, 0.25};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 21:
+					$ShaderName = "Brass";
+					$DVYColour = {0.80, 0.475, 0.0};
+					$DVYSpColour = {1.00, 0.587, 0.0};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+					$DVYEccenColour = {0.28, 0.28, 0.28};
+					$DVYSpRollOffColour = {0.67, 0.67, 0.67};
+					$DVYReflectColour = {1.50, 0.40, 0.30};
+			break;
+			  case 22:
+					$ShaderName = "White_Metal";
+					$DVYColour = {0.65, 0.65, 0.70};
+					$DVYSpColour = {0.65, 0.65, 0.60};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+					$DVYEccenColour = {0.28, 0.28, 0.28};
+					$DVYSpRollOffColour = {0.57, 0.57, 0.57};
+					$DVYReflectColour = {1.5, 0.40, 0.30};
+			break;
+			  case 23:
+					$ShaderName = "Nylon_White";
+					$DVYColour = {0.95, 0.95, 0.95};
+					$DVYSpColour = {0.65, 0.65, 0.65};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+					$DVYEccenColour = {0.50, 0.50, 0.50};
+					$DVYSpRollOffColour = {0.40, 0.40, 0.40};
+					$DVYReflectColour = {1.0, 0.40, 0.30};
+			break;
+			  case 24:
+					$ShaderName = "Graphite";
+					$DVYColour = {0.35, 0.35, 0.35};
+					$DVYSpColour = {0.40, 0.40, 0.40};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+					$DVYEccenColour = {0.28, 0.28, 0.28};
+					$DVYSpRollOffColour = {0.40, 0.40, 0.40};
+					$DVYReflectColour = {1.5, 0.40, 0.30};
+			break;
+			  case 25:
+					$ShaderName = "Tuffnol_Brown";
+					$DVYColour = {0.40, 0.20, 0.10};
+					$DVYSpColour = {0.50, 0.20, 0.35};
+					$DVYDiffColour = {0.6, 0.6, 0.6};
+					$DVYEccenColour = {0.19, 0.19, 0.19};
+					$DVYSpRollOffColour = {0.15, 0.15, 0.15};
+					$DVYReflectColour = {0.50, 0.40, 0.30};
+			break;
+			  case 26:
+					$ShaderName = "PolyProp";
+					$DVYColour = {0.25, 0.25, 0.475};
+					$DVYSpColour = {0.20, 0.20, 0.20};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+					$DVYEccenColour = {0.28, 0.28, 0.28};
+					$DVYSpRollOffColour = {0.40, 0.40, 0.40};
+					$DVYReflectColour = {0.5, 0.40, 1.50};
+			break;
+			  case 27:
+					$ShaderName = "Copper";
+					$DVYColour = {0.0, 0.0, 0.0};
+					$DVYSpColour = {3.50, 0.57, 0.0};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+					$DVYEccenColour = {0.40, 0.40, 0.40};
+					$DVYSpRollOffColour = {0.50, 0.50, 0.50};
+					$DVYReflectColour = {1.50, 0.00, 0.00};
+			break;
+			  case 28:
+					$ShaderName = "Gold";
+					$DVYColour = {0.80, 0.475, 0.0};
+					$DVYSpColour = {0.25, 0.25, 0.25};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 29:
+					$ShaderName = "Silver";
+					$DVYColour = {0.80, 0.475, 0.0};
+					$DVYSpColour = {0.25, 0.25, 0.25};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			  case 30:
+					$ShaderName = "Steel";
+					$DVYColour = {0.50, 0.50, 0.50};
+					$DVYSpColour = {0.50, 0.50, 0.50};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+					$DVYEccenColour = {0.58, 0.58, 0.58};
+					$DVYSpRollOffColour = {0.79, 0.79, 0.79};
+					$DVYReflectColour = {2.00, 1.00, 1.00};
+			break;
+			  case 31:
+					$ShaderName = "Cage";
+					$DVYColour = {0.80, 0.475, 0.0};
+					$DVYSpColour = {1.00, 0.587, 0.0};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+					$DVYEccenColour = {0.28, 0.28, 0.28};
+					$DVYSpRollOffColour = {0.67, 0.67, 0.67};
+					$DVYReflectColour = {1.50, 0.40, 0.30};
+			break;
+			  case 32:
+					$ShaderName = "Bearing";
+					$DVYColour = {0.50, 0.50, 0.50};
+					$DVYSpColour = {0.50, 0.50, 0.50};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+					$DVYEccenColour = {0.58, 0.58, 0.58};
+					$DVYSpRollOffColour = {0.79, 0.79, 0.79};
+					$DVYReflectColour = {2.00, 1.00, 1.00};
+			break;
+			
+			  case 50:
+				$ShaderName = "Chromed";
+					$DVYColour = {0.2, 0.2, 0.2};
+					$DVYSpColour = {0.1, 0.1, 0.0};
+					$DVYDiffColour = {0.8, 0.8, 0.8};
+			break;
+			
+			
+
+	  }
+	 
+	// Create Shader for seleced object.
+	  
+	if ($Shader < 50)
+		{
+			if (`objExists($ShaderName + "_SH")`)
+		    	{	
+					delete ($ShaderName + "_SH");
+//					print ("\nShader " + $ShaderName + " found and deleted.. © Davvey..\n");
+				}
+		
+			$Name = $ShaderName;
+				$NameOfShader = `shadingNode -asShader blinn`;
+				$NameOfShader = `rename $NameOfShader ($ShaderName + "_SH")`;
+		
+					setAttr ($NameOfShader + ".colorR") $DVYColour[0] ;
+					setAttr ($NameOfShader + ".colorG") $DVYColour[1] ;
+					setAttr ($NameOfShader + ".colorB") $DVYColour[2] ;
+					
+					setAttr ($NameOfShader + ".specularColorR") $DVYSpColour[0] ;
+					setAttr ($NameOfShader + ".specularColorG") $DVYSpColour[1] ;
+					setAttr ($NameOfShader + ".specularColorB") $DVYSpColour[2] ;
+					
+					setAttr ($NameOfShader + ".diffuse") $DVYDiffColour[0] ;
+					setAttr ($NameOfShader + ".eccentricity") $DVYEccenColour[0] ;
+					setAttr ($NameOfShader + ".reflectivity") $DVYReflectColour[0] ;
+						
+					setAttr ($NameOfShader + ".specularRollOff") $DVYSpRollOffColour[0] ;
+					
+					setAttr ($NameOfShader + ".reflectedColorR")  $DVYReflectColour[0] ;
+					setAttr ($NameOfShader + ".reflectedColorG")  $DVYReflectColour[1] ;
+					setAttr ($NameOfShader + ".reflectedColorB")  $DVYReflectColour[2] ;
+		}
+				
+	if ($Shader == 50)
+		 {
+			if (`objExists($ShaderName + "_SH")`)
+		    	{	
+					delete ($ShaderName + "_SH");
+//					print ("\nShader " + $ShaderName + " found and deleted.. © Davvey..\n");
+				}
+		
+			$Name = $ShaderName;
+				$NameOfShader = `shadingNode -as anisotropic -n chromed`;
+				$NameOfShader = `rename $NameOfShader ($ShaderName + "_SH")`;
+				
+		// Seup Nodes
+			
+//			string $ShaderName = `shadingNode -as anisotropic -n chrome`;
+			string $DVYRamp = `shadingNode -at ramp`;
+			string $DVYSampler = `shadingNode -au samplerInfo`;
+			string $DVYEnvMap = `shadingNode -at envBall`;
+			string $DVYEnvRamp = `shadingNode -at ramp`;
+
+		// Set Up all Required connections
+			
+			removeMultiInstance -break true ($DVYRamp + ".colorEntryList[1]");
+			connectAttr -f ($DVYSampler + ".facingRatio") ($DVYRamp + ".uCoord");
+			connectAttr -f ($DVYRamp + ".outAlpha") ($NameOfShader + ".reflectivity");
+			connectAttr -f ($DVYEnvRamp + ".outColor") ($DVYEnvMap + ".image");
+			connectAttr -f ($DVYEnvMap + ".outColor") ($NameOfShader + ".reflectedColor");
+			
+		// Set various attributes each nodenodes
+			
+			// Basic Shader Node attributes.
+				
+				setAttr ($NameOfShader + ".anisotropicReflectivity") 0;
+				setAttr ($NameOfShader + ".spreadX") 15;
+				setAttr ($NameOfShader + ".spreadY") 20;
+				setAttr ($NameOfShader + ".angle") 0;
+				setAttr ($NameOfShader + ".specularColor") 1 1 1;
+				setAttr ($NameOfShader + ".fresnelRefractiveIndex") 20;
+				setAttr ($NameOfShader + ".roughness") 0.25;
+				setAttr ($NameOfShader + ".color") 0.2 0.2 0.2;
+				setAttr ($NameOfShader + ".diffuse") 0.5;
+				
+			//	Ramp Node settings.
+				
+				setAttr ($DVYRamp + ".colorEntryList[2].color") 0 0 0;
+				setAttr ($DVYRamp + ".colorEntryList[2].position") 1;
+				setAttr ($DVYRamp + ".colorEntryList[0].color") 1 1 1;
+				setAttr ($DVYRamp + ".alphaGain") 1.25;
+				setAttr ($DVYRamp + ".interpolation") 2;
+			
+				setAttr ($DVYRamp + ".type") 1;
+			
+			//	Environmetal Map Node settings.
+					
+				setAttr ($DVYEnvMap + ".elevation") 1.57;
+				
+				setAttr ($DVYEnvRamp + ".type") 4;
+				setAttr ($DVYEnvRamp + ".colorEntryList[0].position") 0.475;
+				setAttr ($DVYEnvRamp + ".colorEntryList[1].position") 0.5;
+				setAttr ($DVYEnvRamp + ".colorEntryList[2].position") 0.55;
+				setAttr ($DVYEnvRamp + ".colorEntryList[0].color") 1 1 1;
+				setAttr ($DVYEnvRamp + ".colorEntryList[2].color") 0.75 0.75 0.75;
+				setAttr ($DVYEnvRamp + ".colorEntryList[1].color") 0 0 0;
+	}		
+			
+//		print ("\nSet Up Shader for " + $ShaderName + ".. © Davvey..\n");; 
+		
+	return $ShaderName;
+	
+ }
+	

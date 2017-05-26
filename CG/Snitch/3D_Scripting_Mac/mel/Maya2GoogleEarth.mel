@@ -1,0 +1,722 @@
+global proc Maya2GoogleEarth() 
+{
+  Maya2GoogleEarthGUI;
+}
+
+global proc Maya2GoogleEarthGUI() 
+{
+	float $versionNum = 0.1;
+	
+	global string $errorMessage = "";
+
+	global float $kmlStrokeAlpha;
+	global float $kmlStrokeRed;
+	global float $kmlStrokeGreen;
+	global float $kmlStrokeBlue;
+	
+	global string $kmlFilePath = "";
+	global string $kmlFileName = "";
+
+	global int $progress;
+	global int $numFaces;
+	global int $progressBarCount;
+
+	//Pull the values
+	float $kmlLon = 0.0;
+	float $kmlLat = 0.0;
+	float $kmlEle = 0.0;	
+	float $kmlSca = 1.0;
+	int   $kmlCom = 0;
+	int   $kmlEdg = 1;
+
+	float $kmlA = 1.0;
+	float $kmlR = 0.0;
+	float $kmlG = 0.0;
+	float $kmlB = 0.0;
+
+	$kmlStrokeAlpha   = $kmlA;
+	$kmlStrokeRed     = $kmlR;
+	$kmlStrokeGreen   = $kmlG;
+	$kmlStrokeBlue    = $kmlB;
+
+	if ( `optionVar -exists kmlLon` ) $kmlLon = `optionVar -q kmlLon`;
+	if ( `optionVar -exists kmlLat` ) $kmlLat = `optionVar -q kmlLat`;
+	if ( `optionVar -exists kmlEle` ) $kmlEle = `optionVar -q kmlEle`;
+	if ( `optionVar -exists kmlSca` ) $kmlSca = `optionVar -q kmlSca`;
+	if ( `optionVar -exists kmlSca` ) $kmlSca = `optionVar -q kmlSca`;
+	if ( `optionVar -exists kmlCom` ) $kmlCom = `optionVar -q kmlCom`;
+	if ( `optionVar -exists kmlEdg` ) $kmlEdg = `optionVar -q kmlEdg`;
+
+	if ( `optionVar -exists kmlColorFloatA` ) $kmlStrokeAlpha = `optionVar -q kmlColorFloatA` ;
+	if ( `optionVar -exists kmlColorFloatR` ) $kmlStrokeRed   = `optionVar -q kmlColorFloatR` ;
+	if ( `optionVar -exists kmlColorFloatG` ) $kmlStrokeGreen = `optionVar -q kmlColorFloatG` ;
+	if ( `optionVar -exists kmlColorFloatB` ) $kmlStrokeBlue  = `optionVar -q kmlColorFloatB` ;
+
+
+	//path for eyebeam logo
+	string $logoPath = `internalVar -upd`+"icons/Maya2GoogleEarth.xpm";
+
+	//Form layout
+	if(`window -exists kmlExportUI` == 1) 
+		deleteUI kmlExportUI;
+
+	if(`window -exists kmlExportUI` != 1)
+	{
+		
+		int $windowWidth = 300;
+		int $windowHeight = 380;
+
+
+		window
+			-maximizeButton false
+			-sizeable false
+			-title "Maya2GoogleEarth Settings"
+			-menuBar false
+			-wh $windowWidth $windowHeight
+			Maya2GoogleEarthUI;
+
+
+		formLayout -numberOfDivisions 100 Maya2GoogleEarthUIForm;
+		columnLayout -adjustableColumn true -rowSpacing 5 Maya2GoogleEarthUIColumn;
+		
+
+			// Eyebeam logo
+			rowLayout -numberOfColumns 1 -cat 1 "left" 4;
+				if(`filetest -r $logoPath`){
+					symbolButton -image $logoPath -command gotoEyebeamSite;
+				}else{
+					button -l ("Put the icon file in Maya 6.5/prefs/icons/") -w 280 -h 80 -al "center" -command gotoEyebeamSite;
+				}	
+			setParent..;
+			separator -width $windowWidth;
+
+			
+			// Toggle Compass on/off
+			rowLayout -nc 2 -cat 1 "left" 5 -cw 1 28 -cat 2 "left" 5 -cw 2 120;
+				checkBox -l "" -onc showCompass -ofc hideCompass -value $kmlCom compassCheckBox;
+				text -l "Show compass";
+			setParent..;
+			separator -w $windowWidth;
+
+			// Vertex color selection
+			rowLayout -nc 3 -cat 1 "left" 5 -cw 1 28 -cat 2 "left" 5 -cw 2 115 -cat 3 "left" 0 -cw 3 120 ;
+				checkBox -l "" -value $kmlEdg colorCheckBox;
+				text -l "Enable edge color";
+				canvas -bgc $kmlStrokeRed $kmlStrokeGreen $kmlStrokeBlue -width 65 -h 20 -pressCommand getColor colorPicker;
+			setParent..;
+			separator -w $windowWidth;
+			
+			// Enter Coordinates
+			rowLayout -nc 1 -cat 1 "left" 5;
+				text -l "Set Earth Coordinates:";
+			setParent..;
+			rowLayout -nc 1;
+				floatFieldGrp -nf 1 -l "Latitude" -value1 $kmlLat -pre 8 -h 20 latitudeField;
+			setParent..;
+			rowLayout -nc 1;	
+				floatFieldGrp -nf 1 -l "Longitude" -value1 $kmlLon -pre 8 -h 20 longitudeField;
+			setParent..;
+			rowLayout -nc 1;
+				floatFieldGrp -nf 1 -l "Elevation (meters)" -value1 $kmlEle -pre 8 -h 20 elevationField;
+			setParent..;
+			separator -w $windowWidth;
+
+			// Scale
+			rowLayout -nc 3 -cat 1 "left" 65 -cw 1 100 -cat 2 "left" 40 -cat 3 "left" 30;
+				text -l "1 Maya Unit =";	
+				floatField -w 80 -value $kmlSca -pre 4 -h 20 scaleField;
+				text -l "Meters";
+			setParent..;
+			separator -w $windowWidth;
+
+			// Export
+			rowLayout -nc 1 -cat 1 "left" 140 -cw 1 100;
+				button -l "Export" -al "center" -command errorCheck;
+			setParent..;
+					
+		window -e -wh $windowWidth $windowHeight Maya2GoogleEarthUI;
+		showWindow Maya2GoogleEarthUI;
+
+	}
+}
+
+
+global proc gotoEyebeamSite() 
+{
+	string $URL = "\"http://production.eyebeam.org/tools/\"";
+	showHelp -absolute $URL;	
+}	
+
+// Function to grab RGBA color data from color picker
+global proc getColor()
+{
+
+	global float $kmlStrokeRed;
+	global float $kmlStrokeGreen;
+	global float $kmlStrokeBlue;
+	global float $kmlStrokeAlpha;
+
+
+
+	colorEditor;
+ 	if (`colorEditor -query -result`) {
+ 		float $values[], $alpha;
+ 		$RGBValues = `colorEditor -query -rgb`;
+		canvas -edit -bgc $RGBValues[0] $RGBValues[1] $RGBValues[2] colorPicker;
+		$kmlStrokeRed   = $RGBValues[0];
+		$kmlStrokeGreen = $RGBValues[1];
+		$kmlStrokeBlue  = $RGBValues[2];
+		$kmlStrokeAlpha = `colorEditor -query -alpha`;
+	}
+}
+
+// Save as... fileBrowser
+global proc saveAs()
+{
+	fileBrowser( "onSave", "Save", "", 1);
+}
+
+// fileBrowser's callback function
+global proc int onSave(string $name,string $type) {
+	
+	global string $kmlFilePath;
+	global string $kmlFileName;
+	global string $errorMessage="";
+	
+	// Make sure the file has the right extension
+	string $checkExtension[];
+	int $numTokens = `tokenize $name "." $checkExtension`;
+	
+	if($numTokens == 2) {
+		// check that the extension is right
+		if($checkExtension[1] == "kml"){
+		}else{
+			$errorMessage = "Please use .kml extension";
+		}
+	} else {
+		// there's no extension, add .kml
+		$name = $name+".kml";
+	}
+
+	string $buffer[];
+	int $index;
+				
+	$numTokens = `tokenize $name "/" $buffer`;
+	if ($numTokens > 0) {
+		$index = $numTokens - 1;
+	}
+	$kmlFilePath = $name;
+	$kmlFileName = $buffer[$index];
+
+	return true;
+}
+
+// Error check
+global proc errorCheck(){
+	
+	global string $kmlFilePath;
+	global string $kmlFileName;
+	global string $errorMessage;
+
+	$errorMessage = "";
+	
+	// Make sure an object is selected
+	string $polyOBJ[] = `ls -sl -transforms -type mesh`;
+	if(`size($polyOBJ)` == 0){
+		$errorMessage="Please select an object to export.";
+		print $errorMessage;
+	}
+	else
+	{	
+		saveAs();
+		
+		// Check to see that there is a file path
+		if($kmlFilePath == "") {
+			// User chose to cancel 'save as' dialog
+			return;
+		}
+	}
+	// Still no errors, export
+	if($errorMessage == "") {		
+		doTheStuff;
+	} else {
+		// Display error window
+		if(`window -exists errorBox` == 1) 
+			deleteUI errorBox;
+
+        	if(`window -exists errorBox` != 1)
+        	{	
+        		int $windowWidth = 250;
+        		int $windowHeight = 100;
+        		window
+        			-maximizeButton false
+        			-resizeToFitChildren false
+        			-title "Maya2GoogleEarth Message"
+        			-iconName "Maya2GoogleEarth Message"
+        			-menuBar false
+        			-wh $windowWidth $windowHeight
+        			errorBox;
+        
+        			columnLayout -adjustableColumn true -rowSpacing 5 errorBoxColumn;
+        		
+        			// Scale
+        			rowLayout -nc 1 -cat 1 "left" 5;
+        				text -l ("\n"+$errorMessage+"\n");
+        			setParent..;
+        					
+        			rowLayout -nc 1 -cat 1 "left" 4 -cw 1 100;
+        				button -l "Okay!" -al "center" -command "deleteUI errorBox";
+        			setParent..;
+        					
+        		window -e -wh $windowWidth $windowHeight errorBox;
+        		showWindow errorBox;
+        	}
+	}
+}
+
+global proc doTheStuff(){
+
+	global float $kmlStrokeRed;
+	global float $kmlStrokeGreen;
+	global float $kmlStrokeBlue;
+	global float $kmlStrokeAlpha;
+
+	global string $kmlFileName;
+	global string $kmlFilePath;
+	
+	// Get values from the text fields	
+	float $longitude = `floatFieldGrp -query -value1 longitudeField`;
+	float $latitude  = `floatFieldGrp -query -value1 latitudeField`;
+	float $elevation = `floatFieldGrp -query -value1 elevationField`;
+	float $scaleAmt  = `floatField -query -value scaleField`;
+	int   $compass   = `checkBox -query -value compassCheckBox`;
+	int   $showEdges = `checkBox -query -value colorCheckBox`;
+
+	// Get color values for vertex stroke
+	string $hexEdgeColor;
+	if($showEdges == 1){
+		$hexEdgeColor = `argb2hex $kmlStrokeAlpha $kmlStrokeRed $kmlStrokeGreen $kmlStrokeBlue`;
+	}
+	// Invisible
+	else $hexEdgeColor = "00000000";
+
+	// Store values into maya's settings
+	optionVar -floatValue kmlLon $longitude;	
+	optionVar -floatValue kmlLat $latitude;
+	optionVar -floatValue kmlEle $elevation;
+	optionVar -floatValue kmlSca $scaleAmt;
+	optionVar -floatValue kmlEdg $showEdges;
+
+	optionVar -floatValue kmlColorFloatA $kmlStrokeAlpha;
+	optionVar -floatValue kmlColorFloatR $kmlStrokeRed;
+	optionVar -floatValue kmlColorFloatG $kmlStrokeGreen;
+	optionVar -floatValue kmlColorFloatB $kmlStrokeBlue;
+	
+	deleteUI Maya2GoogleEarthUI;
+	setup $longitude $latitude $elevation $scaleAmt $hexEdgeColor;
+	
+}
+
+global proc setup(float $real_long, float $real_lat, float $real_elev, float $real_scale, string $hexEdgeColor)
+{
+	
+	global string $kmlFileName;
+	global string $kmlFilePath;
+	
+	global int $numFaces;
+	global int $progress;
+	global int $progressBarCount;
+
+	string $polyOBJ[] = `ls -sl -transforms -type mesh`;
+	string $temp_PolyOBJ;
+	
+	makeIdentity -apply true -t 0 -r 0 -s 1;
+
+	// Setup kml file for writing
+	
+	// Get placemark name from the file name
+	string $placeMarkNameArr[];
+	int $num = `tokenize $kmlFileName "." $placeMarkNameArr`;
+	string $placeMarkName = $placeMarkNameArr[0];
+
+	// Open file for writing 
+	int $fileCheck = `filetest -w $kmlFilePath`;
+	int $fileId=`fopen $kmlFilePath "w"`;
+
+	// Start file setup
+	string $kml_StartString="<?xml version='1.0' encoding='UTF-8'?>\n";
+	//put in maya values so we can read them in again 
+	$kml_StartString += ("<!-- Maya2GoogleEarth developed at Eyebeam.org - visit http://production.eyebeam.org/tools/ for more info -->\n");
+	$kml_StartString += "<kml xmlns='http://earth.google.com/kml/2.0'>\n";
+	$kml_StartString += ("\t<Document>\n<name>" +$placeMarkName + "</name>\n");
+	$kml_StartString += "<LookAt>\n<longitude>\n";
+	$kml_StartString += $real_long;
+	$kml_StartString += ("</longitude>\n<latitude>" + $real_lat + "</latitude>\n");
+	$kml_StartString += "<range>\n";
+	$kml_StartString += (($real_scale * 100.0)+" \n");
+	$kml_StartString += "</range>\n<tilt>\n45.0\n";
+	$kml_StartString += "</tilt>\n<heading>\n";
+	$kml_StartString += "0\n";
+	$kml_StartString += "</heading>\n";
+	$kml_StartString += "</LookAt>\n";
+	$kml_StartString += "";
+	fprint $fileId $kml_StartString;
+
+	string $objectStr = "";
+	
+	// Start progress bar
+	int $numFacesArray[] = `polyEvaluate -f`;
+	$numFaces = $numFacesArray[0];
+	$progress = 0;
+	$progressBarCount = 0;
+		
+	progressWindow 
+		-title "Exporting"
+		-progress $progress
+		-max 100
+		-status "Percentage Complete: 0%"
+		-isInterruptable true;
+	
+	// Write polygon shape for each object
+	for($temp_PolyOBJ in $polyOBJ)
+	{
+		makeVertexString $temp_PolyOBJ $real_long $real_lat $real_elev $real_scale $fileId $hexEdgeColor;
+	}
+	
+	progressWindow -endProgress;
+	string $endString = "</Document>\n\n</kml>\n";
+	fprint $fileId $endString;
+	fclose $fileId;
+	print ("KML written to "+$kmlFilePath);
+
+}
+
+
+global proc makeVertexString(string $input_OBJ, float $lon, float $lat, float $elev, float $sca, int $fileId, string $lineHexColor)
+{
+	global int $progress;
+	global int $numFaces;
+	global int $progressBarCount;
+	float $pct;
+		
+	int $sizePoly[] =`polyEvaluate -f $input_OBJ`;
+	
+	//convert to meters 
+	$sca /= 111000.0; 
+
+	string $matHexColor; 		
+	string $shapeNode[] = `listRelatives -fullPath -shapes $input_OBJ`;
+	string $connectedMaterial = `getFacetShader $shapeNode[0]`;
+	
+	if($connectedMaterial != "none") {
+		$matHexColor = `materialToHexString $connectedMaterial`;
+	} else {
+		$matHexColor = "FF000000"; // default
+	} 
+
+	//Get the center point of our object used for undeforming spherical distortion		
+	float $p[3] = `xform -worldSpace -query -piv $input_OBJ`;
+	float $scaleP = 1.0 / cos(deg_to_rad($lat + $p[0])) ;
+
+	string $polyString=" ";
+	//get a list of faces for the objects
+	for($i = 0; $i < $sizePoly[0]; $i++)
+	{	
+		if(`progressWindow -query -isCancelled`) 
+			break;
+		$progressBarCount++;
+        	$pct = (float)$progressBarCount/(float)$numFaces * 100;
+		$progress = (int)$pct;
+        	progressWindow 
+        		-edit
+        		-progress $progress
+			-max 100
+	       		-status ("Percentage Complete: "+$progress+"%");
+        		
+		//get a face of our object
+		string $face  = ($input_OBJ+ ".f[" + $i + "]");
+	
+		//get all the vertices for the face
+		string $vtxOnTheFaceInAString[] = `polyInfo -fv $face`;
+		string $tokens[];	
+		tokenizeList($vtxOnTheFaceInAString[0],$tokens);
+		
+		// Color Stuff	
+		string $faceShader = `getFacetShader $face`;
+		fprint $fileId "<Placemark>";
+		string $style;
+		string $defaultShader = ("<Style><PolyStyle><color>" + $matHexColor + "</color></PolyStyle><LineStyle><color>" + $lineHexColor + "</color><width>1</width></LineStyle></Style>");
+		if ($faceShader != "none") {
+			$matHexColor =`materialToHexString $faceShader`;
+			$style = ("<Style><PolyStyle><color>" + $matHexColor + "</color><fill>1</fill><outline>1</outline></PolyStyle><LineStyle><color>" + $lineHexColor + "</color><width>1</width></LineStyle></Style>");
+			
+		} else {
+		    $style = $defaultShader;
+		}
+		fprint $fileId $style;
+		
+		//new polygon for each face - this allows us to have polygons with different colors
+		$polyString+="<Polygon>\n<altitudeMode>\nrelativeToGround\n</altitudeMode>\n<outerBoundaryIs>\n<LinearRing>\n<coordinates>\n";
+		
+		vector $vec;
+		string $dupLastVert = "";
+		$s = `size $tokens`;
+		for( $k = 2; $k < $s; $k++)
+		{
+		
+			// grab the world position of each point
+			string $point = ($input_OBJ+".vtx["+int($tokens[$k])+"]");
+			//vector $wVec  =  `pointPosition -w $point`;
+			
+			float $pointArr[]  =  `pointPosition -w $point`;
+			
+			//adjust position by long lat and elevation - z and y are flipped between maya and google
+			//float $wX = $pointArr[0]*sca  +  $lon;
+			float $wY = $lat - $pointArr[2]*$sca ;
+			float $wZ = $pointArr[1]*$sca* 100000 + $elev;
+			
+			//grab the x position of the vertex relative to its center point
+			float $dX = float($pointArr[0]) - $p[0] ;
+			
+			$dX *= $sca;
+
+			// and scale the x values by that factor - this acts as an un-keystoning to the polar distortion
+			float $scaleBy = 1.0 / cos(deg_to_rad($wY)) ;
+
+			//print($wY +" " + $scaleBy + "\n");
+
+			//need to add the longitude offset for x
+			float $x =  $dX * $scaleBy + $p[0]*$sca +  $lon;
+			float $y = $wY;
+			float $z = $wZ;
+		
+			$polyString  += (   $x + ", " + $y + ", " + $z  + " \n");
+			//First vertex drawn again so that it is a complete polygon.
+			if($k == 2) $dupLastVert = (   $x + ", " + $y + ", " + $z  + " \n");
+		}
+		//write it out
+		$polyString+=$dupLastVert;
+		$polyString+="\n</coordinates>\n</LinearRing>\n</outerBoundaryIs>\n</Polygon></Placemark>\n";
+		fprint $fileId $polyString;
+		$polyString="";
+	
+	}
+}
+
+global proc string materialToHexString(string $myMaterial) {
+// Input:: shader node as string
+// Output:: hexadecimal string alpha/bluegreen/red order
+	
+	float $alpha = 1;
+	if( `attributeExists "transparency" $myMaterial` == true)
+	{
+			float $opacity[] = `getAttr ($myMaterial +".transparency")`;
+			//average the color value (I think there's a typecasting way to do this instead)
+			$alpha = $opacity[0] + $opacity[1] + $opacity[3];
+			if ($alpha > 0) {$alpha = $alpha / 3;}
+			//google earth calls it opacity, maya calls it transparency. so we invert:
+			$alpha = (1 - $alpha);
+	}
+	
+	float $diffuse[] = `getAttr ($myMaterial +".color")`;
+
+	string $a = `toHex ($alpha * 255)`;
+	string $r = `toHex ($diffuse[0] * 255)`;
+	string $g = `toHex ($diffuse[1] * 255)`;
+	string $b = `toHex ($diffuse[2] * 255)`;
+	if(`size $a` < 2){$a = "0" + $a;}
+	if(`size $r` < 2){$r = "0" + $r;}
+	if(`size $g` < 2){$g = "0" + $g;}
+	if(`size $b` < 2){$b = "0" + $b;}
+	return ($a + $b + $g + $r);
+	//return "FFFFFFFF";
+}
+
+//argb to hex
+global proc string argb2hex(float $a, float $r, float $g, float $b)
+{
+	string $aa = `toHex ($a * 255)`;
+	string $rr = `toHex ($r * 255)`;
+	string $gg = `toHex ($g * 255)`;
+	string $bb = `toHex ($b * 255)`;
+
+	if(`size $aa` < 2){$aa = "0" + $aa;}
+	if(`size $rr` < 2){$rr = "0" + $rr;}
+	if(`size $gg` < 2){$gg = "0" + $gg;}
+	if(`size $bb` < 2){$bb = "0" + $bb;}
+	
+	return ($aa + $bb + $gg + $rr);
+}
+
+// Converts an int to a hexadecimal string.
+global proc string toHex(int $d) {
+        int $r = $d % 16;
+        if($d-$r==0) {return (`toHexChar $r`);}
+        else {return (`toHex( ($d-$r)/16 )`+`toHexChar $r`);}
+}
+// Used by toHex to map 1-16 to hex
+global proc string toHexChar(int $n) {
+        string $alpha = "0123456789ABCDEF";
+        return `substring $alpha ($n+1) ($n+1)`;
+}
+
+
+global proc string getFacetShader( string $facet )
+// Input (string) - facet component to query (e.g. "pSphere1.f[0]") used for shape nodes too
+// Result (string) - Shading Group shading facet material(e.g. "phong1")
+{
+ // print "atGetFacetShader";
+  string $facetSG = "";
+
+  // Get array of all Shading Groups
+  string $shadingGroups[] = `ls -type shadingEngine`;
+ // print $shadingGroups;
+  for ( $shadingGroup in $shadingGroups )
+  {
+    // If this facet is a member of the shading set for this
+    // Shading Group, tag this as the facet's shader
+    if ( `sets -isMember $shadingGroup $facet` )
+    {
+      $facetSG = $shadingGroup;
+      break;
+    }
+  }
+  if ($facetSG != "") {
+	// all materials are derived from lambert, so this will return something w/ a color/transparency
+	string $mats[] = `listConnections -t lambert $facetSG`;
+	return $mats[0];
+	} else {
+	return "none";
+  }
+}
+
+global proc string[] saveSelection()
+{
+	string $polyOBJ[];
+	$polyOBJ = `ls -sl -transforms -type mesh`;
+	return $polyOBJ;
+}
+
+
+global proc restoreSelection(string $objList[])
+{
+	if(`size($objList)`)
+	{
+		for($temp_PolyOBJ in $objList)
+		{
+			select -add $temp_PolyOBJ; 
+		}
+	}
+}
+
+
+
+
+global proc showCompass()
+{
+
+	string $saveList[] = `saveSelection`;
+
+	string $nArr[] =  `textCurves -f "Times-Roman" -t "N"`;
+	rotate -r -os -90.0 0 0 ;
+	move -r 0 0 -9;
+	scale -r 0.450262 0.450262 0.450262 ;
+	toggle -template -state on $nArr[0];
+
+	//store obj name to delete later
+	optionVar -stringValue nObj $nArr[0];
+
+	string $eArr[] =  `textCurves -f "Times-Roman" -t "E"`;
+	rotate -r -os -90.0 0 0 ;
+	move -r 9 0 0;
+	scale -r 0.450262 0.450262 0.450262 ;
+	toggle -template -state on $eArr[0];
+	
+	//store obj name to delete later
+	optionVar -stringValue eObj $eArr[0];
+	
+	string $wArr[] =  `textCurves -f "Times-Roman" -t "W"`;
+	rotate -r -os -90.0 0 0 ;
+	move -r -10 0 0  ;
+	scale -r 0.450262 0.450262 0.450262 ;
+	toggle -template -state on $wArr[0];
+
+	//store obj name to delete later
+	optionVar -stringValue wObj $wArr[0];
+	
+	
+	string $sArr[] =  `textCurves -f "Times-Roman" -t "S"`;
+	rotate -r -os -90.0 0 0 ;
+	move -r 0 0 10;
+	scale -r 0.450262 0.450262 0.450262 ;
+	toggle -template -state on $sArr[0];
+
+	//store obj name to delete later
+	optionVar -stringValue sObj $sArr[0];
+	
+	select -cl;
+
+	optionVar -floatValue kmlCom 1;
+
+	restoreSelection $saveList;
+}
+
+global proc hideCompass()
+{
+
+	string $saveList[] = `saveSelection`;
+
+	string $delN;
+	string $delE;
+	string $delW;
+	string $delS;
+
+	if ( `optionVar -exists nObj`  )
+	{
+	 	$delN = `optionVar -q nObj`;
+		if(`objExists $delN` )
+		{
+			toggle -template -state off $delN;
+			select -r $delN;
+			doDelete;
+		}	
+	}
+
+	if ( `optionVar -exists eObj`  )
+	{
+		$delE = `optionVar -q eObj`;
+		if(`objExists $delE` )
+		{
+			toggle -template -state off $delE;
+			select -r $delE;
+			doDelete;
+		}
+	}
+	
+	if ( `optionVar -exists wObj`)
+	{
+		$delW = `optionVar -q wObj`;
+		if(`objExists $delW` )
+		{
+			toggle -template -state off $delW;
+			select -r $delW;
+			doDelete;	
+		}
+	}
+	if ( `optionVar -exists sObj` )
+	{	
+		$delS = `optionVar -q sObj`;
+		if(`objExists $delS` )
+		{
+			toggle -template -state off $delS;
+			select -r $delS;
+			doDelete;
+		}
+	}
+	optionVar -floatValue kmlCom 0;
+
+
+	restoreSelection $saveList;
+
+}
+	

@@ -1,0 +1,445 @@
+//Creating the New MotionBuilder Skeleton//
+//
+//Created by Grenal Spark
+//v 1.0
+//April 25th, 2004
+
+//Start of Script//
+
+//Select Arm and Leg joints and Mirror them//
+
+select -r temp_RightShoulder ;
+mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "Right" "Left";
+select -r temp_RightUpLeg ;
+mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "Right" "Left";
+
+//Create a Reference Layer for Skeleton//
+
+createDisplayLayer -name "ReferenceSkeleton" -empty;
+
+//Select and Put temp Skeleton into layer and make layer "Referenced"//
+
+select -r temp_LeftUpLeg ;
+select -tgl temp_RightUpLeg ;
+select -tgl temp_Hips ;
+select -tgl temp_RightShoulder ;
+select -tgl temp_LeftShoulder ;
+layerEditorAddObjects ReferenceSkeleton;
+layerEditorLayerButtonTypeChange ReferenceSkeleton;
+layerEditorLayerButtonTypeChange ReferenceSkeleton;
+select -cl  ;
+
+//Create new Spine joints//
+
+float $jPos[] = `xform -q -ws -rp temp_Hips`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n Hips;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_Spine`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n Spine;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_Spine1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n Spine1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_Spine2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n Spine2;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_Neck`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n Neck;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_Head`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n Head;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_Head_End`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n Head_End;
+select -cl  ;
+
+connectJoint -pm Head_End Head;
+connectJoint -pm Head Neck;
+connectJoint -pm Neck Spine2;
+connectJoint -pm Spine2 Spine1;
+connectJoint -pm Spine1 Spine;
+connectJoint -pm Spine Hips;
+select -cl  ;
+
+//Re-Orient Spine joints//
+
+select -r Hips ;
+joint -e -oj xyz -ch -zso;
+select -cl  ;
+
+//Set Hips orientation to "none"//
+
+select -r Hips ;
+joint -e -oj none -zso;
+select -cl  ;
+
+//Create new Right Arm joints//
+
+float $jPos[] = `xform -q -ws -rp temp_RightShoulder`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightShoulder;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightArm`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightArm;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightArmRoll`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightArmRoll;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightForeArm`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightForeArm;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightForeArmRoll`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightForeArmRoll;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHand`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHand;
+select -cl  ;
+
+connectJoint -pm RightHand RightForeArmRoll;
+connectJoint -pm RightForeArmRoll RightForeArm;
+connectJoint -pm RightForeArm RightArmRoll;
+connectJoint -pm RightArmRoll RightArm;
+connectJoint -pm RightArm RightShoulder;
+select -cl  ;
+
+float $jPos[] = `xform -q -ws -rp temp_RightHandPinky1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandPinky1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandPinky2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandPinky2;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandPinky3`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandPinky3;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandPinky4`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandPinky4;
+select -cl  ;
+
+connectJoint -pm RightHandPinky4 RightHandPinky3;
+connectJoint -pm RightHandPinky3 RightHandPinky2;
+connectJoint -pm RightHandPinky2 RightHandPinky1;
+connectJoint -pm RightHandPinky1 RightHand;
+select -cl  ;
+
+float $jPos[] = `xform -q -ws -rp temp_RightHandRing1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandRing1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandRing2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandRing2;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandRing3`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandRing3;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandRing4`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandRing4;
+select -cl  ;
+
+connectJoint -pm RightHandRing4 RightHandRing3;
+connectJoint -pm RightHandRing3 RightHandRing2;
+connectJoint -pm RightHandRing2 RightHandRing1;
+connectJoint -pm RightHandRing1 RightHand;
+select -cl  ;
+
+float $jPos[] = `xform -q -ws -rp temp_RightHandMiddle1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandMiddle1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandMiddle2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandMiddle2;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandMiddle3`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandMiddle3;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandMiddle4`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandMiddle4;
+select -cl  ;
+
+connectJoint -pm RightHandMiddle4 RightHandMiddle3;
+connectJoint -pm RightHandMiddle3 RightHandMiddle2;
+connectJoint -pm RightHandMiddle2 RightHandMiddle1;
+connectJoint -pm RightHandMiddle1 RightHand;
+select -cl  ;
+
+float $jPos[] = `xform -q -ws -rp temp_RightHandIndex1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandIndex1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandIndex2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandIndex2;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandIndex3`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandIndex3;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandIndex4`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandIndex4;
+select -cl  ;
+
+connectJoint -pm RightHandIndex4 RightHandIndex3;
+connectJoint -pm RightHandIndex3 RightHandIndex2;
+connectJoint -pm RightHandIndex2 RightHandIndex1;
+connectJoint -pm RightHandIndex1 RightHand;
+select -cl  ;
+
+float $jPos[] = `xform -q -ws -rp temp_RightHandThumb1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandThumb1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandThumb2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandThumb2;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandThumb3`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandThumb3;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightHandThumb4`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightHandThumb4;
+select -cl  ;
+
+connectJoint -pm RightHandThumb4 RightHandThumb3;
+connectJoint -pm RightHandThumb3 RightHandThumb2;
+connectJoint -pm RightHandThumb2 RightHandThumb1;
+connectJoint -pm RightHandThumb1 RightHand;
+select -cl  ;
+
+//Re-Orient Right Arm joints//
+
+select -r RightShoulder ;
+joint -e -oj xyz -ch -zso;
+select -cl  ;
+
+//Create new Left Arm joints//
+
+float $jPos[] = `xform -q -ws -rp temp_LeftShoulder`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftShoulder;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftArm`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftArm;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftArmRoll`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftArmRoll;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftForeArm`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftForeArm;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftForeArmRoll`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftForeArmRoll;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHand`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHand;
+select -cl  ;
+
+connectJoint -pm LeftHand LeftForeArmRoll;
+connectJoint -pm LeftForeArmRoll LeftForeArm;
+connectJoint -pm LeftForeArm LeftArmRoll;
+connectJoint -pm LeftArmRoll LeftArm;
+connectJoint -pm LeftArm LeftShoulder;
+select -cl  ;
+
+float $jPos[] = `xform -q -ws -rp temp_LeftHandPinky1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandPinky1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandPinky2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandPinky2;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandPinky3`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandPinky3;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandPinky4`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandPinky4;
+select -cl  ;
+
+connectJoint -pm LeftHandPinky4 LeftHandPinky3;
+connectJoint -pm LeftHandPinky3 LeftHandPinky2;
+connectJoint -pm LeftHandPinky2 LeftHandPinky1;
+connectJoint -pm LeftHandPinky1 LeftHand;
+select -cl  ;
+
+float $jPos[] = `xform -q -ws -rp temp_LeftHandRing1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandRing1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandRing2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandRing2;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandRing3`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandRing3;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandRing4`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandRing4;
+select -cl  ;
+
+connectJoint -pm LeftHandRing4 LeftHandRing3;
+connectJoint -pm LeftHandRing3 LeftHandRing2;
+connectJoint -pm LeftHandRing2 LeftHandRing1;
+connectJoint -pm LeftHandRing1 LeftHand;
+select -cl  ;
+
+float $jPos[] = `xform -q -ws -rp temp_LeftHandMiddle1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandMiddle1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandMiddle2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandMiddle2;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandMiddle3`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandMiddle3;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandMiddle4`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandMiddle4;
+select -cl  ;
+
+connectJoint -pm LeftHandMiddle4 LeftHandMiddle3;
+connectJoint -pm LeftHandMiddle3 LeftHandMiddle2;
+connectJoint -pm LeftHandMiddle2 LeftHandMiddle1;
+connectJoint -pm LeftHandMiddle1 LeftHand;
+select -cl  ;
+
+float $jPos[] = `xform -q -ws -rp temp_LeftHandIndex1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandIndex1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandIndex2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandIndex2;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandIndex3`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandIndex3;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandIndex4`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandIndex4;
+select -cl  ;
+
+connectJoint -pm LeftHandIndex4 LeftHandIndex3;
+connectJoint -pm LeftHandIndex3 LeftHandIndex2;
+connectJoint -pm LeftHandIndex2 LeftHandIndex1;
+connectJoint -pm LeftHandIndex1 LeftHand;
+select -cl  ;
+
+float $jPos[] = `xform -q -ws -rp temp_LeftHandThumb1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandThumb1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandThumb2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandThumb2;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandThumb3`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandThumb3;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftHandThumb4`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftHandThumb4;
+select -cl  ;
+
+connectJoint -pm LeftHandThumb4 LeftHandThumb3;
+connectJoint -pm LeftHandThumb3 LeftHandThumb2;
+connectJoint -pm LeftHandThumb2 LeftHandThumb1;
+connectJoint -pm LeftHandThumb1 LeftHand;
+select -cl  ;
+
+//Re-Orient Left Arm joints//
+
+select -r LeftShoulder ;
+joint -e -oj xyz -ch -zso;
+select -cl  ;
+
+//Create new Right Leg joints//
+
+float $jPos[] = `xform -q -ws -rp temp_RightUpLeg`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightUpLeg;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightUpLegRoll`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightUpLegRoll;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightLeg`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightLeg;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightLegRoll`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightLegRoll;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightFoot`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightFoot;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightFootBase`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightFootBase;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightFootExtraFinger1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightFootExtraFinger1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_RightFootExtraFinger2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n RightFootExtraFinger2;
+select -cl  ;
+
+connectJoint -pm RightFootExtraFinger2 RightFootExtraFinger1;
+connectJoint -pm RightFootExtraFinger1 RightFootBase;
+connectJoint -pm RightFootBase RightFoot;
+connectJoint -pm RightFoot RightLegRoll;
+connectJoint -pm RightLegRoll RightLeg;
+connectJoint -pm RightLeg RightUpLegRoll;
+connectJoint -pm RightUpLegRoll RightUpLeg;
+select -cl  ;
+
+//Re-Orient Right Leg joints//
+
+select -r RightUpLeg ;
+joint -e -oj xyz -ch -zso;
+select -cl  ;
+
+//Create new Left Leg joints//
+
+float $jPos[] = `xform -q -ws -rp temp_LeftUpLeg`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftUpLeg;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftUpLegRoll`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftUpLegRoll;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftLeg`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftLeg;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftLegRoll`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftLegRoll;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftFoot`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftFoot;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftFootBase`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftFootBase;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftFootExtraFinger1`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftFootExtraFinger1;
+select -cl  ;
+float $jPos[] = `xform -q -ws -rp temp_LeftFootExtraFinger2`;
+joint -p $jPos[0] $jPos[1] $jPos[2] -n LeftFootExtraFinger2;
+select -cl  ;
+
+connectJoint -pm LeftFootExtraFinger2 LeftFootExtraFinger1;
+connectJoint -pm LeftFootExtraFinger1 LeftFootBase;
+connectJoint -pm LeftFootBase LeftFoot;
+connectJoint -pm LeftFoot LeftLegRoll;
+connectJoint -pm LeftLegRoll LeftLeg;
+connectJoint -pm LeftLeg LeftUpLegRoll;
+connectJoint -pm LeftUpLegRoll LeftUpLeg;
+select -cl  ;
+
+//Re-Orient Left Leg joints//
+
+select -r LeftUpLeg ;
+joint -e -oj xyz -ch -zso;
+select -cl  ;
+
+//Parent Arms and Legs to Spine//
+
+select -tgl LeftUpLeg ;
+select -tgl RightUpLeg ;
+select -tgl Hips ;
+parent;
+select -r LeftShoulder ;
+select -tgl RightShoulder ;
+select -tgl Spine2 ;
+parent;
+select -cl  ;
+
+//Select Reference Skeleton and delete it//
+
+select -cl  ;
+select -r temp_LeftShoulder ;
+select -tgl temp_RightShoulder ;
+select -tgl temp_Hips ;
+select -tgl temp_LeftUpLeg ;
+select -tgl temp_RightUpLeg ;
+delete;
+
+//Select ReferenceSkeleton Layer and delete it//
+
+select -r ReferenceSkeleton ;
+delete;
+
+//The End//

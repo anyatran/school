@@ -1,0 +1,37 @@
+//----------------------------------------------------------------------------------------------
+//
+//	icQRgroupControl
+//
+//	SCRIPT:			icQRgroupControl.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//					
+//	DATE:			Jun 14, 2011
+//					created: Jun 14, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// groups a control to itself to zero it out
+//
+//----------------------------------------------------------------------------------------------
+
+
+global proc string icQRgroupControl ( string $charName, string $ctrlName )
+{
+	string $duplicate[] = `duplicate ($ctrlName + $charName)`;
+	delete (`listRelatives -s $duplicate[0]`);
+	rename $duplicate[0] ($ctrlName + "_grp" + $charName);
+	parent ($ctrlName + $charName) ($ctrlName + "_grp" + $charName);
+	return ($ctrlName + "_grp" + $charName);
+}

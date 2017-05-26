@@ -1,0 +1,368 @@
+//----------------------------------------------------------------------------------------------
+//
+//	icQRbuildFrontLegs
+//
+//	SCRIPT:			icQRbuildFrontLegs.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					
+//	DATE:			Jul 03, 2011
+//					created: Jun 15, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// builds a front leg based on the given joint chain
+//
+//----------------------------------------------------------------------------------------------
+
+
+global proc icQRbuildFrontLegs ( string $charName, string $side, string $root )
+{
+	select -cl;
+
+	string $scapulaJoints[] = {"scapulaRoot_jnt", "scapula_jnt", "scapulaEnd_jnt"};
+	string $legJoints[] = {"shoulder_jnt", "upLeg_jnt", "lowLeg_jnt", "foot_jnt", "fetlock_jnt", "pastern_jnt", "coffin_jnt", "coffinEnd_jnt"};
+	string $ctrlsList[] = {"foot_ctrl", "foot_ctrlGrp", "shoulder_ctrl", "shoulder_ctrlGrp", "fetlockLift_grp", "toeWiggle_grp", "tipToe_grp", "footTwist_grp", "tipTwist_grp", "pasternLift_grp"};
+
+	string $jointsLeg[];
+	string $jointsScapula[];
+	string $ctrls[];
+
+	string $jointList[] = `listRelatives -c -ad $root`;
+	$jointList[size($jointList)] = $root;
+	int $counter = 0;
+	for ($j = size($jointList) - 1; $j >= 0; $j --)
+	{
+		$jointsLeg[size($jointsLeg)] = `rename $jointList[$j] ($side + "front_" + $legJoints[$counter] + $charName)`;
+		$counter ++;
+	}
+
+	for ($j = 0; $j < size($ctrlsList); $j ++)
+	{
+		$ctrls[size($ctrls)] = $side + "front_" + $ctrlsList[$j] + $charName;
+	}
+
+	//create the scapulaJoints joints
+	float $pos[] = `xform -q -ws -t $jointsLeg[0]`;
+	$jointsLeg[size($jointsLeg)] = `joint -p 0 ($pos[1] - abs($pos[0] / 2)) $pos[2] -n ($side + $scapulaJoints[0] + $charName)`;
+	$jointsLeg[size($jointsLeg)] = `joint -p $pos[0] $pos[1] $pos[2] -n ($side + $scapulaJoints[1] + $charName)`;
+	$pos = `xform -q -ws -t $jointsLeg[2]`;
+	$jointsLeg[size($jointsLeg)] = `joint -p $pos[0] $pos[1] $pos[2] -n ($side + $scapulaJoints[2] + $charName)`;
+	joint -e -oj xyz -sao yup -ch -zso $jointsLeg[7];
+	select -cl;
+
+	//create the twist joints
+	string $twist1 = $side + "front_lowLegTwist1_jnt" + $charName;
+	string $twist2 = $side + "front_lowLegTwist2_jnt" + $charName;
+	string $twist3 = $side + "front_footTwist1_jnt" + $charName;
+	string $twist4 = $side + "front_footTwist2_jnt" + $charName;
+	rename (`duplicate -rr -rc $jointsLeg[2]`) $twist1;
+	rename (`listRelatives -c $twist1`) $twist3;
+	delete (`listRelatives -c $twist3`);
+	rename (`duplicate -rr -rc $twist1`) $twist2;
+	rename (`listRelatives -c $twist2`) $twist4;
+	parent $twist1 $jointsLeg[2];
+	parent $twist2 $twist1;
+	parent $twist3 $jointsLeg[3];
+	parent $twist4 $twist3;
+
+	//position the twist joints
+	delete (`pointConstraint $jointsLeg[2] $jointsLeg[3] $twist2`);
+	delete (`pointConstraint $jointsLeg[3] $jointsLeg[4] $twist4`);
+
+	//create the stretchyness
+	string $stretchNodes[] = icQRbuildLimbStretch ( $jointsLeg[2], $jointsLeg[3], $jointsLeg[4], 
+											$twist2, $twist4, "frontLeg", $side, $charName );
+	//RETURN distLocator[0]	distLocator[1]	distanceTransNode[2] $charScaleMultNode
+
+	setAttr -l 0 ($stretchNodes[3] + ".input2X");
+	connectAttr -f ("characterScale_grp" + $charName + ".rescale") ($stretchNodes[3] + ".input2X");
+	setAttr -l 1 ($stretchNodes[3] + ".input2X");
+
+	//create the ik handles
+	string $ikHandleScapula[] =		`ikHandle -n ($side + "front_scapula_IKhandle" + $charName)
+									-sol "ikSCsolver" -sj $jointsLeg[8] -ee $jointsLeg[10]`;
+	rename "effector1" ($side + "front_scapula_IKeffector" + $charName);
+	string $ikHandleShoulder[] =	`ikHandle -n ($side + "front_shoulder_IKhandle" + $charName)
+									-sol "ikSCsolver" -sj $jointsLeg[0] -ee $jointsLeg[2]`;
+	rename "effector1" ($side + "front_shoulder_IKeffector" + $charName);
+	string $ikHandleLeg[] =			`ikHandle -n ($side + "front_leg_IKhandle" + $charName)
+									-sol "ikRPsolver" -sj $jointsLeg[2] -ee $jointsLeg[4]`;
+	rename "effector1" ($side + "front_leg_IKeffector" + $charName);
+	string $ikHandleFoot[] =		`ikHandle -n ($side + "front_fetlock_IKhandle" + $charName)
+									-sol "ikSCsolver" -sj $jointsLeg[4] -ee $jointsLeg[5]`;
+	rename "effector1" ($side + "front_fetlock_IKeffector" + $charName);
+	string $ikHandlePastern[] =		`ikHandle -n ($side + "front_pastern_IKhandle" + $charName)
+									-sol "ikSCsolver" -sj $jointsLeg[5] -ee $jointsLeg[6]`;
+	rename "effector1" ($side + "front_pastern_IKeffector" + $charName);
+	string $ikHandleToe[] =			`ikHandle -n ($side + "front_coffin_IKhandle" + $charName)
+									-sol "ikSCsolver" -sj $jointsLeg[6] -ee $jointsLeg[7]`;
+	rename "effector1" ($side + "front_coffin_IKeffector" + $charName);
+
+	//create the control groups
+	for ($j = 4; $j < size($ctrlsList); $j ++)
+	{
+		createNode transform -n $ctrls[$j];
+	}
+
+	//create the controls
+	int $userScale = `intField -q -v QRheight`;
+	string $curve = `curve -d 1 -p 1 0 1.5 -p 1 0 -1.5 -p -1 0 -1.5 -p -1 0 1.5 -p 1 0 1.5 -p 1 2 0.5 
+				-p 1 2 -1.5 -p -1 2 -1.5 -p -1 2 0.5 -p 1 2 0.5 -p 1 2 -1.5 -p 1 0 -1.5 
+				-p -1 0 -1.5 -p -1 2 -1.5 -p -1 2 0.5 -p -1 0 1.5 
+				-k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -k 14 -k 15`;
+	rename $curve $ctrls[0];
+	setAttr ($ctrls[0] + ".rotateOrder") 2;
+
+	$shoulderCurvePoints = {0.4, -0.4, 0.0, 0.4, 0.4, 0.0,
+					0.8, 0.4, 0.0, 0.0, 1.2, 0.0,
+					-0.8, 0.4, 0.0, -0.4, 0.4, 0.0,
+					-0.4, -0.4, 0.0, -0.8, -0.4, 0.0,
+					0.0, -1.2, 0.0, 0.8, -0.4, 0.0,
+					0.4, -0.4, 0.0};
+
+	icCRbuildCurve ( $shoulderCurvePoints, 1, ($userScale / 15), $ctrls[2] );
+
+	//the shoulder follow visualizer
+	string $shoulderAid = $side + "front_scapulaHelper" + $charName;
+	$curve = `curve -d 1 -p 0 0 1 -p 0 1 0 -p 0 0 -1 -p 0 0 1 -k 0 -k 1 -k 2 -k 3`;
+	rename $curve $shoulderAid;
+	scale -a ($userScale / 20) ($userScale / 20) ($userScale / 20) $shoulderAid;
+	delete (`pointConstraint $jointsLeg[0] $shoulderAid`);
+	move -r ($pos[0] - ($pos[0] / 4)) 0 0 $shoulderAid;
+	makeIdentity -t 1 -r 1 -s 1 -a 1 $shoulderAid;
+
+	rename (`duplicate -rr $ctrls[2]`) $ctrls[3];
+	delete (`listRelatives -s $ctrls[3]`);
+	parent $ctrls[2] $ctrls[3];
+	setAttr ($ctrls[2] + ".rotateOrder") 2;
+
+	//position the controls
+	delete (`pointConstraint $jointsLeg[5] $jointsLeg[6] $ctrls[0]`);
+	setAttr ($ctrls[0] + ".ty") 0;
+	scale -a ($userScale / 20) ($userScale / 20) ($userScale / 20) $ctrls[0];
+	makeIdentity -t 0 -r 1 -s 1 -a 1 $ctrls[0];
+
+	$pos = `xform -q -ws -t $jointsLeg[0]`;
+	delete (`pointConstraint $jointsLeg[2] $ctrls[2]`);
+	move -r ($pos[0] - ($pos[0] / 4)) 0 0 $ctrls[2];
+	rotate 0 90 0 $ctrls[2];
+	makeIdentity -t 1 -r 1 -s 1 -a 1 $ctrls[2];
+
+	//create the scapula constraint groups
+	string $scapulaIKconstGrp = $side + "front_scapulaIKconst_grp" + $charName;
+	string $scapulaConstGrp1 = $side + "front_scapulaConst_grp1" + $charName;
+	string $scapulaConstGrp2 = $side + "front_scapulaConst_grp2" + $charName;
+	rename (`CreateEmptyGroup`) $scapulaIKconstGrp;
+	rename (`CreateEmptyGroup`) $scapulaConstGrp1;
+	rename (`CreateEmptyGroup`) $scapulaConstGrp2;
+	delete (`pointConstraint $jointsLeg[2] $scapulaIKconstGrp`);
+	delete (`pointConstraint $jointsLeg[2] $scapulaConstGrp1`);
+	delete (`pointConstraint $jointsLeg[2] $scapulaConstGrp2`);
+	parent $ikHandleScapula[0] $scapulaIKconstGrp;
+	parent $scapulaConstGrp2 $ctrls[2];
+
+	//move the foot control pivot
+	$pos = `xform -q -ws -t $jointsLeg[4]`;
+	xform -a -ws -rp $pos[0] $pos[1] $pos[2] $ctrls[0];
+
+	//create the pole vector groups
+	string $pvCtrl = $side + "front_poleVector" + $charName;
+	string $pvCtrlGrp = $side + "front_poleVectorGrp" + $charName;
+	string $pvConstGrp = $side + "front_poleVectorConstGrp" + $charName;
+	rename (`duplicate -rr $ctrls[0]`) $pvCtrl;
+	delete (`listRelatives -s $pvCtrl`);
+	rename (`duplicate -rr $pvCtrl`) $pvCtrlGrp;
+	rename (`duplicate -rr $pvCtrl`) $pvConstGrp;
+	parent $pvCtrl $pvCtrlGrp;
+	parent $pvCtrlGrp $pvConstGrp;
+	move -r 20 0 0 $pvCtrl;
+
+	string $fetlockLiftPointGrp = $side + "back_fetlockLift_pointGrp" + $charName;
+	rename (`duplicate -rr $ctrls[4]`) $fetlockLiftPointGrp;
+
+	//position the control groups
+	delete (`pointConstraint $jointsLeg[5] $ctrls[4]`);
+	delete (`pointConstraint $jointsLeg[6] $ctrls[5]`);
+	delete (`pointConstraint $jointsLeg[7] $ctrls[6]`);
+	delete (`pointConstraint $jointsLeg[6] $ctrls[7]`);
+	delete (`pointConstraint $jointsLeg[7] $ctrls[8]`);
+	delete (`pointConstraint $jointsLeg[6] $ctrls[9]`);
+	delete (`pointConstraint $jointsLeg[5] $fetlockLiftPointGrp`);
+
+	//parenting
+	parent $ikHandleLeg[0] $stretchNodes[1] $ctrls[4];
+	parent $ikHandleToe[0] $ctrls[5];
+	parent $ikHandleFoot[0] $ctrls[9];
+	parent $ctrls[9] $ctrls[5] $ikHandlePastern[0] $ctrls[7];
+	parent $fetlockLiftPointGrp $ctrls[9];
+	parent $ctrls[7] $ctrls[8];
+	parent $ctrls[8] $ctrls[6];
+	parent $ctrls[6] $ctrls[4] $ctrls[0];
+	parent $ikHandleShoulder[0] $stretchNodes[0] $ctrls[2];
+
+	//setup the pole vector
+	string $poleVector[] = `poleVectorConstraint $pvCtrl $ikHandleLeg[0]`;
+	setAttr ($ikHandleLeg[0] + ".twist") 90;
+	//connectAttr -f ($ctrls[0] + ".rx") ($pvConstGrp + ".rx");
+	connectAttr -f ($ctrls[0] + ".ry") ($pvConstGrp + ".ry");
+	string $pvPointConst[] = `pointConstraint -mo $ctrls[0] $pvConstGrp`;
+
+	//add the leg attributes
+	addAttr -ln "controls" -k 1 -at "enum" -en "-:" $ctrls[0];
+	setAttr -l 1 ($ctrls[0] + ".controls");
+	addAttr -ln "kneeRotate" -at "float" -dv 0 -k 1 $ctrls[0];
+	addAttr -ln "heelLift" -at "float" -dv 0 -k 1 $ctrls[0];
+	addAttr -ln "pasternLift" -at "float" -dv 0 -k 1 $ctrls[0];
+	addAttr -ln "toeWiggle" -at "float" -dv 0 -k 1 $ctrls[0];
+	addAttr -ln "tipToe" -at "float" -dv 0 -k 1 $ctrls[0];
+	addAttr -ln "footTwist" -at "float" -dv 0 -k 1 $ctrls[0];
+	addAttr -ln "tipTwist" -at "float" -dv 0 -k 1 $ctrls[0];
+
+	connectAttr -f ($ctrls[0] + ".kneeRotate") ($pvCtrlGrp + ".ry");
+	connectAttr -f ($ctrls[0] + ".heelLift") ($ctrls[4] + ".rx");
+	connectAttr -f ($ctrls[0] + ".pasternLift") ($ctrls[9] + ".rx");
+	connectAttr -f ($ctrls[0] + ".toeWiggle") ($ctrls[5] + ".rx");
+	connectAttr -f ($ctrls[0] + ".tipToe") ($ctrls[6] + ".rx");
+	connectAttr -f ($ctrls[0] + ".footTwist") ($ctrls[7] + ".ry");
+	connectAttr -f ($ctrls[0] + ".tipTwist") ($ctrls[8] + ".ry");
+
+	//add the scapula attribute
+	addAttr -ln "shoulderFollow" -at "float" -min 0 -max 1 -dv 0.25 -k 1 $ctrls[2];
+
+	//create the scapula blend
+	string $scapulaFollow[] = `pointConstraint $scapulaConstGrp1 $scapulaConstGrp2 $scapulaIKconstGrp`;
+	connectAttr -f ($ctrls[2] + ".shoulderFollow") ($scapulaFollow[0] + ".w1");
+	setDrivenKeyframe -dv 0 -v 1 -cd ($ctrls[2] + ".shoulderFollow") ($scapulaFollow[0] + ".w0");
+	setDrivenKeyframe -dv 1 -v 0 -cd ($ctrls[2] + ".shoulderFollow") ($scapulaFollow[0] + ".w0");
+
+	//build the leg twist
+	icQRbuildLegTwist $jointsLeg[2] $jointsLeg[3] $twist1 $twist2 $twist4 $charName $side "front_upLeg";
+
+	//parenting
+	string $legConstGrp = $side + "front_leg_controls_grp" + $charName;
+	string $legJointsConstGrp = "front_legJoints_const_grp" + $charName;
+	if (!`objExists $legJointsConstGrp`) rename (`CreateEmptyGroup`) $legJointsConstGrp;
+	rename (`CreateEmptyGroup`) $legConstGrp;
+	parent $jointsLeg[0] $jointsLeg[8] $legJointsConstGrp;
+	if ($side == "L_") parent $legJointsConstGrp ("dontTouchJoints_grp" + $charName);
+	parent $ctrls[0] $ctrls[3] $pvConstGrp $legConstGrp;
+	parent $legConstGrp ("animationControls_grp" + $charName);
+	parent $shoulderAid ("dontTouch_grp" + $charName);
+	parent $scapulaIKconstGrp $stretchNodes[2] ("dontTouch_grp" + $charName);
+	parent $scapulaConstGrp1 ("shoulder_ctrl" + $charName);
+
+	string $shoulderParentConst[] = `parentConstraint -mo ("shoulder_ctrl" + $charName) $ctrls[3]`;
+	string $jointsParentConst[] = `parentConstraint -mo ("shoulder_ctrl" + $charName) $legJointsConstGrp`;
+
+	string $liftPointConst[] = `pointConstraint -mo $fetlockLiftPointGrp $ctrls[4]`;
+
+	string $shoulderAidParentConst[] = `parentConstraint -mo $jointsLeg[9] $shoulderAid`;
+
+	//cleanup
+	setAttr ($ikHandleScapula[0] + ".v") 0;
+	setAttr ($ikHandleShoulder[0] + ".v") 0;
+	setAttr ($ikHandleLeg[0] + ".v") 0;
+	setAttr ($ikHandleFoot[0] + ".v") 0;
+	setAttr ($ikHandlePastern[0] + ".v") 0;
+	setAttr ($ikHandleToe[0] + ".v") 0;
+	setAttr ($jointsLeg[8] + ".v") 0;
+	
+	icCRlockHideAttr ( $ikHandleScapula[0], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v,pvx,pvy,pvz,off,rol,twi,ikb" );
+	icCRlockHideAttr ( $ikHandleShoulder[0], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v,pvx,pvy,pvz,off,rol,twi,ikb" );
+	icCRlockHideAttr ( $ikHandleLeg[0], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v,pvx,pvy,pvz,off,rol,twi,ikb" );
+	icCRlockHideAttr ( $ikHandleFoot[0], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v,pvx,pvy,pvz,off,rol,twi,ikb" );
+	icCRlockHideAttr ( $ikHandleToe[0], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v,pvx,pvy,pvz,off,rol,twi,ikb" );
+	icCRlockHideAttr ( $ikHandlePastern[0], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v,pvx,pvy,pvz,off,rol,twi,ikb" );
+	icCRlockHideAttr ( ($side + "front_scapula_IKeffector" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( ($side + "front_shoulder_IKeffector" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( ($side + "front_leg_IKeffector" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( ($side + "front_pastern_IKeffector" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( ($side + "front_coffin_IKeffector" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+
+	icCRlockHideAttr ( $ctrls[0], "sx,sy,sz,v" );
+	icCRlockHideAttr ( $ctrls[2], "rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $ctrls[4], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $ctrls[5], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $ctrls[6], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $ctrls[7], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $ctrls[8], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $shoulderAid, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+
+	icCRlockHideAttr ( $scapulaIKconstGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $scapulaConstGrp1, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $scapulaConstGrp2, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+
+	icCRlockHideAttr ( $pvCtrl, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $pvCtrlGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $pvConstGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $legJointsConstGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $ctrls[3], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $ctrls[9], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $fetlockLiftPointGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+
+	icCRlockHideAttr ( $poleVector[0], "nodeState,offsetX,offsetY,offsetZ,w0" );
+	icCRlockHideAttr ( $shoulderParentConst[0], "nodeState,int,w0" );
+	icCRlockHideAttr ( $jointsParentConst[0], "nodeState,int,w0" );
+	icCRlockHideAttr ( $scapulaFollow[0], "nodeState,offsetX,offsetY,offsetZ,w0,w1" );
+	icCRlockHideAttr ( $shoulderAidParentConst[0], "nodeState,int,w0" );
+	icCRlockHideAttr ( $liftPointConst[0], "nodeState,offsetX,offsetY,offsetZ,w0" );
+	icCRlockHideAttr ( $pvPointConst[0], "nodeState,offsetX,offsetY,offsetZ,w0" );
+
+	string $objectsToLayer[] = {$ctrls[0],$ctrls[2]};
+	icQRcontrolSet ( $charName, ("controls_set_" + $charName), $objectsToLayer, 0, 1, 0 );
+	if ($side == "L_")
+	{
+		icCRdisplayOverride ( $objectsToLayer, 0, 1, 4);
+	}
+	else if ($side == "R_")
+	{
+		icCRdisplayOverride ( $objectsToLayer, 0, 1, 23);
+	}
+	icCRcreateCharSet ( $charName, ($side + "frontLeg_cs"), 1 , $objectsToLayer );
+	
+	//the joints
+	clear $objectsToLayer;
+	$objectsToLayer = {$jointsLeg[0], $jointsLeg[2], $jointsLeg[3], $jointsLeg[7], $jointsLeg[9]};
+	icQRcontrolSet ( $charName, ("dontTouch_set_" + $charName), $objectsToLayer, 2, 1, 3 );
+	
+	clear $objectsToLayer;
+	$objectsToLayer = {$jointsLeg[9], $jointsLeg[1], $twist1, $twist2, $twist3, $twist4, $jointsLeg[4], $jointsLeg[5], $jointsLeg[6]};
+	icQRcontrolSet ( $charName, ("frontLeg_skinJoints_set_" + $charName), $objectsToLayer, 2, 1, 3 );
+
+	//the shoulder aid
+	clear $objectsToLayer;
+	$objectsToLayer = {$shoulderAid};
+	icQRcontrolSet ( $charName, ("dontTouch_set_" + $charName), $objectsToLayer, 2, 1, 2 );
+
+	//add the pickwalking attributes for the controls
+	icCRpickWalkSetup ( $ctrls[2] + "," + $ctrls[0] );
+	if ($side == "L_")
+	{
+		connectAttr -f ("shoulder_ctrl" + $charName + ".charRigPickWalkLeft") ($ctrls[2] + ".charRigPickWalkUp");
+	}
+	else if ($side == "R_")
+	{
+		connectAttr -f ("shoulder_ctrl" + $charName + ".charRigPickWalkRight") ($ctrls[2] + ".charRigPickWalkUp");
+
+		string $oppControl1 = `substitute "R_" $ctrls[2] "L_"`;
+		string $oppControl2 = `substitute "R_" $ctrls[0] "L_"`;
+		connectAttr -f ($ctrls[2] + ".charRigPickWalkRight") ($oppControl1 + ".charRigPickWalkLeft");
+		connectAttr -f ($ctrls[0] + ".charRigPickWalkRight") ($oppControl2 + ".charRigPickWalkLeft");
+		connectAttr -f ($ctrls[2] + ".charRigPickWalkLeft") ($oppControl1 + ".charRigPickWalkRight");
+		connectAttr -f ($ctrls[0] + ".charRigPickWalkLeft") ($oppControl2 + ".charRigPickWalkRight");
+	}
+
+	icCRaddDefaultAttr $ctrls[0];
+	icCRaddDefaultAttr $ctrls[2];
+
+}

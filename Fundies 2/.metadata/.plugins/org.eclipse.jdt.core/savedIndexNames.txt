@@ -1,0 +1,6 @@
+INDEX VERSION 1.126+/Users/anna_tran2008/Documents/Fundies 2/.metadata/.plugins/org.eclipse.jdt.core
+1015269329.index
+4117864284.index
+1899068162.index
+497555813.index
+3759954332.index

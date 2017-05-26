@@ -1,0 +1,24 @@
+global proc int resetJointRotations ( string $joint )
+{
+	// Find the rotation values of the joint
+	float $rx = `getAttr ( $joint + ".rotateX" )`;
+	float $ry = `getAttr ( $joint + ".rotateY" )`;
+	float $rz = `getAttr ( $joint + ".rotateZ" )`;
+
+	// Find the joint orient values for the joint
+	float $jox = `getAttr ( $joint + ".jointOrientX" )`;
+	float $joy = `getAttr ( $joint + ".jointOrientY" )`;
+	float $joz = `getAttr ( $joint + ".jointOrientZ" )`;
+
+	// Reset the rotation values to 0
+	setAttr ( $joint + ".rotateX" ) 0 ;
+	setAttr ( $joint + ".rotateY" ) 0 ;
+	setAttr ( $joint + ".rotateZ" ) 0 ;
+
+	// Set the joint orients to their new value
+	setAttr ( $joint + ".jointOrientX" ) ( $jox + $rx );
+	setAttr ( $joint + ".jointOrientY" ) ( $joy + $ry );
+	setAttr ( $joint + ".jointOrientZ" ) ( $joz + $rz );
+
+	return 1;
+}

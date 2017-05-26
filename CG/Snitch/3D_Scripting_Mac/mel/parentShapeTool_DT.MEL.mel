@@ -1,0 +1,39 @@
+//Parent Shape Tool
+
+//Create a prompt dialogue in which we will define the parent object
+
+string $promptWin = `promptDialog -t "Parent Shapes" -message "Parent Object" -button "GO!"`;
+
+//Query our selection(s)
+
+string $selObj[] = `ls -sl`;
+
+//For Loop - parents the shapes of our selection to the parent object we define
+
+for ($shps in $selObj){
+
+    //Query the shape nodes of our selection
+    
+    string $lsRelShps[] = `listRelatives -shapes $shps`;
+    
+    //Query the parent object
+    
+    string $textObj = `promptDialog -query -text`;
+       
+    //Parent the selected objects to the parent object
+    
+    parent $shps $textObj;
+    
+    //Freeze Transformations on our selection(s)
+
+    makeIdentity -apply true -t 1 -r 1 -s 1;
+    
+    //THEN, parent the shape node of the selected objects to the parent
+    
+    parent -add -shape $lsRelShps $textObj;
+    
+    //FINALLY, select and delete the selected object(s)
+    
+    select $shps; doDelete;
+
+}

@@ -1,0 +1,4740 @@
+// RIG-O-MATIC version 5.5
+// Auto rigging script
+// Created by Jason Baskin
+// jason@3dcentral.com
+// For more information, please visit http://www.3dcentral.com/rigomatic/rigomatic.html
+
+
+// Please do not alter this script in any way without prior written consent from the author
+
+
+// - - - - - - - - - 
+// - - - - - - - - - 
+// APPENDAGE SETUP
+// - - - - - - - - - 
+// - - - - - - - - - 
+global proc AppendageSetup (float $controlSize, string $tailOptions, string $splineStyle, int $numSpans, string $appendageName, int $shelfbutton, int $characterset)
+	{
+			global string $preprefix;
+			$preprefix = `textField -query -text preprefix`;
+			if ($appendageName == "")
+			error "Please name the appendage.";
+			$appendageName = $preprefix+$appendageName;
+			string $joints[] = `ls -sl`;
+			
+			if (`objExists ($appendageName+"1")` == 1)
+			error "Sorry, an appendage with that name already exists";
+			
+			$size = `size ($joints)`;
+			
+			if ($size < 2 && $tailOptions == "splineTail")
+				error "Please select more than one joint.";
+				
+			if ($size == 0)
+				error "No joints were selected.  Please select more than one joint.";
+				
+			for($i=0;$i<($size);$i++)
+			{
+				rename $joints[$i] ($appendageName+($i+1));
+				$joints[$i] = ($appendageName+($i+1));
+			}
+
+
+			
+			
+			if ($tailOptions == "fkTail")
+			{
+				FKControls $joints $controlSize $shelfbutton $characterset;
+				select ($joints[0]+"Control_Offset");
+				CleanUp `ls -sl` ($preprefix +  "controls") ($preprefix +  "controlLayer");
+				;
+			}
+			
+			if ($tailOptions == "overlapTail")
+			{
+				select  -r $joints[0];
+				FKControls `ls -sl` $controlSize $shelfbutton $characterset;
+				select ($joints[0]+"Control_Offset");
+				CleanUp `ls -sl` ($preprefix +  "controls") ($preprefix +  "controlLayer");
+				Delay ($joints[0]+"Control") $joints[0];
+				
+			}
+			
+			if ($tailOptions == "splineTail")
+			{
+				SplineTail $controlSize $joints $numSpans $splineStyle $appendageName $shelfbutton $characterset;
+			}
+
+				select ($appendageName+"1");
+				CleanUp `ls -sl`none ($preprefix +  "skeletonLayer");
+			
+			
+	}
+	
+	
+	
+	// - - - - - - - - - 
+// - - - - - - - - - 
+// THREE CHAIN IK/FK ARM SECTION
+// - - - - - - - - - 
+// - - - - - - - - - 
+global proc ArmSetup (int $stretchy, string $numFingers, int $fkik, int $distRotate, float $controlSize, int $shelfbutton, int $characterset)
+	{
+			global string $preprefix;
+			$preprefix = `textField -query -text preprefix`;
+			global int $armsDone;
+			$armsDone = 0;
+			global int $armsDistDone;
+			global int $legsDone;
+			global int $armsFKDone;
+			global int $armsStretchyDone;
+			global int $handSetupDone;
+			
+			int $extraJoints = 4;
+			int $handDone = 0;
+			string $prefix = "L_";
+			string $bodySide = "L_";
+			int $numSides = 2;
+ 			$prefix = ($preprefix+$prefix);
+			string $joints[] = `ls -sl -type joint`;
+			int $numOfJoints = size ($joints);
+			if ($numOfJoints == 0) 
+			{
+ 				error "No joints were selected.\n";
+ 				print ($numOfJoints +" joints were selected.");
+			}
+			
+			if ($numOfJoints <5 || $numOfJoints>6)
+			{
+				error "Please select 5 or 6 joints: Clavicle, Shoulder, Elbow, Elbow2 (optional), Hand, Hand Tip";
+			}
+			
+			for(;$armsDone<$numSides;$armsDone++)
+				{
+				// following is a three arm setup
+				string $joints[] = `ls -sl -type joint`;
+				// remember - when printing variables with text, use parentheses and array brackets
+				print "- - - - - creating arm setup - - - - - \n";
+
+				string $handControl = ($prefix + "HandControl");
+				string $clavicleControl = ($prefix + "ClavicleControl");
+				string $clavicle = ($prefix + "Clavicle");
+				string $IKShoulder = ($prefix + "IKShoulder");
+				string $IKBicep = ($prefix + "IKBicep");
+				string $IKElbow = ($prefix + "IKElbow");
+				string $IKElbow2 = ($prefix + "IKElbow2");
+				string $IKWrist = ($prefix + "IKWrist");
+				string $IKPalm = ($prefix + "IKPalm");
+				string $IKForearm = ($prefix + "IKForearm");
+				
+				//string $bicep1 = ($prefix + "BoundBicep1");
+												
+				vector $bicepPosition;
+				vector $elbowPosition;
+				vector $elbow2Position;
+				vector $wristPosition;
+				vector $forearmPosition;
+
+				// distance and length float names
+				float $distance1;
+				float $distance2;
+				float $armLength;
+			
+				// utility node names
+				string $armStretchBlend = ($prefix +"ArmStretchBlend");
+				string $armMultiplyDivide = ($prefix +"ArmMultiplyDivide");
+				string $armDistanceBetween = ($prefix +"ArmDistanceBetween");
+				string $armCondition = ($prefix +"ArmCondition");
+
+				// pickwalking down the chain and renaming joints
+				rename $clavicle;
+				
+				// pickWalk -d down;
+				// rename ($IKBicep+"Stabilize");
+				// adding extra joint above forearm that allows better clavicle control in FK mode
+				// if (($armsDone == 0))
+				// {
+				// insertJoint ($IKBicep+"Stabilize");
+				// select ($IKBicep+"Stabilize");
+				// }
+
+				pickWalk -d down;
+				rename $IKBicep;
+				
+				// freezing transforms on arms for A-pose or T-pose setup
+				$BicepRX = `getAttr ($IKBicep+".rx")`;
+				$BicepRY = `getAttr ($IKBicep+".ry")`;
+				$BicepRZ = `getAttr ($IKBicep+".rz")`;
+				if (($BicepRX != 0) || ($BicepRY != 0)  || ($BicepRZ != 0) )
+				{
+				// Setting Bicep Rotation to 0 (not freezing joint orient)
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $IKBicep;
+				}
+
+
+				
+
+				pickWalk -d down;
+				rename $IKElbow;
+				if ($numOfJoints == 6)
+					{
+					pickWalk -d down;
+					rename $IKElbow2;
+					}
+				pickWalk -d down;
+				rename $IKWrist;
+				pickWalk -d down;
+				rename $IKPalm;
+				
+
+			
+				if (($numSides == 2) && ($armsDone == 0))
+ 					{
+ 					select $clavicle;
+ 					mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "L_" "R_";
+					}
+			
+				// find out the world space position of the bicep
+				$bicepPosition = `xform -query -worldSpace -translation $IKBicep`; 
+			
+				// now I'm going to find out the world space position of my joints
+				// this xform command is a super useful way of querying information about an object (like I am doing here)
+				// it can also be used to set xform values, just like the move, rotate, and scale tool, but with more options
+				$wristPosition = `xform -query -worldSpace -translation $IKWrist`; 
+						
+				if ($numOfJoints == 5)
+					{
+					// inserting a forearm joint under the elbow
+					insertJoint $IKElbow;
+					select $IKElbow;
+					pickWalk -d down;
+					rename $IKForearm;
+					$elbowPosition = `xform -query -worldSpace -translation $IKElbow`; 
+					$forearmPosition = ($elbowPosition+$wristPosition)/2;
+					}
+			
+				if ($numOfJoints == 6)
+					{
+					// inserting a forearm joint under the second elbow
+					insertJoint $IKElbow2;
+					select $IKElbow2;
+					pickWalk -d down;
+					rename $IKForearm;
+					$elbowPosition = `xform -query -worldSpace -translation $IKElbow`; 
+					$elbow2Position = `xform -query -worldSpace -translation $IKElbow2`; 
+					$forearmPosition = ($elbow2Position+$wristPosition)/2;
+					}
+
+				select $IKForearm;
+			
+				// remember  parentheses when using vector variables like this
+				move ($forearmPosition.x) ($forearmPosition.y) ($forearmPosition.z) ($IKForearm +".scalePivot") ($IKForearm+".rotatePivot");
+				parent $IKWrist $IKElbow;
+				
+				if ($numOfJoints == 6)
+					{
+					parent $IKWrist $IKElbow2;
+					}
+				
+				if ($fkik == 1)
+				{
+					// note: the name flag has to come FIRST when using it in the duplicate command - otherwise it is ignored.
+					duplicate -name ($prefix + "FKBicep") $IKBicep;
+					select  ($prefix + "FKBicep");
+					searchReplaceNames "IK" "FK" "hierarchy";
+					$armsFKDone = 1;
+				}
+				
+				if (($fkik == 1) || ($fkik == 0 && $distRotate == 1))
+				{
+					// note: the name flag has to come FIRST when using it in the duplicate command - otherwise it is ignored.
+					duplicate -name ($prefix + "BoundBicep") $IKBicep;
+					select ($prefix + "BoundBicep");
+					searchReplaceNames "IK" "Bound" "hierarchy";
+					$armsDistDone = 1;
+				}
+				
+				
+				if ($fkik == 1)
+				{
+				delete ($prefix + "FKForearm");
+				delete ($prefix + "IKForearm");
+				}
+			
+				// create RP IK Handle from bicep to wrist
+				string $bicepIKHandle = ($prefix+"BicepIKHandle");
+				$bicepEffector = `ikHandle -sol ikRPsolver -sj $IKBicep -ee $IKWrist -name $bicepIKHandle`;
+				//move ($wristPosition.x) ($wristPosition.y) ($wristPosition.z) ($bicepEffector[1]+".scalePivot") ($bicepEffector[1]+".rotatePivot");
+		
+				// making a simple NURBS circle controller for the hand
+				// you can find out about all the flags for any command by typing help - i.e. help Circle;
+				$handControl = ($prefix+"HandControl");
+				curve -name $handControl -d 3 -p 0 0 0 -p 0 0 -1 -p 0 0 -1 -p 1 0 -1 -p 2 0 0 -p 1 0 1 -p 0 0 1 -p 0 0 1 -p 0 0 0 -k 0 -k 0 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 6 -k 6 ;
+				vector $tempScalar1 = `xform -query -worldSpace -translation ($prefix +"IKWrist")`;
+				vector $tempScalar2 = `xform -query -worldSpace -translation ($prefix +"IKPalm")`;
+				float $handScale =  (abs($tempScalar2.x - $tempScalar1.x));
+
+				setAttr ($handControl+".sx") ($handScale  *.6);
+				setAttr ($handControl+".sy") ($handScale  *.2);
+				setAttr ($handControl+".sz") ($handScale  *.6);
+				
+				// and moving the circle curve back to the origin
+				move -rpr 0 0 0 ;
+				
+				// freezing transforms
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 2;
+				
+				// signature
+				addAttr -ln riggedBy -at "enum" -en "J. Baskin" $handControl;
+			
+				// flipping the hand control for the right side
+				if ($bodySide == "R_")
+				scale -1  1 1 ;
+
+				// creating an offset node for the hand control
+				$handControlOffset = `group -em -name ($handControl+"_Offset")`;
+				// move the offset node to position of wrist
+				move ($wristPosition.x) ($wristPosition.y) ($wristPosition.z);
+				$tempConstraint = `orientConstraint $IKWrist $handControlOffset `;
+				delete $tempConstraint;
+
+				// parenting the hand control curve to the offset node
+				parent -relative $handControl $handControlOffset;
+				// zeroing out tranforms of hand control curve
+				setAttr ($handControl+".rx") 0;
+				setAttr ($handControl+".ry") 0;
+				setAttr ($handControl+".rz") 0;
+				setAttr ($handControl+".tx") 0;
+				setAttr ($handControl+".ty") 0;
+				setAttr ($handControl+".tz") 0;
+				
+			
+				if ($stretchy == true || $fkik == true)
+				{
+					select $handControl;
+					addAttr -longName __________ -defaultValue 0 -maxValue 0 -minValue 0 -keyable true;
+					setAttr -lock true ($handControl+".__________ ");
+				}
+
+				//deleting history
+				DeleteHistory;
+
+				// freezing transforms again (now that the controller is where it needs to be)
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+
+				//point constrain the bicep RP IK handle to the hand control curve
+				pointConstraint -mo $handControl $bicepIKHandle;
+			
+				//orient constrain the wrist to the hand control
+				$handIK = `ikHandle -n ($prefix+"WristIKHandle") -sol ikSCsolver -sj $IKWrist -ee $IKPalm `;
+				parentConstraint -mo $handControl $handIK[0];
+
+				// create shoulder aim constraint control curve
+				// i've noticed that certain complex curve operations (like attaching multiple curves, for example
+				// create problems when you try to freeze the transforms afterwards using the makeIdentity command.
+				// the Freeze Transforms command works fine in Maya, but in a MEL script, it tends to zero out all
+				// the transforms with the correct pivot point, but moves the actual curve back to the origin.
+			
+				curve -d 3 -p 0 0.950554 0.345856 -p 0 1.007622 0.0881822 -p 0 0.996126 -0.17565 -p 0 0.916719 -0.427472 -p 0 0.774846 -0.650173 -p 0 0.580166 -0.828563 -p 0 0.34595 -0.950489 -p 0 0.0881558 -1.007638 -p 0 -0.175638 -0.996128 -p 0 -0.427491 -0.916695 -p 0 -0.650107 -0.774939 -p 0 -0.884684 -0.619463 -p 0 -0.910149 -1.084915 -p 0 -0.598488 -1.283373 -p 0 -0.245894 -1.39458 -p 0 0.123418 -1.410693 -p 0 0.48433 -1.330684 -p 0 0.812232 -1.159988 -p 0 1.084784 -0.910242 -p 0 1.283406 -0.59846 -p 0 1.394577 -0.24591 -p 0 1.410671 0.123455 -p 0 1.330776 0.484198 -p 0 0.884684 0.619463 -p 0 0.950554 0.345856 -k -2 -k -1 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -k 14 -k 15 -k 16 -k 17 -k 18 -k 19 -k 20 -k 21 -k 22 -k 23 -k 24 -name $clavicleControl;
+				scale ($controlSize * .4)  ($controlSize * .4) ($controlSize * .4);
+			
+				// moving clavicle controls to the location of the bicep 0 joint
+				move ($bicepPosition.x) ($bicepPosition.y) ($bicepPosition.z) $clavicleControl;
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $clavicleControl;
+				closeCurve -ch 0 -ps 0 -rpo 1 -bb 0.5 -bki 0 -p 0.1 $clavicleControl;
+				delete -ch  $clavicleControl;
+			
+				// ALSO TRICKY
+				// aim constraining the clavicle joint to the clavicle control curve (which sits at the location of the bicep joint)
+				// remember - this aim constraint needs maintain offset on or it won't work properly with mirrored  joints
+				// the key here is that the worldUpType needs to be set to none - otherwise, the FK arms will move when the 
+				// super mover is rotated
+		
+				aimConstraint -mo -worldUpType "none" $clavicleControl $clavicle;
+				//orientConstraint -mo $clavicleControl ($IKBicep+"Stabilize");
+				
+				// create elbow pole vector
+				string $elbowPoleVector = ($prefix+"ElbowControl");
+				
+						curve -d 1 -p -0.375 0.375 -0.375 -p -0.375 0.375 0.375 -p 0.375 0.375 0.375 -p 0.375 0.375 -0.375 -p -0.375 0.375 -0.375 -p -0.375 -0.375 -0.375 -p -0.375 -0.375 0.375 -p 0.375 -0.375 0.375 -p 0.375 -0.375 -0.375 -p -0.375 -0.375 -0.375 -p -0.375 -0.375 0.375 -p -0.375 0.375 0.375 -p 0.375 0.375 0.375 -p 0.375 -0.375 0.375 -p 0.375 -0.375 -0.375 -p 0.375 0.375 -0.375 -p -0.375 0.375 -0.375 -p -0.375 -0.375 -0.375 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -k 14 -k 15 -k 16 -k 17 -name $elbowPoleVector;
+
+				//curve -d 1 -p 0 0 0 -p -.5 0 -1 -p .5 0 -1 -p 0 0 0 -p 0 -.5 -1 -p 0 .5 -1 -p 0 0 0 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -name $elbowPoleVector;
+				scale ($controlSize * .4) ($controlSize * .4) ($controlSize * .4);
+				xform -cp;
+				// move it to the location of the elbow joint by creating a temporary point constraint
+				$tempConstraint = `pointConstraint $IKElbow $elbowPoleVector `;
+				delete $tempConstraint;
+				// deleting history
+				DeleteHistory $elbowPoleVector;
+				// shifting it back behind the elbow slightly
+				select $elbowPoleVector;
+				move -r 0 0 -1.5 ;
+				// freezing transforms
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 2;
+				
+				
+				// add pole vector guide lines
+				$elbowPointer = `curve -d 1 -p -0 0 0 -p 1 0 1 -k 0 -k 1 -name ($prefix+"elbowPointer")`;
+				$cluster1 = `cluster -name ($prefix+"ElbowPointerStart") ($elbowPointer+".cv[0]")`;
+				$cluster2 = `cluster -name ($prefix+"ElbowPointerEnd")($elbowPointer+".cv[1]")`;
+				$shape = `listRelatives -shapes $elbowPointer`;
+
+				setAttr ($shape[0]+".overrideEnabled") 1;
+				setAttr ($shape[0]+".overrideDisplayType") 2;
+
+				pointConstraint $elbowPoleVector $cluster1;
+				pointConstraint $IKElbow $cluster2;
+				
+				select -r $cluster1 $cluster2;
+				CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+				select -r $elbowPointer;
+				CleanUp `ls -sl` ($preprefix +  "controls") ($preprefix +  "controlLayer");
+	
+				
+				
+				// aiming Elbow Control at Elbow
+				/*
+				aimConstraint -mo -weight 1 -aimVector 1 0 0 -upVector 0 1 0 -worldUpType "vector" -worldUpVector 0 1 0 ($prefix + "IKElbow") ($prefix + "ElbowControl");
+				setAttr -lock true -keyable false -channelBox false ($prefix + "ElbowControl_aimConstraint1.nds");
+				setAttr -lock true -keyable false -channelBox false ($prefix + "ElbowControl_aimConstraint1.ox");
+				setAttr -lock true -keyable false -channelBox false ($prefix + "ElbowControl_aimConstraint1.oy");
+				setAttr -lock true -keyable false -channelBox false ($prefix + "ElbowControl_aimConstraint1.oz");
+				setAttr -lock true -keyable false -channelBox false ($prefix + "ElbowControl_aimConstraint1.w0");
+				*/
+			
+				// creating the actual pole vector constraint
+				poleVectorConstraint  $elbowPoleVector $bicepIKHandle; 
+				
+
+
+				if ($fkik == 1)
+				{
+					
+					
+					// creating FK arm controls
+					select -r ($prefix + "FKBicep") ($prefix + "FKElbow") ;
+					if ($numOfJoints == 6)
+					{
+						select -tgl  ($prefix + "FKElbow2");
+					}
+					//select -tgl ($prefix + "FKForearm") ($prefix + "FKWrist");
+					select -tgl ($prefix + "FKWrist");
+					FKControls `ls -sl` $controlSize $shelfbutton $characterset;
+					delete ($prefix + "FKBicepControl_Offset_pointConstraint1");
+					
+					disconnectAttr ($prefix + "FKBicepControl.rotateX") ($prefix + "FKBicep.rotateX");
+					disconnectAttr ($prefix + "FKBicepControl.rotateY") ($prefix + "FKBicep.rotateY");
+					disconnectAttr ($prefix + "FKBicepControl.rotateZ") ($prefix + "FKBicep.rotateZ");
+					orientConstraint -mo ($prefix + "FKBicepControl") ($prefix + "FKBicep");
+					
+					
+					if ($stretchy == true)
+				
+						
+						
+						
+					{
+					// making FK chain scalable
+					$fkScale = ($prefix+"ArmFKScale");
+					shadingNode -asUtility plusMinusAverage -name $fkScale;
+					
+					// adding an attribute to scale arms in FK mode
+					addAttr -ln "fkStretch" -h off -k on -at double -min 0 -dv 0 ($prefix + "FKBicepControl");
+					addAttr -ln "helper" -h on -k off -dv 1 ($prefix + "FKBicepControl");
+				
+					// connecting FK scale attribute to FK arms
+					connectAttr -f ($prefix + "FKBicepControl.fkStretch") ($fkScale + ".input1D[0]");
+					connectAttr -f ($prefix + "FKBicepControl.helper") ($fkScale + ".input1D[1]");
+					}
+					
+					
+					select $handControl;
+					addAttr -longName FK_IK -defaultValue 0 -maxValue 1 -minValue 0 -keyable true;
+					// connecting WRIST to bound skeleton
+					ConnectToColorBlend $prefix $IKWrist ($prefix + "FKWrist") ($prefix + "BoundWrist") ($handControl+".FK_IK") 0 $stretchy;
+					// CBdeleteConnection ($prefix + "BoundWrist.scaleX");
+					
+					ConnectToColorBlend $prefix $IKElbow ($prefix + "FKElbow") ($prefix + "BoundElbow") ($handControl+".FK_IK") 0 $stretchy;
+					if ($numOfJoints == 6)
+						{
+						// connecting ELBOW2 to bound skeleton
+						ConnectToColorBlend $prefix $IKElbow2 ($prefix + "FKElbow2") ($prefix + "BoundElbow2") ($handControl+".FK_IK") 0 $stretchy;
+						}
+					// connecting BICEP to bound skeleton
+					if ($distRotate == 1)
+						ConnectToColorBlend $prefix $IKBicep ($prefix + "FKBicep") ($prefix + "BoundBicep") ($handControl+".FK_IK") $extraJoints $stretchy;
+					else
+						ConnectToColorBlend $prefix $IKBicep ($prefix + "FKBicep") ($prefix + "BoundBicep") ($handControl+".FK_IK") 0 $stretchy;
+	
+				
+			
+					
+					if ($numOfJoints == 6)
+					{
+						LockHide ($prefix + "FKWristControl_Offset") 0 0 1 1 1 1 1 1 1 1 1 1;
+						parent ($prefix + "FKWristControl_Offset") ($prefix + "FKElbowControl");
+						LockHide ($prefix + "FKWristControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+						delete ($prefix + "FKElbow2Control_Offset");
+						connectAttr ($prefix + "FKElbowControl.rotateY") ($prefix + "FKElbow2.rotateY");
+					}
+	
+					// modifying setup from FKControls script
+					// removing direct forearm  control
+					// constraining FK control offset to bound bicep and clavicle
+					LockHide ($prefix+"FKBicepControl_Offset") 0 1 1 1 1 1 1 1 1 1 1 1;
+					//parentConstraint -mo ($IKBicep+"Stabilize") ($prefix+"FKBicepControl_Offset");
+					pointConstraint ($prefix+"FKBicep") ($prefix+"FKBicepControl_Offset");
+					
+					
+					// creating a reverse utility node to automatically turn off FK control visibility
+					shadingNode -asUtility reverse -n ($prefix+"ShowFKArmControls");
+					connectAttr -f ($handControl+".FK_IK")  ($prefix+"ShowFKArmControls.inputX");
+					connectAttr -f ($prefix+"ShowFKArmControls.outputX") ($prefix+"FKBicepControl_Offset.visibility");
+
+					LockHide ($prefix+"FKBicepControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+					
+					//LockHide ($prefix+"FKWristControl_Offset") 0 1 1 1 1 1 1 1 1 1 1 1;
+					// parent ($prefix+"FKWristControl_Offset") ($prefix+"FKElbowControl");
+					//delete ($prefix+"FKForearmControl_Offset");
+					
+					//if ($numOfJoints == 6)
+					//{
+					//	select -r ($prefix+"FKWristControl_Offset") ;
+					//	group -name ($prefix+"FKElbow2Control_Offset"); 
+					//	xform -os -piv 0 0 0;
+					//	connectAttr -f ($prefix+"FKElbowControl.rotate") ($prefix+"FKElbowControl2_Offset.rotate");
+					//}
+
+					LockHide ($prefix+"FKWristControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+					
+			  		// cleaning up layers and groups
+			  		LockHide ($prefix + "FKBicepControl") 1 1 1 1 1 0 0 0 1 1 1 1;
+					LockHide ($prefix + "FKElbowControl") 1 1 1 1 1 1 0 1 1 1 1 1;
+					LockHide ($prefix + "FKWristControl") 1 1 1 1 1 0 0 0 1 1 1 1;
+				
+					
+					group -em -n ($prefix+"IKFKArms");
+		  			$tempConstraint = `parentConstraint ($prefix+"BoundBicep") ($prefix+"IKFKArms")`;
+		  			delete $tempConstraint;
+		  			select ($prefix+"IKFKArms");
+		  			CleanUp `ls -sl` ($preprefix+"IKFKGuides") "none";
+							
+					LockHide ($prefix + "FKWristControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+					LockHide ($prefix + "FKBicepControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+					LockHide ($prefix + "FKElbowControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+					LockHide ($prefix + "HandControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+					
+					// THIS WAS UNEXPECTED AND TRICKY
+					// for some reason I couldn't simply parent constrain the IKFKArm group to the clavicles
+					// instead, I point constrained them to the bound arms, and orient constrained them to the clavicles
+					// I later learned that the parent constraint didn't work well with stretchy back joints, because
+					// the scale compensation is not being recognized properly (so that should position would seem to
+					// drift upwards as the shoulders moved, moving toward the position where the clavicle joint
+					// would terminate if scale compensate was turned off.  Nevermind - this worked after all.  I was stretching
+					// too many back joints earlier, resulting in the offset problem.
+					// pointConstraint ($prefix+"BoundBicep") ($prefix+"IKFKArms");
+					
+					parentConstraint -name ($prefix+"IKFKArmsConst") -mo $clavicle ($prefix+"IKFKArms"); 
+					// things seem to shift around when I do this early
+					// I think I would need to break this then reconnect it after the back setup
+	  			}
+	  			
+	  			if ($fkik == 0 && $distRotate == 1)
+	  			{
+					// connecting BICEP to bound skeleton
+					ConnectToColorBlend $prefix $IKBicep "none" ($prefix + "BoundBicep") "none" $extraJoints $stretchy;
+		
+					ConnectToColorBlend $prefix $IKElbow "none" ($prefix + "BoundElbow") "none" 0 $stretchy;
+					// connecting WRIST to bound skeleton
+					ConnectToColorBlend $prefix $IKWrist "none" ($prefix + "BoundWrist") "none" 0 $stretchy;
+					if ($numOfJoints == 6)
+						{
+						// connecting ELBOW2 to bound skeleton
+						ConnectToColorBlend $prefix $IKElbow2 "none" ($prefix + "BoundElbow2") "none" 0 $stretchy;
+						}
+						
+					connectAttr ($IKBicep + ".scaleX") ($prefix + "BoundBicep.scaleX");
+					connectAttr ($IKElbow + ".scaleX") ($prefix + "BoundElbow.scaleX");
+					connectAttr ($prefix + "BoundElbow.scale") ($prefix + "BoundWrist.inverseScale");
+					
+					group -em -n ($prefix+"IKFKArms");
+		  			$tempConstraint = `parentConstraint ($prefix+"BoundBicep") ($prefix+"IKFKArms")`;
+		  			delete $tempConstraint;
+		  			select ($prefix+"IKFKArms");
+		  			CleanUp `ls -sl` ($preprefix+"IKFKGuides") "none";
+							
+					LockHide ($prefix + "HandControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+
+					//pointConstraint ($prefix+"BoundBicep") ($prefix+"IKFKArms");
+					parentConstraint -mo ($prefix+"Clavicle") ($prefix+"IKFKArms");
+	  			}
+	  			
+			
+				// CREATING STRETCHY ARM JOINTS
+				// finding locations of joints
+				select -r $IKBicep $IKElbow;
+				if ($numOfJoints == 6)
+				select -tgl $IKElbow2;
+				//select -tgl $IKForearm $IKWrist;
+				select -tgl $IKWrist;
+				
+				if ($stretchy == true)
+					{
+					MakeStretchy `ls -sl` ($prefix+"Arm") $handControl;
+					$armsStretchyDone = 1;
+					
+					// NEW FIX
+					connectAttr -f ($prefix+"IKElbow.scale") ($prefix+"IKWrist.inverseScale");
+					if ($fkik == 1)
+					{
+					connectAttr -f ($prefix+"FKElbow.scale") ($prefix+"FKWrist.inverseScale");
+					connectAttr -f ($prefix+"BoundElbow.scale") ($prefix+"BoundWrist.inverseScale");
+					}
+					// END NEW FIX
+					
+					
+					// ADDING PINNED ELBOW FUNCTIONALITY
+					if ($numOfJoints != 6)
+					{
+					// adding "pin elbow" attribute
+					addAttr -ln "pinElbow" -k on -h off -at double  -min 0 -max 1 -dv 0 $elbowPoleVector;
+				
+					// creating a locator (used for measurement later on) that is point constrained to $elbowPoleVector
+					$pinnedElbowLocator = `spaceLocator -p 0 0 0 -name ($prefix+"PinnedElbowLocator")`;
+					pointConstraint $elbowPoleVector $pinnedElbowLocator;
+					
+					$seg1Length = `shadingNode -asUtility distanceBetween -name ($prefix+"bicepLength")`;
+					$seg1Normalize = `shadingNode -asUtility multiplyDivide -name ($prefix+"bicepNormalize")`;
+					$seg2Length = `shadingNode -asUtility distanceBetween -name ($prefix+"forearmLength")`;
+					$seg2Normalize = `shadingNode -asUtility multiplyDivide -name ($prefix+"forearmNormalize")`;
+					$seg1Blend = `shadingNode -asUtility blendColors -name ($prefix+"bicepBlend")`;
+					$seg2Blend = `shadingNode -asUtility blendColors -name ($prefix+"forearmBlend")`;
+					
+					// get first segment lengths
+					$tempMeas = `shadingNode -asUtility distanceBetween -name "tempMeas"`;
+					setAttr ($tempMeas+".point1X") ($elbowPosition.x);
+					setAttr ($tempMeas+".point1Y") ($elbowPosition.y);
+					setAttr ($tempMeas+".point1Z") ($elbowPosition.z);
+					setAttr ($tempMeas+".point2X") ($bicepPosition.x);
+					setAttr ($tempMeas+".point2Y") ($bicepPosition.y);
+					setAttr ($tempMeas+".point2Z") ($bicepPosition.z);
+					$tempDist = `getAttr ($tempMeas+".distance")`;
+					delete $tempMeas;			
+
+
+					// connecting new pinElbowAttribute to color blend nodes
+					connectAttr ($elbowPoleVector+".pinElbow") ($seg1Blend+".blender");
+					connectAttr ($elbowPoleVector+".pinElbow") ($seg2Blend+".blender");
+
+					// measure first segment
+					connectAttr -f ($prefix+"ArmStartLocator.translateX") ($seg1Length+".point1X");
+					connectAttr -f ($prefix+"ArmStartLocator.translateY") ($seg1Length+".point1Y");
+					connectAttr -f ($prefix+"ArmStartLocator.translateZ") ($seg1Length+".point1Z");
+
+					connectAttr -f ($pinnedElbowLocator[0]+".translateX") ($seg1Length+".point2X");
+					connectAttr -f ($pinnedElbowLocator[0]+".translateY") ($seg1Length+".point2Y");
+					connectAttr -f ($pinnedElbowLocator[0]+".translateZ") ($seg1Length+".point2Z");
+					
+					// normalize first segment
+					setAttr ($seg1Normalize+".operation") 2;
+					connectAttr -f ($seg1Length+".distance") ($seg1Normalize+".input1X");
+					setAttr ($seg1Normalize+".input2X") $tempDist;
+					
+					// get second segment lengths
+					$tempMeas = `shadingNode -asUtility distanceBetween -name "tempMeas"`;
+					setAttr ($tempMeas+".point1X") ($elbowPosition.x);
+					setAttr ($tempMeas+".point1Y") ($elbowPosition.y);
+					setAttr ($tempMeas+".point1Z") ($elbowPosition.z);
+					setAttr ($tempMeas+".point2X") ($wristPosition.x);
+					setAttr ($tempMeas+".point2Y") ($wristPosition.y);
+					setAttr ($tempMeas+".point2Z") ($wristPosition.z);
+					$tempDist = `getAttr ($tempMeas+".distance")`;
+					delete $tempMeas;			
+										
+					// measure second segment
+					connectAttr -f ($prefix+"ArmEndLocator.translateX") ($seg2Length+".point2X");
+					connectAttr -f ($prefix+"ArmEndLocator.translateY") ($seg2Length+".point2Y");
+					connectAttr -f ($prefix+"ArmEndLocator.translateZ") ($seg2Length+".point2Z");
+					
+					connectAttr -f ($pinnedElbowLocator[0]+".translateX") ($seg2Length+".point1X");
+					connectAttr -f ($pinnedElbowLocator[0]+".translateY") ($seg2Length+".point1Y");
+					connectAttr -f ($pinnedElbowLocator[0]+".translateZ") ($seg2Length+".point1Z");
+
+					// normalize second segment
+					setAttr ($seg2Normalize+".operation") 2;
+					connectAttr -f ($seg2Length+".distance") ($seg2Normalize+".input1X");
+					setAttr ($seg2Normalize+".input2X") $tempDist;
+				
+					// connecting normalized values to color blend nodes
+					connectAttr ($seg1Normalize+".outputX") ($seg1Blend+".color1R");
+					connectAttr ($seg2Normalize+".outputX") ($seg2Blend+".color1R");
+					connectAttr -f ($prefix+"ArmStretchCondition.outColorR") ($seg1Blend+".color2R");
+					connectAttr -f ($prefix+"ArmStretchCondition.outColorR") ($seg2Blend+".color2R");
+							
+					// breaking existing stretch connection which feeds just one value into all arm joints
+					// disconnectAttr ($prefix+"ArmStretchExtend.output1D") ($prefix+"ArmStretchBlend.color1R");
+					// connectAttr ($seg1Blend+".outputR") ($prefix+"ArmStretchBlend.color1R");
+					disconnectAttr ($prefix+"ArmStretchCondition.outColorR") ($prefix+"ArmStretchExtend.input1D[0]");
+					connectAttr ($seg1Blend+".outputR") ($prefix+"ArmStretchExtend.input1D[0]");
+					connectAttr ($seg2Blend+".outputR") ($prefix+"ArmStretchBlend.color1G");
+		
+					setAttr ($prefix+"ArmStretchBlend.color2R") 1;
+					setAttr ($prefix+"ArmStretchBlend.color2G") 1;
+					
+					disconnectAttr ($prefix+"ArmStretchBlend.outputR") ($prefix+"IKElbow.scaleX");
+					connectAttr ($prefix+"ArmStretchBlend.outputG") ($prefix+"IKElbow.sx");
+					
+					select -r ($pinnedElbowLocator[0]);
+					CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+
+
+					// extra
+					// move new clusters to hidden group
+					// move new curve to controls group
+				
+					
+					}
+					
+	
+					
+					
+					}
+					
+				if ($fkik == 1)
+				{
+					
+					// driving the auto forearm for the FK and IK joints
+					string $ForearmMultDivide = ($prefix + "ForearmMultDivide");
+					shadingNode -asUtility -name $ForearmMultDivide multiplyDivide ;
+					connectAttr -f ($prefix + "BoundWrist.rotateX") ($ForearmMultDivide+".input1X");
+					connectAttr -f ($ForearmMultDivide+".outputX") ($prefix+"BoundForearm.rotateX");
+					setAttr ($ForearmMultDivide+".input2X") 0.5;
+					
+					//putting all the controls under a new group node
+					select -r ($prefix + "FKBicepControl_Offset");
+					CleanUp `ls -sl` ($preprefix +  "controls") ($preprefix +  "controlLayer");
+				}
+				else
+				{
+					
+					// driving the auto forearm for the FK and IK joints
+					string $ForearmMultDivide = ($prefix + "ForearmMultDivide");
+					shadingNode -asUtility -name $ForearmMultDivide multiplyDivide ;
+					connectAttr -f ($prefix + "IKWrist.rotateX") ($ForearmMultDivide+".input1X");
+					connectAttr -f ($ForearmMultDivide+".outputX") ($prefix+"IKForearm.rotateX");
+					setAttr ($ForearmMultDivide+".input2X") 0.5;
+					if (($distRotate== 1) && ($stretchy== 1))
+					connectAttr -f ($prefix + "IKWrist.rotateX") ($prefix+"BoundWrist.rotateX");
+					
+
+				}
+				
+				// string $IKForearmMultDivide = ($prefix + "IKForearmMultDivide");
+				// shadingNode  -name $IKForearmMultDivide -asUtility multiplyDivide ;
+				// connectAttr -f ($handControl+".rotateX") ($IKForearmMultDivide+".input1X");
+				// connectAttr -f ($IKForearmMultDivide+".outputX") ($prefix+"IKForearm.rotateX");
+				// setAttr ($IKForearmMultDivide+".input2X") 0.3;
+		
+				//putting all the controls under a new group node
+				select -r $handControlOffset $clavicleControl $elbowPoleVector ;
+				CleanUp `ls -sl` ($preprefix +  "controls") ($preprefix +  "controlLayer");
+				
+				if ($fkik == 1)
+				Override $handControl ($preprefix +  "controlLayer") 6;
+				else
+				Override $handControl ($preprefix +  "controlLayer") 13;
+				
+			
+				//putting all the IK Handles under a group node
+				select -r $bicepIKHandle;
+				select -tgl $handIK[0];
+				CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+	
+				// locking and hiding various attributes	
+				LockHide $clavicleControl 1 1 0 0 0 1 1 1 1 1 1 1;
+				LockHide $handControl 1 1 0 0 0 0 0 0 1 1 1 1;
+				LockHide $elbowPoleVector 1 1 0 0 0 1 1 1 1 1 1 1;
+				
+				select -r $handControl $clavicleControl $elbowPoleVector ;
+				if ($shelfbutton == 1)
+					{
+						$set = `ls -sl`;
+						makeShelfButton($set, $preprefix);
+					}
+				if ($characterset == 1)
+					{
+					$set = `ls -sl`;
+					makeCharacterSet($set, $preprefix);
+					}
+				
+			
+				// CLEANING UP HYPERGRAPH AND ORGANIZING INTO DISPLAY LAYERS
+				
+				// IK Arms
+				select -r ($prefix+"IKBicep");
+				if ($fkik == 0 && $distRotate == 1)
+					{
+					CleanUp `ls -sl` "none" ($preprefix +  "noTouch");
+					}
+				else
+					{
+					CleanUp `ls -sl` "none" ($preprefix +  "skeletonLayer");
+					Override ($prefix + "IKBicep") ($preprefix +  "skeletonLayer") 4;
+					}
+					
+				// Bound Arms
+				if (`objExists ($prefix+"BoundBicep")` != 1)
+				{
+					select -r ($prefix+"IKBicep");
+					searchReplaceNames "IK" "" "hierarchy";
+					CleanUp `ls -sl` "none" ($preprefix +  "skeletonLayer");
+				}
+				else
+				{
+					select -r ($prefix+"BoundBicep");
+					CleanUp `ls -sl` "none" ($preprefix +  "skeletonLayer");
+					//pointConstraint ($preprefix+"L_BoundBicep") ($preprefix+"L_IKFKArms");
+				}
+					
+				// FK Arms
+				if ($fkik == 1)
+				{
+					select -r ($prefix+"FKBicep");
+					CleanUp `ls -sl` "none" ($preprefix +  "skeletonLayer");
+					Override ($prefix + "FKBicep") ($preprefix +  "skeletonLayer") 4;
+					
+					parent ($prefix + "FKBicep") ($prefix + "IKFKArms");
+					parent ($prefix + "IKBicep") ($prefix + "IKFKArms");
+				}	
+				
+				// Dist Rotate (only) arms
+				if ($distRotate == 1 && $fkik == 0)
+				{
+					setAttr ($prefix + "IKFKArms.visibility") 0;
+					parent ($prefix + "IKBicep") ($prefix + "IKFKArms");
+				}	
+				
+				
+				select -r ($prefix+"BicepIKHandle");
+				CleanUp `ls -sl` "none" ($preprefix +  "noTouch");
+				
+			
+				if (($armsDone == 0) && ($numSides == 2))
+					{
+					$bodySide = "R_";
+					$prefix = ($preprefix+"R_");
+					select ($prefix+"Clavicle");
+					}
+					
+				else
+					{	
+					select -r $handControl;
+					$prefix = "L_";
+					if ($numFingers != "noFingers")
+					HandSetup $numFingers $fkik $distRotate $handScale $characterset $shelfbutton;
+					}
+				}
+	}
+
+
+
+// - - - - - - - - - 
+// - - - - - - - - - 
+// BACK CONTROLS
+// - - - - - - - - - 
+// - - - - - - - - - 
+global proc BackSetup (int $stretchy, int $advancedTwist, string $backStyle, string $backOrientation, float $controlSize, int $shelfbutton, int $characterset)
+	{
+		
+				// this changes the manipulator tool to selection mode (not move mode)
+				// making this change elminates certain warning messages about not being able
+				// to move objects in 3D space
+				
+				string $oldTool;
+				string $oldTool = `currentCtx`;
+				setToolTo selectSuperContext;
+				
+				global string $preprefix;
+		
+				$preprefix = `textField -query -text preprefix`;
+				global int $armsDone;
+				global int $armsFKDone;
+				global int $armsDistDone;
+				global int $armsStretchyDone;
+				global int $legsDone;
+				global int $legsFKDone;
+				global int $legsDistDone;
+				global int $legsStretchyDone;
+				global int $handSetupDone;
+				
+				$prefix = $preprefix;
+				string $joints[] = `ls -sl -type joint`;
+				$numOfJoints = size($joints);
+				if ($numOfJoints == 0) 
+				{
+ 					error "No joints were selected.\n";
+ 					print ($numOfJoints +" joints were selected.");
+				}
+				
+				if ($numOfJoints <7 && $backStyle == "ikBack")
+				error "Please select at least 8 joints (pelvis, back1, back2, back3, neck, head, head tip).";
+				
+				if ($numOfJoints <6 && $backStyle == "fkBack")
+				error "Please select at least 6 joints (pelvis, back1, back2, neck, head, head tip).";
+				
+			
+				print "- - - - - creating back setup - - - - - \n";
+				string $superMover = "superMover";
+				string $superMoverShape[];
+				vector $backStartPosition;
+				vector $backEndPosition;
+				vector $back1Position;
+				vector $back2Position;
+	
+				string $joints[] = `ls -sl -type joint`;
+				string $current;
+				string $last;
+				string $backIK = ($prefix + "backIKHandle");
+		 		string $backIKCurve = ($prefix + "backIKCurve");
+		 		string $neckIK = ($prefix + "neckIKHandle");
+		 		string $neckTwist = ($prefix + "neckTwist");
+		 		string $headIK = ($prefix + "headIKHandle");
+		 			 		
+	   			string $upperBackCluster = ($prefix + "upperBackCluster") ;
+	   			string $midBackCluster = ($prefix + "midBackCluster") ;
+	   			string $lowerBackCluster =($prefix + "lowerBackCluster");
+	   			string $lowerBackControl = ($prefix+"lowerBackControl");
+	   			string $upperBackControl = ($prefix+"upperBackControl");
+	   			string $pelvisControl = ($prefix+"pelvisControl");
+	   			string $backBend1 = ($prefix+"backBend1");
+	   			string $backBend2 = ($prefix+"backBend2");
+	   			
+	   			string $Pelvis = ($prefix + "Pelvis");
+	   			string $Head_end = ($prefix + "Head_end");
+	   			string $Head = ($prefix + "Head");
+	   			string $Neck = ($prefix + "Neck");
+	   			string $Back_1  = ($prefix + "Back_1");
+	   			string $Back_2  = ($prefix + "Back_2");
+	   			string $Back_ = ($prefix+"Back_");
+				
+				string $headControlPosition = ($prefix + "headControlPosition");
+				string $headControlOffset = ($prefix + "headControl_Offset");
+				
+	   			string $superMover =  ($prefix + "superMover");
+	   			
+	   	
+				
+				if (`objExists ($Back_1)`)
+					error "A back with this name already exists.";
+					
+				$superMoverCheck = `objExists $superMover`;
+				if ($superMoverCheck == 0)
+					{
+					// CREATE THE SUPERMOVER
+					curve -d 1 -p 0 0 -0.984408 -p -0.393763 0 -0.590645 -p -0.198786 0 -0.594132 -p -0.198786 0 -0.192548 -p -0.590645 0 -0.196882 -p -0.590645 0 -0.393763 -p -0.984408 0 0 -p -0.590645 0 0.393763 -p -0.590645 0 0.196882 -p -0.196882 0 0.196882 -p -0.196882 0 0.590645 -p -0.393763 0 0.590645 -p 0 0 0.984408 -p 0.393763 0 0.590645 -p 0.196882 0 0.590645 -p 0.196882 0 0.196882 -p 0.590645 0 0.196882 -p 0.590645 0 0.393763 -p 0.984408 0 0 -p 0.590645 0 -0.393763 -p 0.590645 0 -0.196882 -p 0.196882 0 -0.196882 -p 0.196882 0 -0.590645 -p 0.393763 0 -0.590645 -p 0 0 -0.984408 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -k 14 -k 15 -k 16 -k 17 -k 18 -k 19 -k 20 -k 21 -k 22 -k 23 -k 24 -name $superMover;
+
+					select $superMover;
+					scale ($controlSize * 4) ($controlSize * 4) ($controlSize * 4);
+					makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+					}
+					
+					
+				if ($backStyle == "ikBack")
+				{
+				print "- - - - - creating ik back - - - - - \n";
+				
+				// renaming and connecting normalized scale
+				int $i = 0;
+				for ($current in $joints)
+					{
+					rename $current ($prefix + "Back_"+$i);
+					$i = $i + 1;
+					}
+				
+				rename ($Back_+"0")  ($Pelvis);
+				$i = $i - 1;
+				rename ($Back_+$i) ($Head_end);
+				$i = $i - 1;
+				rename ($Back_+$i) ($Head);
+				$i = $i - 1;
+				rename ($Back_+$i) ($Neck);
+				$i = $i - 1;
+				$last = ($Back_+$i);
+				$upperBackSpot = `insertJoint $last`;
+				rename $upperBackSpot ($prefix + "Back_stabilize");
+				$upperBackSpot = ($prefix + "Back_stabilize");
+				
+				
+				// removing ikfk arm constraint (temporarily)
+				if (`objExists ($prefix+"L_IKFKArmsConst")`)
+				{
+				delete ($prefix+"L_IKFKArmsConst"); 
+				delete ($prefix+"R_IKFKArmsConst"); 
+				}
+				
+				
+	
+				$backIKObjects = `ikHandle -sol ikSplineSolver -startJoint $Back_1 -endEffector $last -cra true -pcv false -ns 2 -name $backIK`;
+				rename $backIKObjects[2] $backIKCurve;
+		   			
+		  		// creating upper lower and mid back CV clusters
+				cluster -name ($midBackCluster) ($backIKCurve+".cv[2]");
+				cluster -name ($upperBackCluster) ($backIKCurve+".cv[3]")($backIKCurve+".cv[4]");
+				cluster -name ($lowerBackCluster) ($backIKCurve+".cv[0]") ($backIKCurve+".cv[1]");
+				
+				// creating cluster control objects for upper and lower back, pelvis, and super mover
+				$lowerBackController = `circle -c 0 0 0 -nr 0 1 0 -sw 360 -r 1 -d 3 -ut 0 -tol 0.00393701 -s 8 -ch 0 -n $lowerBackControl`;
+				scale ($controlSize)  ($controlSize)  ($controlSize) ;
+				$upperBackController = `circle -c 0 0 0 -nr 0 1 0 -sw 360 -r 1 -d 3 -ut 0 -tol 0.00393701 -s 8 -ch 0 -n $upperBackControl `;
+				scale ($controlSize)  ($controlSize)  ($controlSize) ;
+				$pelvisController = `curve -d 1 -p 0 0 3 -p -3 0 -2 -p 3 0 -2 -p 0 0 3 -k 0 -k 1 -k 2 -k 3 -n $pelvisControl`;
+				scale ($controlSize * .7)  ($controlSize * .7)  ($controlSize * .7) ;
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+					
+				// moving controls to the correct locations
+				$tempConstraint = `pointConstraint  $Pelvis $lowerBackControl`; 
+				delete $tempConstraint;
+				$tempConstraint = `pointConstraint $upperBackSpot $upperBackControl`;
+				delete $tempConstraint;
+				$tempConstraint = `pointConstraint $Pelvis $pelvisControl`;
+				delete $tempConstraint;
+					
+				// freezing transforms on the new controls
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 ($pelvisControl);
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 ($upperBackControl);
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 ($lowerBackControl);
+				
+				// parent constraining the cluster handles to the back controls
+				parentConstraint -mo  ($lowerBackControl) ($lowerBackCluster+"Handle");
+				parentConstraint -mo ($upperBackControl) ($upperBackCluster+"Handle");
+				
+				// stabilizing upper back
+				orientConstraint -mo ($upperBackControl) $last;
+				parentConstraint -mo ($upperBackControl) ($upperBackSpot);
+					
+				// parent constraining the mid back cluster to the upper and lower back controls
+				parentConstraint -mo -weight 1 ($upperBackControl) ($lowerBackControl) ($midBackCluster+"Handle");
+					
+				// if you don't do this step, then you really need to link the superMover rotate Y to the backIKHandle Roll attribute
+				// remember, for this to work properly, you need to start the IK spline handle just below the pelvs joint
+				// otherwise, you will definitely want to roll attribute attached because the IK spline for the back
+				// won't have any parent object that is driving its rotation
+				parentConstraint -mo $lowerBackControl $Pelvis;
+					
+				// new additional pelvis controls
+				$back1Position = `xform -query -worldSpace -translation $Back_1`; 
+				curve -d 1 -p 0 0 -1 -p -1 0 0 -p 0 0 1 -p 1 0 0 -p 0 0 -1 -name  $backBend1;
+				move ($back1Position.x) ($back1Position.y) ($back1Position.z);
+				scale $controlSize $controlSize $controlSize;
+				$back2Position = `xform -query -worldSpace -translation $Back_2`; 
+				curve -d 1 -p 0 0 -1 -p -1 0 0 -p 0 0 1 -p 1 0 0 -p 0 0 -1 -name  $backBend2;
+				move ($back2Position.x) ($back2Position.y) ($back2Position.z);
+				scale $controlSize $controlSize $controlSize;
+				parent -r $backBend1 $pelvisControl;
+				parent $backBend2 $backBend1;
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $backBend1;
+				makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $backBend2;
+				LockHide $backBend1 1 1 1 1 1 0 0 0 1 1 1 1;
+				LockHide $backBend2 1 1 1 1 1 0 0 0 1 1 1 1;
+				select $pelvisControl;
+				delete -ch;
+					
+					// BACK SCALING
+					if ($stretchy == 1)
+					{
+					// creating a curve info node which gives the length of the IK spline curve
+					string $curveInfoNode = `arclen -ch on $backIKCurve`;
+					// finding the length of the curve at rest
+		   			$restCurve = `getAttr ($curveInfoNode+".arcLength")`;
+		  	 		// creating a node that compensates for scaling of the super mover
+		   			$superBackScale = `shadingNode -asUtility multiplyDivide -name ($prefix + "superBackScale")`;
+		   			connectAttr ($curveInfoNode+".arcLength") ($superBackScale+".input1X");
+					connectAttr -f ($superMover+".scaleX") ($superBackScale+".input2X");
+					setAttr ($superBackScale+".operation") 2;
+		   			// creating a multiply divide node that will normalize the scale
+		  	 		$backNormalize = `shadingNode -asUtility multiplyDivide -name ($prefix + "backNormalize")`;
+		  	 		// plugging the rest length into the multiply divide node
+		  	 		setAttr ($backNormalize+".input2X") $restCurve;
+		   			// connecting the current length into the multiply divide node
+		   			connectAttr ($superBackScale+".outputX") ($backNormalize+".input1X");
+		 	  		// set to divide
+		   			setAttr ($backNormalize+".operation") 2;
+		   			// connecting normalized scale to back joints
+			 		$num = size($joints) -5;
+					for($i=1;$i<$num;$i++)
+						{
+						connectAttr ($backNormalize+".output.outputX") ($Back_+$i+".scaleX");
+						}
+	   				}
+		   			
+	   				
+					// ADVANCED BACK TWIST CONTROLS
+					if ($advancedTwist == 1)
+					{
+						// enable advanced twist controls
+						setAttr ($prefix+"backIKHandle.dTwistControlEnable") 1;
+						
+						// set advacned twist to Object Rotation Up (Start/End)
+						setAttr ($prefix+"backIKHandle.dWorldUpType") 4;
+						
+						// specify names of upper and lower back twist controls
+						connectAttr -f ($lowerBackControl+".worldMatrix[0]") ($prefix+"backIKHandle.dWorldUpMatrix");
+						connectAttr -f ($upperBackControl+".worldMatrix[0]") ($prefix+"backIKHandle.dWorldUpMatrixEnd");
+						
+						if ($backOrientation == "yup")
+							// set up axis to negative Y
+							setAttr ($prefix+"backIKHandle.dWorldUpAxis") 1;
+						else if ($backOrientation == "zup")
+							// set up axis to negative Z
+							setAttr ($prefix+"backIKHandle.dWorldUpAxis") 4;
+						
+						// set Up Vector1 to 1 0 0
+						setAttr ($prefix+"backIKHandle.dWorldUpVectorX") 1;
+						setAttr ($prefix+"backIKHandle.dWorldUpVectorY") 0;
+						setAttr ($prefix+"backIKHandle.dWorldUpVectorZ") 0;
+						
+						// set up vector2 to 1 0 0
+						setAttr ($prefix+"backIKHandle.dWorldUpVectorEndX") 1;
+						setAttr ($prefix+"backIKHandle.dWorldUpVectorEndY") 0;
+						setAttr ($prefix+"backIKHandle.dWorldUpVectorEndZ") 0;
+						
+						// set roll to 90 so that the back works from default construction angle
+						setAttr  ($prefix+"backIKHandle.roll") 90;
+					}
+					else
+					{
+						// connect backIKHandle twist attribute to upper back rotate
+						
+						shadingNode -asUtility reverse -n ($prefix+"BackTwistCompensate");
+						connectAttr ($lowerBackControl+".rotateY") ($prefix+"BackTwistCompensate.inputX");
+						connectAttr ($prefix+"BackTwistCompensate.outputX") ($prefix+"backIKHandle.roll");
+		
+						connectAttr ($upperBackControl+".rotateY") ($prefix+"backIKHandle.twist");
+					}
+					
+						
+					// HEAD CONTROLS
+					// these head controls provide some isolated head movement
+					// so that the character's back and upper torso can move, but the head
+					// orientation will remain constant
+					
+					// creating a head control curve (at the location of the head joint)
+					$headControl = `circle -name ($prefix + "headControl") -nr 0 0 1 -s 8 -ch 1`;
+					scale .6 1 1;
+					move -r 0 -1 0 ($headControl[0]+".scalePivot") ($headControl[0]+".rotatePivot") ;
+					makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $headControl[0];
+					scale ($controlSize) ($controlSize) ($controlSize);
+					$tempConstraint = `pointConstraint $Head $headControl`;
+					delete $tempConstraint;
+					
+					// creating an offset group (also at the location at the head)
+					group -empty -name $headControlOffset;
+					$tempConstraint = `pointConstraint $Head $headControlOffset`;
+					delete $tempConstraint;
+					$tempConstraint = `orientConstraint $Head $headControlOffset`;
+					delete $tempConstraint;
+					
+					// parenting the head controller to the offset node
+					parent $headControl[0] $headControlOffset ;
+					
+					// freeze transforms
+					makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $headControl[0];
+					delete -ch $headControl[0];
+					
+					// creating a locator
+					spaceLocator -name $headControlPosition -p 0 0 0;
+					pointConstraint $Neck $headControlPosition ;
+					orientConstraint -mo $backBend2 $headControlPosition;
+					
+					// parenting the head control under the offset node
+					parentConstraint -mo $headControlPosition $headControlOffset;
+					
+					// creating an ikSC solver for the neck to the head control
+					ikHandle -sol ikRPsolver -sj $Neck -ee $Head -name $neckIK;
+					
+					// add SCIK to head
+					ikHandle -sol ikRPsolver -sj $Head  -ee $Head_end -name $headIK;
+					
+				
+					// create an offset node for head/neck IK handles
+					group -em -name ($prefix + "headIK_offset");
+					$tempConstraint = `pointConstraint $headControl[0] ($prefix + "headIK_offset")`;
+					delete $tempConstraint;
+					$tempConstraint = `orientConstraint $headControl[0] ($prefix + "headIK_offset")`;
+					delete $tempConstraint;
+			
+					// parent head/neck IK handles to offset node, and parent constrain offset node to head control
+					parent  $neckIK ($prefix + "headIK_offset");
+					parent  $headIK ($prefix + "headIK_offset");
+					parentConstraint $headControl[0] ($prefix + "headIK_offset");
+					
+					
+					// connecting the rotation value of the head controller to the twist attribute of the neck IK handle (through a multiply divide node which divides the value by 2)
+					shadingNode -asUtility multiplyDivide -name $neckTwist;
+		   			setAttr($neckTwist+".input1X") -.5;
+					connectAttr -f ($headControl[0]+".rotateX") ($neckTwist+".input2X");
+					connectAttr -f ($neckTwist+".outputX") ($neckIK+".twist");
+					
+				
+					string $NeckTwist = ($prefix + "NeckTwist");
+					shadingNode -asUtility -name $NeckTwist multiplyDivide ;
+					connectAttr -f ($headControl[0]+".rotateX") ($NeckTwist+".input1X");
+					connectAttr -f ($NeckTwist+".outputX") ($neckIK+".rotateX");
+					setAttr ($NeckTwist+".input2X") 0.5;
+	
+	
+					// scale constraining the headControlPosition to the superMover
+					scaleConstraint $superMover $headControlPosition;
+				
+					// locking and hiding attributes
+					LockHide ($headControl[0]) 1 1 0 0 0 0 0 0 0 1 1 1;
+					LockHide $headControlOffset 1 1 1 1 1 1 1 1 1 1 1 1;
+					
+					// adding squash and stretch
+					SquashStretch ($headControl[0]) $Head;
+					aliasAttr headSquash ($headControl[0]+".scaleX");
+					
+					// spacer
+					addAttr -ln "___________"  -min -0 -max 0 -dv 0 -keyable true ($headControl[0]);
+			 		setAttr -lock true ($headControl[0]+".___________");
+			 		
+			 		// stretchyNeck
+					select -r $Neck $Head;
+					MakeStretchy `ls -sl` ($prefix+"Neck") ($headControl[0]);
+					renameAttr ($headControl[0]+".stretch") neckStretch;
+					
+					// HEAD SCALE COMPENSATE FOR SUPER MOVER
+		   			// creating a new multiply divide node
+			   		$superNeckScale = `shadingNode -asUtility multiplyDivide -name ($prefix + "superNeckScale")`;
+			   		// grabbing the maximum length we set up earlier
+			   		float $restLength = `getAttr ($prefix + "NeckNormalize.input2X")`;
+			   		// putting that rest length into the new multiply divide node
+			   		setAttr($superNeckScale+".input1X") $restLength;
+			   		// connecting the scale from the superMover to the new multiply divide node
+					connectAttr -f ($superMover+".scaleX") ($superNeckScale+".input2X");
+					// setting the operation type to multiply
+					setAttr ($superNeckScale+".operation") 1;
+					// feeding the resultant value into the normalize multiply divide node
+					connectAttr ($superNeckScale+".outputX") ($prefix + "NeckNormalize.input2X");
+			   		
+					
+					transformLimits -sx 0.1 1 -esx 1 0 ($headControl[0]);
+					setAttr -lock true -keyable false ($superMover+".v");
+					
+						if ($shelfbutton == 1)
+						{
+							$set[0] = $headControl[0];
+							makeShelfButton($set, $preprefix);
+						}
+						if ($characterset == 1)
+						{
+							$set[0] = $headControl[0];
+							makeCharacterSet($set, $preprefix);
+						}
+
+				
+				
+					
+		   		
+			}
+			else
+			{
+				print "- - - - - creating fk back - - - - - \n";
+				int $size;
+				$size = size ($joints);
+				
+				int $i = 0;
+				for ($current in $joints)
+					{
+					rename $current ($prefix + "Back_"+$i);
+					$i = $i + 1;
+					}
+				
+				rename ($Back_+"0")  ($Pelvis);
+				$i = $i - 1;
+				rename ($Back_+$i) ($Head_end);
+				$i = $i - 1;
+				rename ($Back_+$i) ($Head);
+				$i = $i - 1;
+				rename ($Back_+$i) ($Neck);
+				$i = $i - 1;
+				$last = ($Back_+$i);
+				
+				select -cl;
+				
+				for ($i=1; $i<($size-3); $i++)
+					select -tgl ($Back_+$i);
+
+				select -tgl($Neck);
+				select -tgl ($Head);
+				
+				$joints = `ls -sl`;
+				
+				// looping
+				for ($i=0; $i<($size-2); $i++)
+					{
+						
+					if ($i == ($size-3))
+					{
+					$circle1 = `circle -name ($prefix + "headControl") -nr 0 1 0 -s 8 -ch 1`;
+					scale 1 1 .6;
+					move -r -1 0 0 ($circle1[0]+".scalePivot") ($circle1[0]+".rotatePivot") ;
+					move -rpr -x 0 ;
+					makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $circle1[0];
+					scale -r ($controlSize) ($controlSize) ($controlSize);
+					makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+					rename $circle1[0] ($joints[$i]+"Control");
+					aliasAttr "stretch" ($joints[$i]+"Control.scaleX");
+					}
+					
+					if ($i == ($size-4))
+					{
+					$circle1 =`circle -nr 1 0 0 -ch 0`;
+					rename $circle1[0] ($joints[$i]+"Control");
+					select ($joints[$i]+"Control");
+					scale -r ($controlSize*.5) ($controlSize*.5) ($controlSize*.5);
+					makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+					aliasAttr "stretch" ($joints[$i]+"Control.scaleX");
+					}
+					
+					else if ($i < ($size-4))
+					{
+					// creating controller object
+					$circle1 =`circle -nr 1 0 0 -ch 0`;
+					rename $circle1[0] ($joints[$i]+"Control");
+					select ($joints[$i]+"Control");
+					scale -r ($controlSize) ($controlSize) ($controlSize);
+					makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+					if ($i == 0)
+					aliasAttr "stretch" ($joints[$i]+"Control.scaleX");
+					}
+					
+					// creating offset node
+					group -em -n ($joints[$i]+"Control_Offset");
+					$tempConstraint = `orientConstraint $joints[$i] ($joints[$i]+"Control_Offset")`;
+					delete $tempConstraint;
+					$tempConstraint = `pointConstraint $joints[$i] ($joints[$i]+"Control_Offset")`;
+					delete $tempConstraint;
+			
+					parent ($joints[$i]+"Control") ($joints[$i]+"Control_Offset");
+					parent ($joints[$i]+"Control_Offset") $superMover;
+
+					
+					// setting attributes to zero
+					setAttr ($joints[$i]+"Control.translateX") 0;
+					setAttr ($joints[$i]+"Control.translateY") 0;
+					setAttr ($joints[$i]+"Control.translateZ") 0;
+					
+					setAttr ($joints[$i]+"Control.rotateX") 0;
+					setAttr ($joints[$i]+"Control.rotateY") 0;
+					setAttr ($joints[$i]+"Control.rotateZ") 0;
+					
+					setAttr ($joints[$i]+"Control.scaleX") 1;
+					setAttr ($joints[$i]+"Control.scaleY") 1;
+					setAttr ($joints[$i]+"Control.scaleZ") 1;
+					
+					// connecting FK controls directly to joint rotations
+					connectAttr ($joints[$i]+"Control.rotateX") ($joints[$i]+".rotateX");
+					connectAttr ($joints[$i]+"Control.rotateY") ($joints[$i]+".rotateY");
+					connectAttr ($joints[$i]+"Control.rotateZ") ($joints[$i]+".rotateZ");
+					
+					// point constrain the controller objects to the actual joints so that the move properly
+					// when joints scale/stretch
+					pointConstraint $joints[$i] ($joints[$i]+"Control_Offset") ;
+					if ($i>0)
+					orientConstraint -mo $joints[$i-1] ($joints[$i]+"Control_Offset") ;
+					
+					// locking and hiding attributes related to the point and orient constraint
+					setAttr -lock true -keyable false ($joints[$i]+"Control_Offset_pointConstraint1.nds");
+					setAttr -lock true -keyable false ($joints[$i]+"Control_Offset_pointConstraint1.ox");
+					setAttr -lock true -keyable false ($joints[$i]+"Control_Offset_pointConstraint1.oy");
+					setAttr -lock true -keyable false ($joints[$i]+"Control_Offset_pointConstraint1.oz");
+					setAttr -lock true -keyable false ($joints[$i]+"Control_Offset_pointConstraint1.w0");
+					
+					if ($i>0)
+					{
+					setAttr -lock true -keyable false ($joints[$i]+"Control_Offset_orientConstraint1.nds");
+					setAttr -lock true -keyable false ($joints[$i]+"Control_Offset_orientConstraint1.ox");
+					setAttr -lock true -keyable false ($joints[$i]+"Control_Offset_orientConstraint1.oy");
+					setAttr -lock true -keyable false ($joints[$i]+"Control_Offset_orientConstraint1.oz");
+					setAttr -lock true -keyable false ($joints[$i]+"Control_Offset_orientConstraint1.w0");
+					}
+				
+					// locking and hiding translate, scale, and visibility attributes of FK controls
+					if (($i == ($size-3))|| ($i == 0) || ($i == ($size-4)) )
+					{
+					LockHide ($joints[$i]+"Control") 1 1 1 1 1 0 0 0 0 1 1 1;
+					}
+					else
+					LockHide ($joints[$i]+"Control") 1 1 1 1 1 0 0 0 1 1 1 1;
+					
+					if ($shelfbutton == 1)
+						{
+							$set[0] = ($joints[$i]+"Control");
+							makeShelfButton($set, $preprefix);
+						}
+					if ($characterset == 1)
+						{
+							$set[0] = ($joints[$i]+"Control");
+							makeCharacterSet($set, $preprefix);
+						}
+					
+				
+					// locking and hiding all attributes of offset nodes
+					LockHide ($joints[$i]+"Control_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+					
+					//putting all the controls under a new group node
+					select -r ($joints[$i]+"Control");
+					CleanUp `ls -sl` none ($preprefix +  "controlLayer");
+					$shape = `pickWalk -d down`;
+					Override $shape[0] ($preprefix +  "controlLayer") 14;
+					
+					}
+					$pelvisController = `curve -d 1 -p 0 0 3 -p -3 0 -2 -p 3 0 -2 -p 0 0 3 -k 0 -k 1 -k 2 -k 3 -n $pelvisControl`;
+					scale ($controlSize * .7)  ($controlSize * .7)  ($controlSize * .7) ;
+					makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 ($pelvisControl);
+
+					$tempConstraint = `pointConstraint $Pelvis $pelvisControl`;
+					delete $tempConstraint;
+					makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 ($pelvisControl);
+					LockHide $pelvisControl 1 1 0 0 0 0 0 0 1 1 1 1;
+					
+					parent $pelvisControl $superMover;
+					
+					parent ($preprefix +"Back_1Control_Offset") $pelvisControl;
+					parentConstraint -mo $pelvisControl $Pelvis;
+					
+					
+					// adding FK scale
+					SquashStretch ($prefix + "HeadControl") $Head;
+					connectAttr ($prefix + "NeckControl.stretch") ($Neck+".scaleX");
+					
+					for ($i=1; $i<($size-3); $i++)
+					connectAttr ($joints[0]+"Control.stretch") ($Back_+$i+".scaleX");
+										
+					if ($shelfbutton == 1)
+						{
+							$set[0] = ($pelvisControl);
+							makeShelfButton($set, $preprefix);
+						}
+					if ($characterset == 1)
+						{
+							$set[0] = ($pelvisControl);
+							makeCharacterSet($set, $preprefix);
+						}
+									
+					}
+			
+					
+					// FINAL HIERARCHY CLEANUP
+				
+					
+					// LEG SCALE COMPENSATE FOR SUPER MOVER
+		   			// creating a new multiply divide node
+		   			if (`objExists ($prefix + "R_LegNormalize")` == 1)
+		   			{
+			   			$superLegScale = `shadingNode -asUtility multiplyDivide -name ($prefix + "superLegScale")`;
+			   			// grabbing the maximum length we set up earlier
+			   			float $restLength = `getAttr ($prefix + "R_LegNormalize.input2X")`;
+			   			// putting that rest length into the new multiply divide node
+			   			setAttr($superLegScale+".input1X") $restLength;
+			   			// connecting the scale from the superMover to the new multiply divide node
+						connectAttr -f ($superMover+".scaleX") ($superLegScale+".input2X");
+						// setting the operation type to multiply
+						setAttr ($superLegScale+".operation") 1;
+						// feeding the resultant value into the normalize multiply divide node
+						connectAttr ($superLegScale+".outputX") ($prefix + "R_LegNormalize.input2X");
+						connectAttr ($superLegScale+".outputX") ($prefix + "L_LegNormalize.input2X");
+						
+						if (`objExists ($prefix + "L_shinNormalize")` == 1)
+						{
+						// setting up scale compensate for hipNormalize and shinNormalize
+						$pinLegScale = `shadingNode -asUtility multiplyDivide -name ($prefix + "pinLegScale")`;
+						// grabbing the maximum length for shin
+						float $restLength = `getAttr ($prefix + "L_shinNormalize.input2X")`;
+						// putting that rest length into the new multiply divide node
+			   			setAttr($pinLegScale+".input1X") $restLength;
+						// grabbing the maximum length for hip
+						float $restLength = `getAttr ($prefix + "L_hipNormalize.input2X")`;
+						// putting that rest length into the new multiply divide node
+			   			setAttr($pinLegScale+".input1Y") $restLength;
+			   			// connecting the scale from the superMover to the new multiply divide node
+			   			connectAttr -f ($superMover+".scaleX") ($pinLegScale+".input2X");
+						connectAttr -f ($superMover+".scaleX") ($pinLegScale+".input2Y");
+						// setting the operation type to multiply
+						setAttr ($pinLegScale+".operation") 1;
+						// feeding the resultant value into the normalize multiply divide node
+						connectAttr ($pinLegScale+".outputX") ($prefix + "R_shinNormalize.input2X");
+						connectAttr ($pinLegScale+".outputY") ($prefix + "R_hipNormalize.input2X");
+						connectAttr ($pinLegScale+".outputX") ($prefix + "L_shinNormalize.input2X");
+						connectAttr ($pinLegScale+".outputY") ($prefix + "L_hipNormalize.input2X");
+						}
+					}
+					
+					// ARM SCALE COMPENSATE FOR SUPER MOVER
+		   			// creating a new multiply divide node
+		   			if (`objExists ($prefix + "R_ArmNormalize")` == 1)
+		   			{
+			   			$superArmScale = `shadingNode -asUtility multiplyDivide -name ($prefix + "superArmScale")`;
+			   			// grabbing the maximum length we set up earlier
+			   			float $restLength = `getAttr ($prefix + "R_ArmNormalize.input2X")`;
+			   			// putting that rest length into the new multiply divide node
+			   			setAttr($superArmScale+".input1X") $restLength;
+			   			// connecting the scale from the superMover to the new multiply divide node
+						connectAttr -f ($superMover+".scaleX") ($superArmScale+".input2X");
+						// setting the operation type to multiply
+						setAttr ($superArmScale+".operation") 1;
+						// feeding the resultant value into the normalize multiply divide node
+						connectAttr ($superArmScale+".outputX") ($prefix + "R_ArmNormalize.input2X");
+						connectAttr ($superArmScale+".outputX") ($prefix + "L_ArmNormalize.input2X");
+						
+						// setting up scale compensate for bicepNormalize and forearmNormalize
+						$pinArmScale = `shadingNode -asUtility multiplyDivide -name ($prefix + "pinArmScale")`;
+						// grabbing the maximum length for forearm
+						float $restLength = `getAttr ($prefix + "L_forearmNormalize.input2X")`;
+						// putting that rest length into the new multiply divide node
+			   			setAttr($pinArmScale+".input1X") $restLength;
+						// grabbing the maximum length for bicep
+						float $restLength = `getAttr ($prefix + "L_bicepNormalize.input2X")`;
+						// putting that rest length into the new multiply divide node
+			   			setAttr($pinArmScale+".input1Y") $restLength;
+			   			// connecting the scale from the superMover to the new multiply divide node
+			   			connectAttr -f ($superMover+".scaleX") ($pinArmScale+".input2X");
+						connectAttr -f ($superMover+".scaleX") ($pinArmScale+".input2Y");
+						// setting the operation type to multiply
+						setAttr ($pinArmScale+".operation") 1;
+						// feeding the resultant value into the normalize multiply divide node
+						connectAttr ($pinArmScale+".outputX") ($prefix + "R_forearmNormalize.input2X");
+						connectAttr ($pinArmScale+".outputY") ($prefix + "R_bicepNormalize.input2X");
+						connectAttr ($pinArmScale+".outputX") ($prefix + "L_forearmNormalize.input2X");
+						connectAttr ($pinArmScale+".outputY") ($prefix + "L_bicepNormalize.input2X");
+						
+			   		}
+			   	
+			   		// connecting superMover scale to arms (group nodes)
+					if (`objExists ($prefix + "R_IKFKArms.scale")` == 1)
+					{
+					connectAttr ($superMover+".scale") ($prefix + "R_IKFKArms.scale");
+					connectAttr ($superMover+".scale") ($prefix + "L_IKFKArms.scale");
+					}
+					
+					if ($legsDone >= 1)
+					{
+						parent ($prefix + "L_FootControl") $superMover;
+						parent ($prefix + "R_FootControl") $superMover;
+					}
+					if (`objExists ($prefix+"R_IKFKLegs")` == true)
+					{
+						parentConstraint -mo $Pelvis ($prefix+"L_IKFKLegs");
+						parentConstraint -mo $Pelvis ($prefix+"R_IKFKLegs");
+					}
+					if (`objExists ($prefix+"R_IKFKLegs")` == true)
+						{
+						connectAttr ($superMover+".scale") ($prefix+"R_IKFKLegs.scale");
+						connectAttr ($superMover+".scale") ($prefix+"L_IKFKLegs.scale");
+						}
+					
+					
+					if ($armsDone >= 1)
+						{
+							if ($backStyle == "ikBack")
+							{
+							parent ($prefix + "L_Clavicle") ($prefix + "Back_stabilize");
+							parent ($prefix + "R_Clavicle") ($prefix + "Back_stabilize");
+							parent ($prefix + "Neck") ($prefix + "Back_stabilize");
+							}
+							
+							LockHide( $preprefix +  "L_ClavicleControl") 0 0 1 1 1 1 1 1 1 1 1 1;
+							LockHide( $preprefix +  "R_ClavicleControl") 0 0 1 1 1 1 1 1 1 1 1 1;
+							
+							
+							
+							if ($armsFKDone >=1)
+							{
+							// recreate ikfk arm constraint
+							parentConstraint -name ($prefix+"IKFKArmsConst") -mo ($prefix + "L_Clavicle") ($prefix+"L_IKFKArms"); 
+							parentConstraint -name ($prefix+"IKFKArmsConst") -mo ($prefix + "R_Clavicle") ($prefix+"R_IKFKArms"); 
+							
+							if ($backStyle != "fkBack")
+							{
+							// orient constrain to upperBack control
+							LockHide ($prefix+"L_FKBicepControl_Offset") 0 0 1 1 1 1 1 1 1 1 1 1;
+							LockHide ($prefix+"R_FKBicepControl_Offset") 0 0 1 1 1 1 1 1 1 1 1 1;
+							orientConstraint -mo $upperBackControl ($prefix+"L_FKBicepControl_Offset");
+							orientConstraint -mo $upperBackControl ($prefix+"R_FKBicepControl_Offset");
+							LockHide ($prefix+"L_FKBicepControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+							LockHide ($prefix+"R_FKBicepControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+							}
+							}
+						
+							
+							if (($armsFKDone >=1) && ($backStyle == "fkBack"))
+							{
+							// recreate ikfk arm constraint
+							parent ($preprefix +  "L_ClavicleControl") ($prefix + "L_Clavicle");
+							parent ($preprefix +  "R_ClavicleControl") ($prefix + "R_Clavicle");
+							}
+							
+							
+							if ($backStyle == "fkBack")
+							{
+								if ($characterset == 1)
+								{
+								character -rm $preprefix ($preprefix +  "L_ClavicleControl.tx") ;
+								character -rm $preprefix ($preprefix +  "L_ClavicleControl.ty") ;
+								character -rm $preprefix ($preprefix +  "L_ClavicleControl.tz") ;
+								character -rm $preprefix ($preprefix +  "R_ClavicleControl.tx") ;
+								character -rm $preprefix ($preprefix +  "R_ClavicleControl.ty") ;
+								character -rm $preprefix ($preprefix +  "R_ClavicleControl.tz") ;
+								}
+								
+								parent ($preprefix +  "L_ClavicleControl") ($last +"Control");
+								parent ($preprefix +  "R_ClavicleControl") ($last +"Control");
+								
+								
+								if ($armsFKDone >=1)
+								{
+								// orient constrain to upperBack control
+								LockHide ($prefix+"L_FKBicepControl_Offset") 0 0 1 1 1 1 1 1 1 1 1 1;
+								LockHide ($prefix+"R_FKBicepControl_Offset") 0 0 1 1 1 1 1 1 1 1 1 1;
+								orientConstraint -mo ($last +"Control") ($prefix+"L_FKBicepControl_Offset");
+								orientConstraint -mo ($last +"Control") ($prefix+"R_FKBicepControl_Offset");
+								LockHide ($prefix+"L_FKBicepControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+								LockHide ($prefix+"R_FKBicepControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+								}
+								
+								makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 ($preprefix +  "L_ClavicleControl");
+								makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 ($preprefix +  "R_ClavicleControl");
+								
+								
+								LockHide( $preprefix +  "L_ClavicleControl") 1 1 0 0 0 1 1 1 1 1 1 1;
+								LockHide( $preprefix +  "R_ClavicleControl") 1 1 0 0 0 1 1 1 1 1 1 1;
+								
+								select -r  ($preprefix +  "L_ClavicleControl")  ($preprefix +  "R_ClavicleControl");
+								//if ($shelfbutton == 1)
+								//{
+								//	$set = `ls -sl`;
+								//	makeShelfButton($set, $preprefix);
+								//}
+								//if ($characterset == 1)
+								//{
+								//	$set = `ls -sl`;
+								//	makeCharacterSet($set, $preprefix);
+								//}
+							}
+							if ($backStyle == "ikBack")
+							{
+								parent ($prefix + "L_ClavicleControl") $upperBackControl;
+				 				parent ($prefix + "R_ClavicleControl") $upperBackControl;
+				 			}
+							parent ($prefix + "L_HandControl_Offset") $superMover;
+							parent ($prefix + "R_HandControl_Offset") $superMover;
+							parent ($prefix + "L_ElbowControl") $pelvisControl;
+							parent ($prefix + "R_ElbowControl") $pelvisControl;
+							LockHide( $preprefix +  "L_ClavicleControl") 1 1 0 0 0 1 1 1 1 1 1 1;
+							LockHide( $preprefix +  "R_ClavicleControl") 1 1 0 0 0 1 1 1 1 1 1 1;
+					
+						}
+					
+					if (`objExists ($prefix+"L_FingerControl")` == 1)
+					{				
+		   				select -r ($prefix+"L_FingerControl")($prefix+"R_FingerControl");
+		   				CleanUp `ls -sl` $superMover ($preprefix +  "controlLayer");
+					}
+					
+					// connecting superMover scale to foot controls
+			   		if ($legsDone >= 1)
+		   			{
+						connectAttr ($superMover+".scale") ($prefix +"L_AnklePivotGrp_Offset.scale");
+						connectAttr ($superMover+".scale") ($prefix +"R_AnklePivotGrp_Offset.scale");
+		   			}
+							
+		   			if ($legsFKDone >= 1)
+					{
+						connectAttr -f ($superMover+".scale") ($prefix + "L_FKHipControl_Offset.scale");
+						connectAttr -f ($superMover+".scale") ($prefix + "R_FKHipControl_Offset.scale");
+						
+						LockHide ($prefix+"L_FKHipControl_Offset") 0 0 1 1 1 1 1 1 1 1 1 1;
+						LockHide ($prefix+"R_FKHipControl_Offset") 0 0 1 1 1 1 1 1 1 1 1 1;
+											
+						parentConstraint -mo $Pelvis ($prefix + "L_FKHipControl_Offset");
+						parentConstraint -mo $Pelvis ($prefix + "R_FKHipControl_Offset");
+						
+						LockHide ($prefix+"L_FKHipControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+						LockHide ($prefix+"R_FKHipControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+					}
+					
+					if ($armsFKDone >= 1)
+					{
+						connectAttr -f ($superMover+".scale") ($prefix + "L_FKBicepControl_Offset.scale");
+						connectAttr -f ($superMover+".scale") ($prefix + "R_FKBicepControl_Offset.scale");
+					}
+					
+					// CLEANING UP HYPERGRAPH AND ORGANIZING INTO DISPLAY LAYERS
+		   			select -r $Pelvis;
+		   			CleanUp `ls -sl`($preprefix +  "skeleton") ($preprefix +  "skeletonLayer");
+	
+					//connecting skeleton to superMover scale
+					connectAttr ($superMover+".scale") ($preprefix +  "skeleton.scale");
+										
+		   			select -r $superMover;
+		   			CleanUp `ls -sl` ($preprefix +  "controls") ($preprefix +  "controlLayer");
+		   			LockHide ($preprefix +  "controls") 1 1 1 1 1 1 1 1 1 1 1 1;
+		   			
+		   			select -r $superMover;
+		   			if ($shelfbutton == 1)
+					{
+						$set = `ls -sl`;
+						makeShelfButton($set, $preprefix);
+					}
+					if ($characterset == 1)
+					{
+						$set = `ls -sl`;
+						makeCharacterSet($set, $preprefix);
+					}
+		   			
+					// IK BACK CLEANUP EXTRAS
+					if ($backStyle == "ikBack")
+					{
+						// scale constraining the cluster handles to the back controls
+						scaleConstraint $lowerBackControl ($lowerBackCluster+"Handle");
+						scaleConstraint $upperBackControl ($upperBackCluster+"Handle");
+						
+						// locking and hiding attributes
+						LockHide $upperBackControl 1 1 0 0 0 0 0 0 1 1 1 1;
+						LockHide $lowerBackControl 1 1 0 0 0 0 0 0 1 1 1 1;
+		
+			   			select $headControlOffset;
+			   			CleanUp `ls -sl` $superMover ($preprefix +  "controlLayer");
+			   			
+			   			select -r $upperBackControl $lowerBackControl;
+			   			//if ($shelfbutton == 1)
+						//{
+						//	$set = `ls -sl`;
+						//	makeShelfButton($set, $preprefix);
+						//}
+						//if ($characterset == 1)
+						//{
+						//	$set = `ls -sl`;
+						//	makeCharacterSet($set, $preprefix);
+						//}
+											
+						// ORGANIZING OTHER ELEMENTS OF BIPED
+						parent $pelvisControl $superMover;
+						parent $lowerBackControl $pelvisControl;
+						parent $upperBackControl $backBend2;
+						
+						LockHide $pelvisControl 1 1 0 0 0 0 0 0 1 1 1 1;
+						
+						select -r $pelvisControl $lowerBackControl $upperBackControl $backBend2 $backBend1;
+			   			if ($shelfbutton == 1)
+						{
+							$set = `ls -sl`;
+							makeShelfButton($set, $preprefix);
+						}
+						if ($characterset == 1)
+						{
+							$set = `ls -sl`;
+							makeCharacterSet($set, $preprefix);
+						}
+						
+						
+						select -r $headControlPosition ($lowerBackCluster+"Handle") ($midBackCluster+"Handle") ($upperBackCluster+"Handle") $backIKCurve $backIK ($prefix + "headIK_offset");
+						CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+	
+					}
+					
+					
+					
+					
+					if ($armsFKDone >= 1)
+					{
+							print "fixing arms";
+							// re=create IK arm controls to eliminate pop/offset between FK and IK arms
+							
+							$name = $preprefix;
+							
+							// delete old IK handles so that controllers can be repositioned
+							delete ($name+"L_WristIKHandle") ;
+							delete ($name+"L_BicepIKHandle") ;
+							delete ($name+"R_WristIKHandle") ;
+							delete ($name+"R_BicepIKHandle") ;
+							
+							// move joints into zero position
+							setAttr ($name+"L_IKBicep.rotateX") 0;
+							setAttr ($name+"L_IKBicep.rotateY") 0;
+							setAttr ($name+"L_IKBicep.rotateZ") 0;
+							setAttr ($name+"L_IKElbow.rotateX") 0;
+							setAttr ($name+"L_IKElbow.rotateY") 0;
+							setAttr ($name+"L_IKWrist.rotateX") 0;
+							setAttr ($name+"L_IKWrist.rotateY") 0;
+							setAttr ($name+"L_IKWrist.rotateZ") 0;
+							setAttr ($name+"L_IKPalm.rotateX") 0;
+							setAttr ($name+"L_IKPalm.rotateY") 0;
+							setAttr ($name+"L_IKPalm.rotateZ") 0;
+							
+							setAttr ($name+"R_IKBicep.rotateX") 0;
+							setAttr ($name+"R_IKBicep.rotateY") 0;
+							setAttr ($name+"R_IKBicep.rotateZ") 0;
+							setAttr ($name+"R_IKElbow.rotateX") 0;
+							setAttr ($name+"R_IKElbow.rotateY") 0;
+							setAttr ($name+"R_IKWrist.rotateX") 0;
+							setAttr ($name+"R_IKWrist.rotateY") 0;
+							setAttr ($name+"R_IKWrist.rotateZ") 0;
+							setAttr ($name+"R_IKPalm.rotateX") 0;
+							setAttr ($name+"R_IKPalm.rotateY") 0;
+							setAttr ($name+"R_IKPalm.rotateZ") 0;
+							
+							// unlock locked attributes
+							setAttr -lock false -k on ($name+"L_HandControl_Offset.rotateX");
+							setAttr -lock false -k on ($name+"L_HandControl_Offset.rotateY");
+							setAttr -lock false -k on ($name+"L_HandControl_Offset.rotateZ");
+							setAttr -lock false -k on ($name+"L_HandControl_Offset.scaleX");
+							setAttr -lock false -k on ($name+"L_HandControl_Offset.scaleY");
+							setAttr -lock false -k on ($name+"L_HandControl_Offset.scaleZ");
+							setAttr -lock false -k on ($name+"L_HandControl_Offset.translateX");
+							setAttr -lock false -k on ($name+"L_HandControl_Offset.translateY");
+							setAttr -lock false -k on ($name+"L_HandControl_Offset.translateZ");
+							setAttr -lock false -k on ($name+"L_HandControl_Offset.visibility");
+							
+							setAttr -lock false -k on ($name+"R_HandControl_Offset.rotateX");
+							setAttr -lock false -k on ($name+"R_HandControl_Offset.rotateY");
+							setAttr -lock false -k on ($name+"R_HandControl_Offset.rotateZ");
+							setAttr -lock false -k on ($name+"R_HandControl_Offset.scaleX");
+							setAttr -lock false -k on ($name+"R_HandControl_Offset.scaleY");
+							setAttr -lock false -k on ($name+"R_HandControl_Offset.scaleZ");
+							setAttr -lock false -k on ($name+"R_HandControl_Offset.translateX");
+							setAttr -lock false -k on ($name+"R_HandControl_Offset.translateY");
+							setAttr -lock false -k on ($name+"R_HandControl_Offset.translateZ");
+							setAttr -lock false -k on ($name+"R_HandControl_Offset.visibility");
+							
+							// create new bicep IK handles (now that forearm joint has been removed)
+							ikHandle -sol ikRPsolver -sj ($name+"R_IKBicep") -ee ($name+"R_IKWrist") -name ($name+"R_BicepIKHandle");
+							ikHandle -sol ikRPsolver -sj ($name+"L_IKBicep") -ee ($name+"L_IKWrist") -name ($name+"L_BicepIKHandle");
+							
+							// move hand control to match position of new bicep IK handles
+							$tx = `getAttr ($name+"R_BicepIKHandle.tx")`;
+							$ty = `getAttr ($name+"R_BicepIKHandle.ty")`;
+							$tz = `getAttr ($name+"R_BicepIKHandle.tz")`;
+							setAttr ($name+"R_HandControl_Offset.tx") $tx;
+							setAttr ($name+"R_HandControl_Offset.ty") $ty;
+							setAttr ($name+"R_HandControl_Offset.tz") $tz;
+							
+							$tx = `getAttr ($name+"L_BicepIKHandle.tx")`;
+							$ty = `getAttr ($name+"L_BicepIKHandle.ty")`;
+							$tz = `getAttr ($name+"L_BicepIKHandle.tz")`;
+							setAttr ($name+"L_HandControl_Offset.tx") $tx;
+							setAttr ($name+"L_HandControl_Offset.ty") $ty;
+							setAttr ($name+"L_HandControl_Offset.tz") $tz;
+							
+							// temporarily delete arm locators used for stretchy arms
+							if (`objExists ($name+"R_ArmEndLocator_parentConstraint1")` == 1)
+							{
+							delete ($name+"R_ArmEndLocator_parentConstraint1");
+							delete ($name+"L_ArmEndLocator_parentConstraint1");
+							}
+							
+							// temporarily orient constrain hand control offset to IK wrist joint
+							$temp = `orientConstraint ($name+"R_IKWrist") ($name+"R_HandControl_Offset")`;
+							delete $temp;
+							$temp = `orientConstraint ($name+"L_IKWrist") ($name+"L_HandControl_Offset")`;
+							delete $temp;
+							
+							// freeze transforms (T and R) on the hand controls
+							if ($characterset == 1)
+							{
+							$attrs = `listAttr -k ($name+"L_HandControl")`;
+							for ($current in $attrs)
+							character -rm $preprefix ($name+"L_HandControl."+$current);
+							$attrs = `listAttr -k ($name+"R_HandControl")`;
+							for ($current in $attrs)
+							character -rm $preprefix ($name+"R_HandControl."+$current);
+							}
+							
+							select -r ($name+"L_HandControl");
+							makeIdentity -apply true -t 1 -r 1 -s 0 -n 0;
+							select -r ($name+"R_HandControl");
+							makeIdentity -apply true -t 1 -r 1 -s 0 -n 0;
+							
+							if ($characterset == 1)
+							{
+							$set[0] = ($name+"R_HandControl");
+							makeCharacterSet($set, $name);
+							$set[0] = ($name+"L_HandControl");
+							makeCharacterSet($set, $name);
+							}
+							
+							// point constrain bicep IK handles to hand controls
+							pointConstraint ($name+"R_HandControl") ($name+"R_BicepIKHandle");
+							pointConstraint ($name+"L_HandControl") ($name+"L_BicepIKHandle");
+							
+							// lock and hide attributes for offset nodes
+							setAttr -lock true -k off ($name+"L_HandControl_Offset.rotateX");
+							setAttr -lock true -k off ($name+"L_HandControl_Offset.rotateY");
+							setAttr -lock true -k off ($name+"L_HandControl_Offset.rotateZ");
+							setAttr -lock true -k off ($name+"L_HandControl_Offset.scaleX");
+							setAttr -lock true -k off ($name+"L_HandControl_Offset.scaleY");
+							setAttr -lock true -k off ($name+"L_HandControl_Offset.scaleZ");
+							setAttr -lock true -k off ($name+"L_HandControl_Offset.translateX");
+							setAttr -lock true -k off ($name+"L_HandControl_Offset.translateY");
+							setAttr -lock true -k off ($name+"L_HandControl_Offset.translateZ");
+							setAttr -lock true -k off ($name+"L_HandControl_Offset.visibility");
+							
+							setAttr -lock true -k off ($name+"R_HandControl_Offset.rotateX");
+							setAttr -lock true -k off ($name+"R_HandControl_Offset.rotateY");
+							setAttr -lock true -k off ($name+"R_HandControl_Offset.rotateZ");
+							setAttr -lock true -k off ($name+"R_HandControl_Offset.scaleX");
+							setAttr -lock true -k off ($name+"R_HandControl_Offset.scaleY");
+							setAttr -lock true -k off ($name+"R_HandControl_Offset.scaleZ");
+							setAttr -lock true -k off ($name+"R_HandControl_Offset.translateX");
+							setAttr -lock true -k off ($name+"R_HandControl_Offset.translateY");
+							setAttr -lock true -k off ($name+"R_HandControl_Offset.translateZ");
+							setAttr -lock true -k off ($name+"R_HandControl_Offset.visibility");
+							
+							// re-create parent constraints for arm locators to enable stretchy arms
+							if (`objExists ($name+"R_ArmEndLocator")` == 1)
+							{
+							parentConstraint ($name+"R_HandControl") ($name+"R_ArmEndLocator");
+							parentConstraint ($name+"L_HandControl") ($name+"L_ArmEndLocator");
+							}
+							
+							// create SC IK solver from wrist to palm to stabilize hand position
+							ikHandle -sol ikSCsolver -sj ($name+"L_IKWrist") -ee ($name+"L_IKPalm") -name ($name+"L_WristIKHandle");
+							parentConstraint -mo ($name+"L_HandControl") ($name+"L_WristIKHandle");
+							ikHandle -sol ikSCsolver -sj ($name+"R_IKWrist") -ee ($name+"R_IKPalm") -name ($name+"R_WristIKHandle");
+							parentConstraint -mo ($name+"R_HandControl") ($name+"R_WristIKHandle");
+							
+							// re-connect broken joint scale compensation (somewhere in the process this breaks)
+							// connectAttr -f ($name+"R_FKElbow.scale") ($name+"R_FKWrist.inverseScale");
+							// connectAttr -f ($name+"R_IKElbow.scale") ($name+"R_IKWrist.inverseScale");
+							// connectAttr -f ($name+"R_BoundElbow.scale") ($name+"R_BoundWrist.inverseScale");
+							
+							// connectAttr -f ($name+"L_FKElbow.scale") ($name+"L_FKWrist.inverseScale");
+							// connectAttr -f ($name+"L_IKElbow.scale") ($name+"L_IKWrist.inverseScale");
+							// connectAttr -f ($name+"L_BoundElbow.scale") ($name+"L_BoundWrist.inverseScale");
+							
+							// move new IK handles into "hidden" group
+							parent ($name+"R_BicepIKHandle") ($name+"hidden");
+							parent ($name+"L_BicepIKHandle") ($name+"hidden");
+							
+							parent ($name+"R_WristIKHandle") ($name+"hidden");
+							parent ($name+"L_WristIKHandle") ($name+"hidden");
+							
+							// reposition pole vector constraints
+							/*
+							delete ($name+ "L_ElbowControl_aimConstraint1");
+							delete ($name+ "R_ElbowControl_aimConstraint1");
+							*/
+		
+							
+							if ($characterset == 1)
+							{
+							$attrs = `listAttr -k ($name+"L_ElbowControl")`;
+							for ($current in $attrs)
+							character -rm $preprefix ($name+"L_ElbowControl."+$current);
+							$attrs = `listAttr -k ($name+"R_ElbowControl")`;
+							for ($current in $attrs)
+							character -rm $preprefix ($name+"R_ElbowControl."+$current);
+							}
+	
+							
+							$tempLoc = `spaceLocator -p 0 0 0`;
+							$tempConst = `pointConstraint ($name+"L_ElbowControl") $tempLoc`;
+							delete $tempConst;
+							parent $tempLoc ($name+"L_FKBicepControl");
+							setAttr ($tempLoc[0]+".rotateX") 0;
+							setAttr ($tempLoc[0]+".rotateY") 0;
+							setAttr ($tempLoc[0]+".rotateZ") 0;
+							setAttr ($tempLoc[0]+".translateY") 0;
+							$tempConst = `pointConstraint $tempLoc[0] ($name+"L_ElbowControl")`;
+							delete $tempConst;
+							select -r ($name+"L_ElbowControl");
+							makeIdentity -apply true -t 1 -r 0 -s 0 -n 0;
+							poleVectorConstraint ($name+"L_ElbowControl") ($name+"L_BicepIKHandle");
+							delete $tempLoc;
+							
+							$tempLoc = `spaceLocator -p 0 0 0`;
+							$tempConst = `pointConstraint ($name+"R_ElbowControl") $tempLoc`;
+							delete $tempConst;
+							parent $tempLoc ($name+"R_FKBicepControl");
+							setAttr ($tempLoc[0]+".rotateX") 0;
+							setAttr ($tempLoc[0]+".rotateY") 0;
+							setAttr ($tempLoc[0]+".rotateZ") 0;
+							setAttr ($tempLoc[0]+".translateY") 0;
+							$tempConst = `pointConstraint $tempLoc[0] ($name+"R_ElbowControl")`;
+							delete $tempConst;
+							select -r ($name+"L_ElbowControl");
+							makeIdentity -apply true -t 1 -r 0 -s 0 -n 0;
+							poleVectorConstraint ($name+"R_ElbowControl") ($name+"R_BicepIKHandle");
+							delete $tempLoc;
+							
+								
+							if ($characterset == 1)
+							{
+							$set[0] = ($name+"R_ElbowControl");
+							makeCharacterSet($set, $name);
+							$set[0] = ($name+"L_ElbowControl");
+							makeCharacterSet($set, $name);
+							}
+							
+							
+							// aiming Elbow Control at Elbow
+							/*
+							LockHide ($name+"L_ElbowControl") 0 0 1 1 1 1 1 1 1 1 1 1;
+							LockHide ($name+"R_ElbowControl") 0 0 1 1 1 1 1 1 1 1 1 1;
+							aimConstraint -mo -weight 1 -aimVector 1 0 0 -upVector 0 1 0 -worldUpType "vector" -worldUpVector 0 1 0 ($name + "L_IKElbow") ($name+"L_ElbowControl");
+							setAttr -lock true -keyable false -channelBox false ($name+"L_ElbowControl_aimConstraint1.nds");
+							setAttr -lock true -keyable false -channelBox false ($name+"L_ElbowControl_aimConstraint1.ox");
+							setAttr -lock true -keyable false -channelBox false ($name+"L_ElbowControl_aimConstraint1.oy");
+							setAttr -lock true -keyable false -channelBox false ($name+"L_ElbowControl_aimConstraint1.oz");
+							setAttr -lock true -keyable false -channelBox false ($name+"L_ElbowControl_aimConstraint1.w0");
+							
+							aimConstraint -mo -weight 1 -aimVector 1 0 0 -upVector 0 1 0 -worldUpType "vector" -worldUpVector 0 1 0 ($name + "R_IKElbow") ($name+"R_ElbowControl");
+							setAttr -lock true -keyable false -channelBox false ($name+"R_ElbowControl_aimConstraint1.nds");
+							setAttr -lock true -keyable false -channelBox false ($name+"R_ElbowControl_aimConstraint1.ox");
+							setAttr -lock true -keyable false -channelBox false ($name+"R_ElbowControl_aimConstraint1.oy");
+							setAttr -lock true -keyable false -channelBox false ($name+"R_ElbowControl_aimConstraint1.oz");
+							setAttr -lock true -keyable false -channelBox false ($name+"R_ElbowControl_aimConstraint1.w0");
+							LockHide ($name+"L_ElbowControl") 1 1 0 0 0 1 1 1 1 1 1 1;
+							LockHide ($name+"R_ElbowControl") 1 1 0 0 0 1 1 1 1 1 1 1;
+							*/
+													
+													
+						
+					}
+
+		   			
+					
+					addAttr -ln riggedBy -at "enum" -en "J. Baskin:Rigomatic - version 5.5:jason@3dcentral.com:" $superMover;
+					setAttr -lock true -keyable true ($superMover+".riggedBy");
+							
+					CreatedBy;
+					if ($legsDone >= 1 && $armsDone >= 1)
+					{
+					$legsDone = 0;
+					$armsDone = 0;
+					$armsFKDone = 0;
+					$legsFKDone = 0;
+					$stretchy = 0;
+					}
+					
+					setToolTo $oldTool;
+					select $superMover;
+	
+					delete -ch;
+					
+					
+					
+					
+			
+			
+			
+	}
+			
+		
+global proc CleanUp(string $objects[], string $group, string $layer)
+{
+			global string $preprefix;
+			
+			// clean up global procedure - checks to see if a specified layer or group exists
+			// if not creates it and organizes objects accordingly
+			
+			// putting objects into the appropriate group
+			if ($group != "none")
+			{
+	   			if (`objExists $group`) 
+	   				parent $objects $group;
+				else 
+					{
+					group -n $group $objects;
+					
+					if ($group == ($preprefix + "hidden"))
+					{
+						setAttr ($preprefix +  "hidden.visibility") 0;
+						if  (`objExists ($preprefix + "offLimits")` !=1)
+							group -n ($preprefix + "offLimits") ($preprefix + "hidden");
+					}
+					
+					if ($group == ($preprefix + "IKFKGuides"))
+						{
+						if  (`objExists ($preprefix + "offLimits")` ==1)
+							parent $group ($preprefix + "offLimits");
+						else
+							group -n ($preprefix + "offLimits") $group;
+						}
+					}
+	
+					
+			}
+					
+			// putting objects into the appropriate display layer
+			select $objects;
+
+			/*
+			// I removed this bit of code that created a noTouch layer
+			if ($layer != "none")
+			*/
+			if ($layer != "none" && $layer != ($preprefix +  "noTouch"))
+			{
+			if (`objExists $layer`) 
+	   			{
+				editDisplayLayerMembers -noRecurse $layer `ls -selection`;
+				}
+			else
+				{
+				createDisplayLayer -name $layer -number 1 -empty;
+				editDisplayLayerMembers -noRecurse $layer `ls -selection`;
+			
+				/*
+				// I removed this bit of code that created a noTouch layer
+				if ($layer == ($preprefix +  "noTouch"))
+					{
+					layerEditorLayerButtonTypeChange $layer;
+					layerEditorLayerButtonVisibilityChange $layer;
+					}
+				else if ($layer == ($preprefix +  "controlLayer"))
+				*/
+				if ($layer == ($preprefix +  "controlLayer"))
+					{
+					setAttr ($layer+".color") 13;
+					}
+				else
+					{
+						layerEditorLayerButtonTypeChange $layer;
+						layerEditorLayerButtonTypeChange $layer;
+					}
+				}
+			}
+				
+}
+
+
+global proc ConnectToColorBlend (string $prefix, string $source1, string $source2, string $destination, string $controller, int $distribute, string $stretchy)
+{
+	// creating a color blend node which blends two sources together, and feeds the result into a destination,
+	// or takes one source, and feeds it into a series of distributed rotation joints
+	// usage: ConnectToColorBlend [naming prefix] [first source - i.e. fk] [second source - i.e. ik] [destination i.e. bound] [controller object] [number of distributed joints (or none)]
+	string $blender = ($source1+$source2+"Blender") ;
+	string $scaleBlender = ($source1+$source2+"ScaleBlender") ;
+	string $fkScale;
+	if ($controller == ($prefix + "FootControl.FK_IK"))
+	$fkScale = ($prefix+"LegFKScale");
+	if ($controller == ($prefix + "HandControl.FK_IK"))
+	$fkScale = ($prefix+"ArmFKScale");
+	
+	// blending two sources into a color node if a second source is indicated
+	if ($source2 != "none")
+	{
+	shadingNode -asUtility blendColors -name ($blender) ;
+		
+	if ($stretchy == true)
+	{
+	//connectAttr -f ($source1+".scaleX") ($source2+".scaleX");
+	shadingNode -asUtility blendColors -name ($scaleBlender) ;
+	connectAttr -f ($controller) ($scaleBlender+".blender") ;
+
+	connectAttr -f  ($fkScale + ".output1D") ($scaleBlender + ".color2R");
+	
+	connectAttr -f ($source1+".scaleX") ($scaleBlender+".color1R") ;
+	}
+	
+	
+	if (($stretchy == true) && ($destination != ($prefix+"BoundWrist")) && ($destination != ($prefix+"BoundAnkle")) && ($destination != ($prefix+"BoundBall")))
+	{
+	connectAttr -f ($scaleBlender+".outputR") ($destination+".scaleX");
+	connectAttr -f ($fkScale + ".output1D") ($source2+".scaleX");
+	}
+	
+	connectAttr -f ($controller) ($blender+".blender") ;
+	
+	connectAttr -f ($source1+".rotateX")  ($blender+".color1R") ;
+	connectAttr -f ($source1+".rotateY")  ($blender+".color1G") ;
+	connectAttr -f ($source1+".rotateZ")  ($blender+".color1B") ;
+	
+	connectAttr -f ($source2 + ".rotateX") ($blender+".color2R") ;
+	connectAttr -f ($source2 + ".rotateY") ($blender+".color2G") ;
+	connectAttr -f ($source2 + ".rotateZ") ($blender+".color2B") ;
+	}
+	
+	// connecting the output X rotation directly to the destination, assuming that there are no distributed rotation joints
+	if ($distribute == 0 && $source2 != "none")
+	connectAttr -f ($blender+".outputR") ($destination + ".rotateX");
+		
+	if ($distribute > 0)
+	{
+	// connecting the output X rotation to a series of distributed rotation joints
+	// via a multiply divide node
+	DistributedJoints $destination $distribute;
+	shadingNode -asUtility multiplyDivide -name ($destination+"Distribute") ;
+	setAttr ($destination+"Distribute.operation") 2;
+	setAttr ($destination+"Distribute.input2X") $distribute;
+	
+	if ($source2 != "none")
+		connectAttr -f ($blender+".outputR") ($destination+"Distribute.input1X") ;
+	else
+		// if there is no second source, connecting the X rotation of the first source to the bound joint through a multiply divide node
+		connectAttr -f ($source1+".rotateX") ($destination+"Distribute.input1X") ;
+		
+	connectAttr -f ($destination+"Distribute.outputX") ($destination+".rotateX");
+	
+	select -r $destination;
+	for ($i = 0; $i<($distribute-1); $i++)
+		{
+		$currentArray = `pickWalk -d down`;
+		string $current = $currentArray[0];
+		connectAttr -f ($destination+"Distribute.outputX") ($current+".rotateX");
+		// also connecting the scaling of  a stretchy IK joint to the bound joint
+		connectAttr -f ($destination+".scaleX") ($current+".scaleX");
+		}
+	}
+	
+	if ($source2 != "none") 
+	{
+	connectAttr -f ($blender+".outputG") ($destination + ".rotateY");
+	connectAttr -f ($blender+".outputB") ($destination + ".rotateZ");	
+	
+	if ($distribute < 0)
+	connectAttr -f ($blender+".outputR") ($destination + ".rotateX");
+	}
+	else
+	{
+			
+	if ($distribute < 0)
+	connectAttr -f ($source1+".rotateX") ($destination + ".rotateX");
+	
+	// if there is no second source, connecting the rotation of the first source directly to the bound joint without a color blend node
+	connectAttr -f ($source1 + ".rotateY") ($destination + ".rotateY");
+	connectAttr -f ($source1 + ".rotateZ") ($destination + ".rotateZ");
+	}
+
+
+}
+
+global proc CreatedBy()
+{
+	// creating a script node which brings up a signature window
+	if (`objExists createdByJasonBaskin` !=1) 
+			{
+			scriptNode  -beforeScript 
+			 "if (`window -exists createdByWin` != 1)\n{\nwindow -title \"Rig Information\" -toolbox true -height 20 -width 180 createdByWin;\ncolumnLayout -adjustableColumn true;\ntext -label \"\\nRigged by Jason Baskin's\\nRigomatic MEL script, version 5.5\\n\\nSend comments and questions\\nto jason@3dcentral.com\\n \";\nwindow -edit -widthHeight 220 140 createdByWin;\nshowWindow createdByWin;\n}\n" 
+			 -n createdByJasonBaskin;
+	
+			 setAttr createdByJasonBaskin.scriptType 1;
+			}
+}
+
+global proc CreateSampleController()
+{
+		{
+			
+			polyCreateFacet -ch on -tx 1 -s 1 -p -2.8 0 -0.5 -p -2.6 0 -0.5 -p -2.6 0 -0.0999999 -p -3.4 0 -0.0999999 -p -3.4 0 -1.5 -p -2.6 0 -1.5 -p -2.6 0 -1.1 -p -2.8 0 -1.1 -p -2.8 0 -1.3 -p -3.2 0 -1.3 -p -3.2 0 -0.3 -p -2.8 0 -0.3 -name "testLetter1";
+			polyCreateFacet -ch on -tx 1 -s 1 -p -2.8 0 -1.1 -p -2.6 0 -1.1 -p -2.6 0 -1.5 -p -3.4 0 -1.5 -p -3.4 0 -0.0999999 -p -2.6 0 -0.0999999 -p -2.6 0 -0.5 -p -2.8 0 -0.5 -p -2.8 0 -0.3 -p -3.2 0 -0.3 -p -3.2 0 -1.3 -p -2.8 0 -1.3 -name "testLetter2";
+			polyCreateFacet -ch on -tx 1 -s 1 -p -2.4 0 -1.5 -p -2.4 0 -0.0999999 -p -1.6 0 -0.0999999 -p -1.6 0 -1.5 -name "testLetter3";
+			polyCreateFacet -ch on -tx 1 -s 1 -p -2.2 0 -1.3 -p -2.2 0 -0.3 -p -1.8 0 -0.3 -p -1.8 0 -1.3 -name "testLetter4";
+			polyCreateFacet -ch on -tx 1 -s 1 -p -1.4 0 -0.0999999 -p -1.4 0 -1.5 -p -1.2 0 -1.5 -p -0.8 0 -0.7 -p -0.8 0 -1.5 -p -0.6 0 -1.5 -p -0.6 0 -0.0999999 -p -0.8 0 -0.0999999 -p -1.2 0 -0.9 -p -1.2 0 -0.0999999 -name "testLetter5";
+			polyCreateFacet -ch on -tx 1 -s 1 -p -0.4 0 -1.5 -p 0.4 0 -1.5 -p 0.4 0 -1.3 -p 0.1 0 -1.3 -p 0.1 0 -0.0999999 -p -0.1 0 -0.0999999 -p -0.1 0 -1.3 -p -0.4 0 -1.3 -name "testLetter6";
+			polyCreateFacet -ch on -tx 1 -s 1 -p 0.6 0 -0.0999999 -p 0.6 0 -1.5 -p 1.2 0 -1.5 -p 1.4 0 -1.3 -p 1.4 0 -0.9 -p 1.2 0 -0.7 -p 1.4 0 -0.0999999 -p 1.2 0 -0.0999999 -p 1 0 -0.7 -p 0.8 0 -0.7 -p 0.8 0 -0.0999999 -name "testLetter7";
+			polyCreateFacet -ch on -tx 1 -s 1 -p 0.8 0 -1.3 -p 1.1 0 -1.3 -p 1.2 0 -1.2 -p 1.2 0 -1 -p 1.1 0 -0.9 -p 0.8 0 -0.9 -name "testLetter8";
+			polyCreateFacet -ch on -tx 1 -s 1 -p 1.6 0 -0.0999999 -p 1.6 0 -1.5 -p 2.4 0 -1.5 -p 2.4 0 -0.0999999 -name "testLetter9";
+			polyCreateFacet -ch on -tx 1 -s 1 -p 1.8 0 -0.3 -p 1.8 0 -1.3 -p 2.2 0 -1.3 -p 2.2 0 -0.3 -name "testLetter10";
+			polyCreateFacet -ch on -tx 1 -s 1 -p 2.6 0 -1.5 -p 2.8 0 -1.5 -p 2.8 0 -0.3 -p 3.4 0 -0.3 -p 3.4 0 -0.0999999 -p 2.6 0 -0.0999999 -name "testLetter11";
+			polyCreateFacet -ch on -tx 1 -s 1 -p -1.8 0 0.3 -p -1.8 0 0.5 -p -1.6 0 0.5 -p -1.6 0 0.0999999 -p -2.4 0 0.0999999 -p -2.4 0 0.9 -p -1.8 0 0.9 -p -1.8 0 1.3 -p -2.2 0 1.3 -p -2.2 0 1.1 -p -2.4 0 1.1 -p -2.4 0 1.5 -p -1.6 0 1.5 -p -1.6 0 0.7 -p -2.2 0 0.7 -p -2.2 0 0.3 -name "testLetter12";
+			polyCreateFacet -ch on -tx 1 -s 1 -p -0.8 0 0.3 -p -0.8 0 0.5 -p -0.6 0 0.5 -p -0.6 0 0.0999999 -p -1.4 0 0.0999999 -p -1.4 0 1.5 -p -0.6 0 1.5 -p -0.6 0 1.1 -p -0.8 0 1.1 -p -0.8 0 1.3 -p -1.2 0 1.3 -p -1.2 0 0.3 -name "testLetter13";
+			polyCreateFacet -ch on -tx 1 -s 1 -p -0.4 0 0.0999999 -p -0.4 0 1.5 -p -0.2 0 1.5 -p -0.2 0 0.9 -p 0.2 0 0.9 -p 0.2 0 1.5 -p 0.4 0 1.5 -p 0.4 0 0.0999999 -name "testLetter14";
+			polyCreateFacet -ch on -tx 1 -s 1 -p -0.2 0 0.3 -p -0.2 0 0.7 -p 0.2 0 0.7 -p 0.2 0 0.3 -name "testLetter15";
+			polyCreateFacet -ch on -tx 1 -s 1 -p 0.6 0 0.0999999 -p 0.6 0 1.5 -p 1.4 0 1.5 -p 1.4 0 1.3 -p 0.8 0 1.3 -p 0.8 0 0.0999999 -name "testLetter16";
+			polyCreateFacet -ch on -tx 1 -s 1 -p 1.6 0 0.0999999 -p 1.6 0 1.5 -p 2.4 0 1.5 -p 2.4 0 1.3 -p 1.8 0 1.3 -p 1.8 0 0.9 -p 2.2 0 0.9 -p 2.2 0 0.7 -p 1.8 0 0.7 -p 1.8 0 0.3 -p 2.4 0 0.3 -p 2.4 0 0.0999999 -name "testLetter17";
+			select -r testLetter1 testLetter2 testLetter3 testLetter4 testLetter5 testLetter6 testLetter7 testLetter8 testLetter9 testLetter10 testLetter11 ;
+			move -r 0 0 -0.5;
+			select -r testLetter12 testLetter13 testLetter14 testLetter15 testLetter16 testLetter17 ;
+			move -r 0 0 0.5 ;
+			polyUnite -ch 0 -name "sampleControllerLabel" testLetter1  testLetter2  testLetter3  testLetter4  testLetter5  testLetter6  testLetter7  testLetter8  testLetter9  testLetter10  testLetter11  testLetter12  testLetter13  testLetter14  testLetter15  testLetter16  testLetter17;
+			setAttr "sampleControllerLabelShape.overrideEnabled" 1;
+			setAttr "sampleControllerLabelShape.overrideShading" 0;
+			setAttr "sampleControllerLabelShape.overrideColor" 12;
+			
+			$circle1 =`circle -nr 1 0 0 -radius .25`;
+			$circleShape1 = `pickWalk -d down`;
+			Override $circleShape1[0] defaultLayer 17;
+			$circle2 =`circle -nr 0 1 0 -radius .25`;
+			$circleShape2 = `pickWalk -d down`;
+			Override $circleShape2[0] defaultLayer 17;
+			$circle3 =`circle -nr 0 0 1 -radius .25`;
+			$circleShape3 = `pickWalk -d down`;
+			Override $circleShape3[0] defaultLayer 17;
+			$curve = `curve -d 1 -p -1.575052 0 -2.36258 -p 0 0 -3.937632 -p 1.575052 0 -2.36258 -p 0.787528 0 -2.36258 -p 0.787528 0 -0.787528 -p 2.36258 0 -0.787528 -p 2.36258 0 -1.575052 -p 3.937632 0 0 -p 2.36258 0 1.575052 -p 2.36258 0 0.787528 -p 0.787528 0 0.787528 -p 0.787528 0 2.36258 -p 1.575052 0 2.36258 -p 0 0 3.937632 -p -1.575052 0 2.36258 -p -0.787528 0 2.36258 -p -0.787528 0 0.787528 -p -2.36258 0 0.787528 -p -2.36258 0 1.575052 -p -3.937632 0 0 -p -2.36258 0 -1.575052 -p -2.36258 0 -0.787528 -p -0.795144 0 -0.770192 -p -0.795144 0 -2.376528 -p -1.575052 0 -2.36258 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -k 14 -k 15 -k 16 -k 17 -k 18 -k 19 -k 20 -k 21 -k 22 -k 23 -k 24`;
+			
+			$curveShape = `pickWalk -d down`;
+			Override $curveShape[0] defaultLayer 17;
+								
+			parent -shape -r $circleShape3 $circleShape2 $curveShape $circle1[0];
+			delete $circle2[0];
+			delete $circle3[0];
+			delete $curve;
+			rename $circle1[0] "sampleController";
+			
+			parent sampleControllerLabel sampleController;
+			
+			makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+			
+			
+
+			addAttr -longName controlSize -dv 1 sampleController;
+			setAttr -e -keyable true sampleController.controlSize;
+			connectAttr sampleController.controlSize sampleController.sx;
+			connectAttr sampleController.controlSize sampleController.sy;
+			connectAttr sampleController.controlSize sampleController.sz ;
+			LockHide "sampleController" 0 1 1 1 1 1 1 1 1 1 1 1;
+			select -cl;
+			}
+}
+
+
+global proc Delay (string $control, string $mother)
+	{
+		global string $preprefix;
+		string $children[] = `listRelatives -allDescendents $mother`;
+	
+		int $numObjs = size($children);
+		
+		if( $numObjs >1)
+		{
+		  string $flopAttr = "Flop";
+		  string $offsetAttr = "Offset";
+		  
+		  addAttr -ln "___________"  -min -0 -max 0 -dv 0 ($control);
+		  setAttr -lock true ($control+".___________");
+		  addAttr -ln $flopAttr -k 1 -at double  -min -10 -max 10 -dv 1 $control;
+		  addAttr -ln $offsetAttr -k 1 -at double  -min -50 -max 50 -dv 0 $control;
+			
+		  // begin child loop
+		  for( $i = 0; $i < $numObjs-1; $i++ )
+			{
+				string $attributes[] = {"rotateX", "rotateY", "rotateZ"};
+				for ($attribute in $attributes)
+					{
+				 	 $obj = $children[$i];
+				 	 expression -n ($obj+"_"+$attribute+"_delay") -s ("$toff = -"+$control+"."+$offsetAttr+" + frame;\n"
+					  + $obj+"."+$attribute+" =  `getAttr -time ($toff - ("+$control+"."+$offsetAttr+" * "+$i+")) "+$control+"."+$attribute+"` * (("+$i+"*"+$control+"."+$flopAttr+"*.1)+1);\n");
+				  }
+			}
+		}
+	}
+	
+global proc DistributedJoints(string $startJoint, int $numJoints)
+{
+	// creates a number of distributed rotation joints along the length of the specified joint
+	// usage: DistributedJoints [start joint] [number of joints]
+	
+	// defining variables
+	vector $position;
+	
+	// determining percentage of joint each distributed joint will occupy
+	float $increment = (1.00/($numJoints));
+	
+	// creating two point constraints - one at the start joint, one at the next joint down the chain
+	select $startJoint;
+	$endJointArray = `pickWalk -d down`;
+	string $endJoint = $endJointArray[0];
+	spaceLocator -p 0 0 0 -name jointTempLocation;
+	pointConstraint $startJoint $endJoint jointTempLocation;
+	$newJoint = $startJoint;
+
+	// inserting a series of joints, and moving it to the position of a temporary locator which is constrained to the start joint and its child
+	for ($i = $increment, $num = 1; $i < 1; $i = $i + $increment, $num++)
+	{
+		setAttr ("jointTempLocation_pointConstraint1."+$startJoint+"W0") (1-$i);
+		setAttr ("jointTempLocation_pointConstraint1."+$endJoint+"W1") ($i);
+		$position = `xform -query -worldSpace -translation jointTempLocation`;
+		
+		insertJoint $newJoint;
+		select $newJoint;
+		pickWalk -d down;
+		rename ($startJoint+$num);
+		move ($position.x) ($position.y) ($position.z) ($startJoint+$num+".scalePivot") ($startJoint+$num+".rotatePivot");
+		$newJoint = ($startJoint+$num);
+
+	}
+	// deleting the temporary  locator
+	delete jointTempLocation;
+}
+
+	
+
+// - - - - - - - - - 
+// - - - - - - - - - 
+// EYE CONTROLS
+// - - - - - - - - - 
+// - - - - - - - - - 
+global proc EyeSetup (float $controlSize, int $shelfbutton, int $characterset) 
+		{
+		global string $preprefix;
+		$preprefix = `textField -query -text preprefix`;
+		string $eye[] = `ls -sl`;
+		int $numEyes = `size ($eye)`;
+
+		print $numEyes;
+		
+		if ($numEyes != 1)
+		error "Please select just the left eye";
+		
+		// create a couple of locators with the same orientation and position as the eye shapes
+		xform -cp;
+		rename $eye[0] ($preprefix +"leftEye");
+		select ($preprefix +"leftEye");
+		makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+		spaceLocator -p 0 0 0 -n ($preprefix+"LeftDummyEye");
+		$tempConstraint = `pointConstraint  ($preprefix +"leftEye") ($preprefix+"LeftDummyEye")`;
+		delete $tempConstraint;
+		$tempConstraint = `orientConstraint ($preprefix +"leftEye") ($preprefix+"LeftDummyEye")`;
+		delete $tempConstraint;
+		
+				
+		if (`objectType ($preprefix +"leftEye")` == "joint")
+		{
+		select ($preprefix +"leftEye");
+		mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "Left" "Right";
+		}
+	
+		else
+		{
+		select ($preprefix +"leftEye");
+		xform -cp;
+		duplicate -name ($preprefix +"rightEye") ($preprefix +"leftEye");
+		move 0 0 0  ($preprefix +"rightEye.scalePivot") ($preprefix +"rightEye.rotatePivot") ;
+		setAttr ($preprefix +"rightEye.scaleX") -1;
+		select ($preprefix +"rightEye");
+		makeIdentity -apply true -t 0 -r 0 -s 1 -n 0;
+		xform -cp;
+		print "\n";
+		print "- - - - - creating eye setup - - - - - \n";
+		}
+
+		setToolTo selectSuperContext;
+				
+		spaceLocator -p 0 0 0 -n ($preprefix+"RightDummyEye");
+		$tempConstraint = `pointConstraint  ($preprefix +"rightEye")  ($preprefix+"RightDummyEye")`;
+		delete $tempConstraint;
+		$tempConstraint = `orientConstraint  ($preprefix +"rightEye")  ($preprefix+"RightDummyEye")`;
+		delete $tempConstraint;
+		
+		spaceLocator -p 0 0 0 -n ($preprefix+"DummyEyeRig");
+		$tempConstraint = `pointConstraint  ($preprefix+"LeftDummyEye") ($preprefix+"RightDummyEye") ($preprefix+"DummyEyeRig")`;
+		delete $tempConstraint;
+
+		parent ($preprefix+"LeftDummyEye") ($preprefix+"RightDummyEye") ($preprefix+"DummyEyeRig");
+					
+		orientConstraint  ($preprefix+"LeftDummyEye") ($preprefix +"leftEye") ;
+		orientConstraint  ($preprefix+"RightDummyEye") ($preprefix +"rightEye");
+					
+		// create the eye control curve
+		$eyeControl = `circle -n ($preprefix +"EyeControl")`;
+		scale .2 .2 .2;
+		makeIdentity -apply true -t 1 -r 1 -s 1 -n 2;
+		select $eyeControl;
+		addAttr -longName crossEyes -defaultValue 0 -maxValue 45 -minValue -45 -keyable true;
+
+		// creating a multiplyDivide node
+		$eyeRotationMultiply =`shadingNode -asUtility multiplyDivide -name ($preprefix +"EyeRotationMultiply")` ;
+		connectAttr -f ($eyeControl[0]+".crossEyes") ($eyeRotationMultiply+".input1Z");
+			
+		connectAttr -f ($eyeControl[0]+".tx") ($eyeRotationMultiply+".input1Y");
+		connectAttr -f ($eyeControl[0]+".ty") ($eyeRotationMultiply+".input1X");
+					
+		$eyeLeftEyeCross =`shadingNode -asUtility plusMinusAverage -name ($preprefix +"LeftEyeCross")`;
+		$eyeRightEyeCross =`shadingNode -asUtility plusMinusAverage -name ($preprefix +"RightEyeCross")`;
+
+		setAttr ($preprefix +"LeftEyeCross.operation") 2;
+		setAttr ($preprefix +"RightEyeCross.operation") 1;
+		connectAttr -f ($eyeRotationMultiply+".output.outputY") ($preprefix+"LeftEyeCross.input1D[0]");
+		connectAttr -f ($eyeRotationMultiply+".output.outputY") ($preprefix+"RightEyeCross.input1D[0]");
+		
+		connectAttr -f  ($eyeRotationMultiply+".output.outputZ") ($preprefix+"LeftEyeCross.input1D[1]");
+		connectAttr -f  ($eyeRotationMultiply+".output.outputZ") ($preprefix+"RightEyeCross.input1D[1]");
+
+		
+		connectAttr -f  ($preprefix+"RightEyeCross.output1D") ($preprefix+"RightDummyEye.rotateY");
+		connectAttr -f  ($preprefix+"LeftEyeCross.output1D") ($preprefix+"LeftDummyEye.rotateY");
+						
+		connectAttr -f  ($eyeRotationMultiply+".output.outputY") ($preprefix+"DummyEyeRig.rotateY");
+		connectAttr -f  ($eyeRotationMultiply+".output.outputX") ($preprefix+"DummyEyeRig.rotateX");
+									
+		// set the operation to "multiply"
+		setAttr ($eyeRotationMultiply+".operation") 1;
+		// multiply the translation value so that it appropriately drives the rotation of the eyes
+		setAttr ($eyeRotationMultiply+".input2X") -20;
+		setAttr ($eyeRotationMultiply+".input2Y") 20;
+		
+		// limit eye control to -1 and 1
+		transformLimits -translationX -1 1 -etx 1 1 $eyeControl[0];
+		transformLimits -translationY -1 1 -ety 1 1 $eyeControl[0];
+		transformLimits -translationZ 0 0 -etz 0 0 $eyeControl[0];
+		
+		//  background plane
+		$eyeControlPlane = `polyPlane -name ($preprefix +"EyeControlPlane") -w 1 -h 1 -sx 1-sy 1 -axis 0 0 1 -ch 1`;
+		scale 2 2 2 ;
+		setAttr ($eyeControlPlane[0]+".template") 1;
+		
+		// group eye controls together
+		group -world -name ($preprefix +"EyeControlGroup") $eyeControlPlane $eyeControl;
+		setAttr ($preprefix +"EyeControlGroup.translateX") 5;
+		if ($shelfbutton == 1)
+		{
+			$set[0] = $eyeControl[0];
+			makeShelfButton($set, $preprefix);
+		}
+		if ($characterset == 1)
+		{
+			$set[0] = $eyeControl[0];
+			makeCharacterSet($set, $preprefix);
+		}
+		
+		LockHide $eyeControl[0] 1 1 0 0 1 1 1 1 1 1 1 1;
+		
+		if (`objExists ($preprefix+"Head")`== true)
+		{
+			$faceCam = `camera`;
+			rename $faceCam[0] ($preprefix + "faceCam");
+			$tempConstraint = `pointConstraint ($preprefix+"Head") ($preprefix + "faceCam")`;
+			delete $tempConstraint;
+			move -r 0 0 50 ($preprefix + "faceCam");
+			
+			group -em -name ($preprefix + "faceCamGroup");
+			$tempConstraint = `pointConstraint ($preprefix+"Head") ($preprefix + "faceCamGroup")`;
+			delete $tempConstraint;
+			parent ($preprefix + "faceCam") ($preprefix + "faceCamGroup");
+
+			move -r (1.5*$controlSize) 0 (15*$controlSize);
+			setAttr ($preprefix + "faceCam.focalLength") 80;
+			
+			parentConstraint -mo ($preprefix+"Head") ($preprefix + "faceCamGroup");
+			
+			$tempConstraint = `pointConstraint ($preprefix+"Head") ($preprefix+"Head_end")   ($preprefix+"EyeControlGroup")`;
+			delete $tempConstraint;
+			select -r ($preprefix+"EyeControlGroup");
+			move -r (2.5*$controlSize) 0 0;
+			scale ($controlSize*.5) ($controlSize*.5) ($controlSize*.5) ;
+			
+			group -em -name ($preprefix+"FaceControls");
+			parentConstraint ($preprefix+"Head") ($preprefix+"FaceControls");
+			parent  ($preprefix+"EyeControlGroup") ($preprefix+"FaceControls");
+			
+			select -r  ($preprefix+"FaceControls");
+			CleanUp `ls -sl` ($preprefix +  "superMover") ($preprefix +  "controlLayer");
+			
+			group -em -name ($preprefix+"eyes");
+			group -name ($preprefix+"eyes_offset");
+			$tempConstraint = `pointConstraint ($preprefix+"Head") ($preprefix+"eyes_offset")`;
+			delete $tempConstraint;
+			$tempConstraint = `orientConstraint ($preprefix+"Head") ($preprefix+"eyes_offset")`;
+			delete $tempConstraint;
+			
+			select ($preprefix+"eyes");
+			makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+			parent ($preprefix+"rightEye") ($preprefix+"leftEye") ($preprefix+"eyes");
+		
+			parentConstraint -mo ($preprefix+"Head") ($preprefix+"eyes_offset");
+			
+			connectAttr ($preprefix+"Head.scale") ($preprefix+"eyes.scale");
+			
+			group -name ($preprefix+"faceControls")  ($preprefix+"eyes_offset")  ($preprefix+"faceCamGroup");
+			
+			if (`objExists ($preprefix +  "superMover")` == 1)
+			scaleConstraint ($preprefix +  "superMover") ($preprefix+"faceControls");
+			
+			
+			group -em -name ($preprefix+"DummyEyeRig_Offset");
+			pointConstraint ($preprefix+"Head") ($preprefix+"DummyEyeRig_Offset");
+			orientConstraint -mo ($preprefix+"Head") ($preprefix+"DummyEyeRig_Offset");
+			parent ($preprefix+"DummyEyeRig") ($preprefix+"DummyEyeRig_Offset");
+			
+			select -r  ($preprefix+"DummyEyeRig_Offset");
+			CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+		
+
+		}
+		else
+		{
+			select -r  ($preprefix+"DummyEyeRig");
+			CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+		}
+		
+
+			
+		select -cl;
+
+		}
+	
+
+global proc FKControls (string $selection[], float $controlSize, int $shelfbutton, int $characterset)
+{
+	global string $preprefix;
+	// sets up FK controls to a joint chain of any size
+	// usage: FKControls [selection] [control size]
+	
+	// defining variables
+	int $i;
+	$size = `size ($selection)`;
+	
+	// looping
+	for ($i=0; $i<$size; $i++)
+		{
+		// creating gyro controller object
+		$circle1 =`circle -nr 1 0 0 -ch 0`;
+		$circleShape1 = `pickWalk -d down`;
+		$circle2 =`circle -nr 0 1 0 -ch 0`;
+		$circleShape2 = `pickWalk -d down`;
+		$circle3 =`circle -nr 0 0 1 -ch 0`;
+		$circleShape3 = `pickWalk -d down`;
+		parent -shape -r $circleShape3 $circleShape2 $circle1[0];
+		delete $circle2[0];
+		delete $circle3[0];
+		rename $circle1[0] ($selection[$i]+"Control");
+		select ($selection[$i]+"Control");
+		scale -r ($controlSize *.25) ($controlSize *.25) ($controlSize *.25);
+		makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+		
+		// creating offset node
+		group -em -n ($selection[$i]+"Control_Offset");
+		$tempConstraint = `orientConstraint $selection[$i] ($selection[$i]+"Control_Offset")`;
+		delete $tempConstraint;
+		$tempConstraint = `pointConstraint $selection[$i] ($selection[$i]+"Control_Offset")`;
+		delete $tempConstraint;
+
+		parent ($selection[$i]+"Control") ($selection[$i]+"Control_Offset");
+		
+		// parenting all subsequent controls to the appropriate parent control
+		if ($i>=1)
+		{
+			parent ($selection[$i]+"Control_Offset")  ($selection[$i-1]+"Control");
+		}
+		
+		// setting attributes to zero
+		setAttr ($selection[$i]+"Control.translateX") 0;
+		setAttr ($selection[$i]+"Control.translateY") 0;
+		setAttr ($selection[$i]+"Control.translateZ") 0;
+		
+		setAttr ($selection[$i]+"Control.rotateX") 0;
+		setAttr ($selection[$i]+"Control.rotateY") 0;
+		setAttr ($selection[$i]+"Control.rotateZ") 0;
+		
+		setAttr ($selection[$i]+"Control.scaleX") 1;
+		setAttr ($selection[$i]+"Control.scaleY") 1;
+		setAttr ($selection[$i]+"Control.scaleZ") 1;
+		
+		// connecting FK controls directly to joint rotations
+		connectAttr ($selection[$i]+"Control.rotateX") ($selection[$i]+".rotateX");
+		connectAttr ($selection[$i]+"Control.rotateY") ($selection[$i]+".rotateY");
+		connectAttr ($selection[$i]+"Control.rotateZ") ($selection[$i]+".rotateZ");
+		
+		// point constrain the controller objects to the actual joints so that the move properly
+		// when joints scale/stretch
+		pointConstraint $selection[$i] ($selection[$i]+"Control_Offset") ;
+		
+		// locking and hiding attributes related to the point constraint
+		setAttr -lock true -keyable false ($selection[$i]+"Control_Offset_pointConstraint1.nds");
+		setAttr -lock true -keyable false ($selection[$i]+"Control_Offset_pointConstraint1.ox");
+		setAttr -lock true -keyable false ($selection[$i]+"Control_Offset_pointConstraint1.oy");
+		setAttr -lock true -keyable false ($selection[$i]+"Control_Offset_pointConstraint1.oz");
+		setAttr -lock true -keyable false ($selection[$i]+"Control_Offset_pointConstraint1.w0");
+		
+		// locking and hiding translate, scale, and visibility attributes of FK controls
+		LockHide ($selection[$i]+"Control") 1 1 1 1 1 0 0 0 1 1 1 1;
+	
+		// locking and hiding all attributes of offset nodes
+		LockHide ($selection[$i]+"Control_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+		
+		//putting all the controls under a new group node
+		select -r ($selection[$i]+"Control");
+		CleanUp `ls -sl` none ($preprefix +  "controlLayer");
+		
+		$shape = `pickWalk -d down`;
+		Override $shape[0] ($preprefix +  "controlLayer") 14;
+		$shape = `pickWalk -d right`;
+		Override $shape[0] ($preprefix +  "controlLayer") 14;
+		$shape = `pickWalk -d right`;
+		Override $shape[0] ($preprefix +  "controlLayer") 14;
+		
+		if ($selection[$i] != ($preprefix +"L_FKForearm") && $selection[$i] != ($preprefix +"R_FKForearm"))
+		{
+			print $preprefix;
+			if ($shelfbutton == 1)
+			{
+				$set[0] = ($selection[$i]+"Control");
+				makeShelfButton($set, $preprefix);
+			}
+			if ($characterset == 1)
+			{
+				$set[0] = ($selection[$i]+"Control");
+				makeCharacterSet($set, $preprefix);
+			}
+		}
+		
+		}
+	
+}
+
+	
+// - - - - - - - - - 
+// - - - - - - - - - 
+// CREATING HAND CONTROLS
+// - - - - - - - - - 
+// - - - - - - - - - 
+
+global proc HandSetup (string $numFingers, int $fkik, int $distRotate, float $handScale, int $characterset, int $shelfbutton)
+	{
+		string $prefix = "L_";
+		int $handDone = 0;
+		global string $preprefix;
+		global int $handSetupDone;
+		int $numSides = 2;
+		string $bodySide = "L_";
+		string $prefix = ($preprefix + $prefix);
+		string $palm;
+		string $wrist;
+	 	// create a hand setup
+	 				
+	 	//if (`objExists ($prefix +"HandControl")` == false)
+	 	//{
+		circle -nr 0 1 0 -n ($prefix+"FingerControl");
+		select -r ($prefix+"FingerControl.cv[0]") ;
+		move 0.783612 0 -0.403927 ;
+		select -r ($prefix+"FingerControl.cv[6]") ;
+		move 0.783612 0 0.403927 ;
+		select -r ($prefix+"FingerControl.cv[5]")  ;
+		move 0.375099 0 0.434091 ;
+		select -r ($prefix+"FingerControl.cv[3]")  ;
+		move 0.85 0 0 ;
+		select -r ($prefix+"FingerControl.cv[2]")  ;
+		move 0.434019 0 -0.403927 ;
+		select -r ($prefix+"FingerControl.cv[1]")  ;
+		move 0.375099 0 -0.434091 ;
+		select -r ($prefix+"FingerControl.cv[4]")  ;
+		move 0.434019 0 0.403927 ;
+			
+		scale ($handScale*1.5) ($handScale*1.5) ($handScale*1.5)  ($prefix+"FingerControl");
+		//scale $controlSize $controlSize $controlSize ($prefix+"FingerControl");
+		makeIdentity -apply true -t 0 -r 0 -s 1 -n 0;
+		
+		//}
+		createNode joint -n ($prefix+"Hand");
+		createNode joint -n ($prefix+"HandMid") -p ($prefix+"Hand");
+			setAttr ".t" -type "double3" 2 0.61932533003061119 -4.4408920985006262e-016 ;
+		if ($numFingers == "fiveFingers")
+		{ 
+			createNode joint -n ($prefix+"Ring1") -p ($prefix+"HandMid");
+				setAttr ".t" -type "double3" 2.1005056766764971 0.31550316309805138 -0.9075842999301228 ;
+			createNode joint -n ($prefix+"Ring2") -p ($prefix+"Ring1");
+				setAttr ".t" -type "double3" 1.6993428051613328 1.4432899320127035e-015 5.5511151231257827e-016 ;
+				setAttr ".jo" -type "double3" 0 0 -9.6140168964201695 ;
+			createNode joint -n ($prefix+"Ring3") -p ($prefix+"Ring2");
+				setAttr ".t" -type "double3" 1.3681833307145848 -2.2204460492503131e-016 -2.2204460492503131e-016 ;
+				setAttr ".jo" -type "double3" 0 0 -18.867086286672283 ;
+			createNode joint -n ($prefix+"RingEnd") -p ($prefix+"Ring3");
+				setAttr ".t" -type "double3" 1.1979664285084954 -8.8817841970012523e-016 -2.2204460492503131e-016 ;
+				setAttr ".jo" -type "double3" 0 0 24.904768808095188 ;
+		}
+		
+		createNode joint -n ($prefix+"Middle1") -p ($prefix+"HandMid");
+		if ($numFingers == "fiveFingers")
+			setAttr ".t" -type "double3" 2.1005056766764962 0.31550316309805138 0.15885349657794787 ;
+		else
+			setAttr ".t" -type "double3" 2.1005056766764962 0.31550316309805138 -.3 ;
+		
+		setAttr ".jo" -type "double3" 0 0 3.5763343749972685 ;
+					
+		createNode joint -n ($prefix+"Middle2") -p ($prefix+"Middle1");
+			setAttr ".t" -type "double3" 1.6960597832000275 1.1657341758564144e-015 -1.3877787807814457e-016 ;
+			setAttr ".jo" -type "double3" 0 0 -9.6140168964201695 ;
+		createNode joint -n ($prefix+"Middle3") -p ($prefix+"Middle2");
+			setAttr ".t" -type "double3" 1.7893206386817795 4.4408920985006262e-016 -2.7755575615628914e-017 ;
+			setAttr ".jo" -type "double3" 0 0 -18.867086286672283 ;
+		createNode joint -n ($prefix+"MiddleEnd") -p ($prefix+"Middle3");
+			setAttr ".t" -type "double3" 1.3339043124871877 -4.4408920985006262e-016 -2.7755575615628914e-017 ;
+			setAttr ".jo" -type "double3" 0 0 24.904768808095188 ;
+		createNode joint -n ($prefix+"Index1") -p ($prefix+"HandMid");
+			setAttr ".t" -type "double3" 2.0146852752530684 0.31550316309805138 1.1557441494771628 ;
+			setAttr ".jo" -type "double3" 0 -10.239070570751828 3.576334374997272 ;
+		createNode joint -n ($prefix+"Index2") -p ($prefix+"Index1");
+			setAttr ".t" -type "double3" 1.482712561230024 1.0547118733938987e-015 -1.1102230246251565e-016 ;
+			setAttr ".jo" -type "double3" 0 0 -9.6140168964201695 ;
+		createNode joint -n ($prefix+"Index3") -p ($prefix+"Index2");
+			setAttr ".t" -type "double3" 1.3911749703391365 0 2.2204460492503131e-016 ;
+			setAttr ".jo" -type "double3" 0 0 -18.867086286672283 ;
+		createNode joint -n ($prefix+"IndexEnd") -p ($prefix+"Index3");
+			setAttr ".t" -type "double3" 1.2399845595471533 4.4408920985006262e-016 -2.2204460492503131e-016 ;
+			setAttr ".jo" -type "double3" 0 0 24.904768808095188 ;
+		createNode joint -n ($prefix+"PinkyCup") -p ($prefix+"Hand");
+			setAttr ".t" -type "double3" 1.0027313872555228 0.27322635040501708 -1.1602450988232311 ;
+			setAttr ".ra" -type "double3" 33.267688235162694 -17.599081052404181 -11.219875850671261 ;
+			setAttr ".jo" -type "double3" -31.525414517255001 20.775445441988275 0 ;
+		createNode joint -n ($prefix+"Pinky1") -p ($prefix+"PinkyCup");
+			setAttr ".t" -type "double3" 2.8629749070708863 0.51058935390907845 -0.76983323500219569 ;
+			setAttr ".jo" -type "double3" 0 8.3832098992561672 3.5763343749972702 ;
+		createNode joint -n ($prefix+"Pinky2") -p ($prefix+"Pinky1");
+			setAttr ".t" -type "double3" 1.0916627569297548 9.9920072216264089e-016 0 ;
+			setAttr ".jo" -type "double3" 0 0 -9.6140168964201695 ;
+		createNode joint -n ($prefix+"Pinky3") -p ($prefix+"Pinky2");
+			setAttr ".t" -type "double3" 1.4002245193587761 0 -1.1102230246251565e-016 ;
+			setAttr ".jo" -type "double3" 0 0 -18.867086286672283 ;
+		createNode joint -n ($prefix+"PinkyEnd") -p ($prefix+"Pinky3");
+			setAttr ".t" -type "double3" 1.2399845595471515 -1.3322676295501878e-015 6.6613381477509392e-016 ;
+			setAttr ".jo" -type "double3" 0 0 24.904768808095188 ;
+		createNode joint -n ($prefix+"ThumbCup") -p ($prefix+"Hand");
+			setAttr ".t" -type "double3" 0.49960889205810882 -0.16807013326120385 1.3065010525722429 ;
+			setAttr ".jo" -type "double3" -2.6673865764525283e-016 -41.820169880135836 -4.7978913919078936 ;
+		createNode joint -n ($prefix+"Thumb1") -p ($prefix+"ThumbCup");
+			setAttr ".t" -type "double3" 2.1541394958739062 8.3266726846886741e-017 -4.4408920985006262e-016 ;
+			setAttr ".jo" -type "double3" 0 16.245725108035618 0 ;
+		createNode joint -n ($prefix+"Thumb2") -p ($prefix+"Thumb1");
+			setAttr ".t" -type "double3" 1.3113738857487003 -1.1102230246251565e-016 -6.6613381477509392e-016 ;
+			setAttr ".jo" -type "double3" 0 14.954789495945002 0 ;
+		createNode joint -n ($prefix+"ThumbEnd") -p ($prefix+"Thumb2");
+			setAttr ".t" -type "double3" 1.5129785374896669 1.1102230246251565e-016 -3.3306690738754696e-016 ;
+			setAttr ".jo" -type "double3" 0 10.61965527615517 0 ;
+
+	
+			print "- - - - - creating hand setup - - - - - \n";
+			for(;$handDone<$numSides;$handDone++)
+				{
+				// creating hand controller
+				// this script adds custom controls to a curve named L_HandControl and connects all the attributes. 
+				// it then mirrors the skeleton and the controller to the right side
+				// a multiply divide attribute is created to deal with splaying values
+		
+				select ($prefix+"FingerControl");
+				
+				// creating custom finger attributes
+				// this only has to be done once, because I am duplicating the controller with attributes for the other side
+				if ($handDone == 0)
+					{
+					addAttr -longName index1 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName index2 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName index3 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName middle1 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName middle2 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName middle3 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					if ($numFingers == "fiveFingers")
+					{ 
+						addAttr -longName ring1 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+						addAttr -longName ring2 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+						addAttr -longName ring3 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					}
+					addAttr -longName pinky1 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName pinky2 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName pinky3 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName thumb1 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName thumb2 -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName _______ -defaultValue 0 -maxValue 0 -minValue -0 -keyable true;
+					addAttr -longName indexSplay -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName middleSplay -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					if ($numFingers == "fiveFingers")
+					{ 
+						addAttr -longName ringSplay -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					}
+					addAttr -longName pinkySplay -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName thumbSplay -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName ______ -defaultValue 0 -maxValue 0 -minValue -0 -keyable true;
+					addAttr -longName pinkyCup -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName thumbCup -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					addAttr -longName thumbSwivel -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+					}
+			
+				// connecting custom attributes to joint rotation
+				connectAttr -f ($prefix+"FingerControl.pinky1") ($prefix+"Pinky1.rz");
+				connectAttr -f ($prefix+"FingerControl.pinky2") ($prefix+"Pinky2.rz");
+				connectAttr -f ($prefix+"FingerControl.pinky3") ($prefix+"Pinky3.rz");
+				if ($numFingers == "fiveFingers")
+				{ 
+					connectAttr -f ($prefix+"FingerControl.ring1") ($prefix+"Ring1.rz");
+					connectAttr -f ($prefix+"FingerControl.ring2") ($prefix+"Ring2.rz");
+					connectAttr -f ($prefix+"FingerControl.ring3") ($prefix+"Ring3.rz");
+				}
+				connectAttr -f ($prefix+"FingerControl.index1") ($prefix+"Index1.rz");
+				connectAttr -f ($prefix+"FingerControl.index2") ($prefix+"Index2.rz");
+				connectAttr -f ($prefix+"FingerControl.index3") ($prefix+"Index3.rz");
+				connectAttr -f ($prefix+"FingerControl.middle1") ($prefix+"Middle1.rz");
+				connectAttr -f ($prefix+"FingerControl.middle2") ($prefix+"Middle2.rz");
+				connectAttr -f ($prefix+"FingerControl.middle3") ($prefix+"Middle3.rz");
+				
+				// create reverse node to inverse thumb rotate
+				shadingNode -asUtility reverse -n ($prefix+"ThumbInverts");
+				connectAttr -f ($prefix+"FingerControl.thumb1") ($prefix+"ThumbInverts.inputX");
+				connectAttr -f ($prefix+"FingerControl.thumb2") ($prefix+"ThumbInverts.inputY");
+				connectAttr -f ($prefix+"ThumbInverts.outputX") ($prefix+"Thumb1.ry");
+				connectAttr -f ($prefix+"ThumbInverts.outputY") ($prefix+"Thumb2.ry");
+				
+				connectAttr -f ($prefix+"FingerControl.pinkyCup") ($prefix+"PinkyCup.rz");
+				
+				// connecting reverse node to inverse thumb cup
+				connectAttr -f ($prefix+"FingerControl.thumbCup") ($prefix+"ThumbInverts.inputZ");
+				connectAttr -f ($prefix+"ThumbInverts.outputZ") ($prefix+"ThumbCup.ry");
+				
+				connectAttr -f ($prefix+"FingerControl.thumbSwivel") ($prefix+"ThumbCup.rx");
+				connectAttr -f ($prefix+"FingerControl.indexSplay") ($prefix+"Index1.ry");
+				connectAttr -f ($prefix+"FingerControl.thumbSplay") ($prefix+"ThumbCup.rz");
+		
+				// using a multiply divide utility node to create unified splaying
+				$handSplay =`shadingNode -asUtility multiplyDivide -name ($prefix+"HandSplayAdjust")` ;
+				setAttr ($handSplay+".operation") 1;
+				if ($numFingers == "fiveFingers")
+				{ 
+				setAttr ($handSplay+".input2X") -1;
+				setAttr ($handSplay+".input2Y") -.3;
+				setAttr ($handSplay+".input2Z") .3;
+				}
+				else if ($numFingers == "fourFingers")
+				{ 
+				setAttr ($handSplay+".input2X") -1;
+				setAttr ($handSplay+".input2Z") -.1;
+				}
+				
+				if ($numFingers == "fiveFingers")
+				{ 
+				connectAttr -f ($prefix+"FingerControl.pinkySplay") ($handSplay+".input1X") ;
+				connectAttr -f ($prefix+"FingerControl.ringSplay") ($handSplay+".input1Y") ;
+				connectAttr -f ($prefix+"FingerControl.middleSplay") ($handSplay+".input1Z") ;
+				}
+				else if ($numFingers == "fourFingers")
+				{ 
+				connectAttr -f ($prefix+"FingerControl.pinkySplay") ($handSplay+".input1X") ;
+				connectAttr -f ($prefix+"FingerControl.middleSplay") ($handSplay+".input1Z") ;
+				}
+				
+				connectAttr -f ($handSplay+".outputX") ($prefix+"Pinky1.ry");
+				if ($numFingers == "fiveFingers")
+				{ 
+					connectAttr -f  ($handSplay+".outputY") ($prefix+"Ring1.ry");
+				}
+				connectAttr -f ($handSplay+".outputZ") ($prefix+"Middle1.ry");
+				
+				// mirroring the controller and skeleton
+				if (($handDone == 0) && ($numSides == 2))
+					{
+					select ($prefix+"Hand");
+					mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "L_" "R_";
+		
+					select ($prefix+"FingerControl");
+					duplicate -rr -name ($preprefix+"R_FingerControl");
+					scale -r -1 1 1;
+					makeIdentity -apply true -t 0 -r 0 -s 1 -n 0;
+					}
+					
+				// default scale if not parented to arm
+				scale .25 .25 .25 ($prefix+"Hand");
+				
+				
+				// moving hands to the position of the wrist and parenting them into the hierarchy
+				if ($distRotate == 1 || ($distRotate == 0 && $fkik == 1))
+				{
+					$wrist = ($prefix +"BoundWrist");
+					$palm =  ($prefix +"BoundPalm");
+				}
+				else
+				{
+					$wrist = ($prefix +"Wrist");
+					$palm =  ($prefix +"Palm");
+				}
+				
+					// vector $tempScalar1 = `xform -query -worldSpace -translation $wrist`;
+					// vector $tempScalar2 = `xform -query -worldSpace -translation $palm`;
+					// float $tempScalar3 =  (abs($tempScalar2.x - $tempScalar1.x));
+					// new code using distanceBetween node to measure hand length
+					$tempDist = `shadingNode -asUtility distanceBetween`;
+					$tempLoc1 = `spaceLocator`;
+					$tempLoc2 = `spaceLocator`;
+					pointConstraint $wrist $tempLoc1;
+					pointConstraint $palm $tempLoc2;
+					
+					connectAttr -f ($tempLoc1[0]+".tx") ($tempDist+".point1X");
+					connectAttr -f ($tempLoc1[0]+".ty") ($tempDist+".point1Y");
+					connectAttr -f ($tempLoc1[0]+".tz") ($tempDist+".point1Z");
+					connectAttr -f ($tempLoc2[0]+".tx") ($tempDist+".point2X");
+					connectAttr -f ($tempLoc2[0]+".ty") ($tempDist+".point2Y");
+					connectAttr -f ($tempLoc2[0]+".tz") ($tempDist+".point2Z");
+					
+					float $tempScalar3 = `getAttr ($tempDist+".distance")`;
+					delete $tempDist;
+					delete $tempLoc1;
+					delete $tempLoc2;
+					
+					
+					
+					setAttr ($prefix+"Hand.sx") ($tempScalar3*.1138);
+					setAttr ($prefix+"Hand.sy") ($tempScalar3*.1138);
+					setAttr ($prefix+"Hand.sz") ($tempScalar3*.1138);
+					
+					select ($prefix+"Hand");
+					makeIdentity -apply true -t 0 -r 0 -s 1 -n 0;
+					
+					$tempConstraint = `pointConstraint ($wrist) ($prefix+"Hand")`;
+					delete $tempConstraint;
+					$tempConstraint = `orientConstraint ($wrist) ($prefix+"Hand")`;
+					delete $tempConstraint;
+					parent ($prefix +"HandMid") ($wrist);
+					parent ($prefix +"PinkyCup") ($wrist);
+					parent ($prefix +"ThumbCup") ($wrist);
+					
+					$tempConstraint = `pointConstraint ($wrist) ($prefix+"FingerControl")`;
+					delete $tempConstraint;
+					$tempConstraint = `orientConstraint ($wrist) ($prefix+"FingerControl")`;
+					delete $tempConstraint;
+					$fingerParentConst = `parentConstraint -mo ($wrist) ($prefix+"FingerControl")`;
+					setAttr -keyable false -channelBox false ($fingerParentConst[0]+".nds");
+					setAttr -keyable false -channelBox false ($fingerParentConst[0]+".int");
+					setAttr -keyable false -channelBox false ($fingerParentConst[0]+".w0");
+					delete ($prefix +"Hand");
+					delete $palm;
+				
+				
+				if ($bodySide == "R_")
+				{
+					scale -1 1 1  ($prefix+"Hand");
+					select ($prefix+"Hand");
+					makeIdentity -apply true -t 0 -r 0 -s 1 -n 0;
+				}
+			
+				// locking and hiding scale, rotate, and visibility of controller
+				LockHide ($prefix+"FingerControl") 1 1 0 0 0 1 1 1 1 1 1 1;
+								
+				select ($prefix+"FingerControl");
+				CleanUp `ls -sl` ($preprefix +  "controls") ($preprefix +  "controlLayer");
+				
+				setAttr -lock true -keyable false ($prefix+"FingerControl.tx");
+				setAttr -lock true -keyable false ($prefix+"FingerControl.ty");
+				setAttr -lock true -keyable false ($prefix+"FingerControl.tz");
+				
+				if ($shelfbutton == 1)
+				{
+					$set[0] = ($prefix+"FingerControl");
+					makeShelfButton($set, $preprefix);
+				}
+				if ($characterset == 1)
+				{
+					$set[0] = ($prefix+"FingerControl");
+					makeCharacterSet($set, $preprefix);
+				}
+				
+								
+				$prefix = ($preprefix +"R_");
+				
+				$handSetupDone = 1;
+			
+				}
+			
+	}
+	
+		
+global proc HeelAdjust (string $prefix, string $knee, int $stretchy, int $fkik, int $distRotate, float $controlSize, int $shelfbutton, int $characterset)
+{
+	
+			if (`window -exists pivotWindow` == 1)
+			deleteUI pivotWindow;
+			
+				window 
+				-widthHeight 240 110  -topLeftCorner 185 358 -s false -title "Adjust Heel Pivot" pivotWindow;
+				
+				columnLayout
+				-columnWidth 240
+				-rs 8
+				-adjustableColumn true
+				-columnAlign "center";
+				text -label "Adjust the heel pivot point location\n by repositioning the locator." -align "center";
+				
+				columnLayout
+				-columnWidth 240
+				-columnAttach  "both" 35
+				-adjustableColumn true
+				-columnAlign "center";
+							
+				string $command = ("print \"- - - - heel pivot confirmed - - - -\";LegSetupFinish " +($knee) +" "+($stretchy) +" "+ ($fkik) +" "+ ($distRotate) +" "+ ($controlSize)+" "+ ($shelfbutton)+" "+ ($characterset)+" ;deleteUI pivotWindow;");
+				button -width 125 -label "COMPLETE LEG RIG" -command $command -align "center" ;
+				
+				window -edit -widthHeight 210 110 -topLeftCorner 185 358 pivotWindow;
+			
+			showWindow pivotWindow;
+			
+			string $tempConstraint[];
+			spaceLocator -name "UserHeelPosition";
+			$tempConstraint = `pointConstraint ($prefix + "IKAnkle") "UserHeelPosition"`;
+			delete $tempConstraint;
+			setAttr UserHeelPosition.ty 0;
+			LockHide UserHeelPosition 1 1 1 1 0 1 1 1 1 1 1 1;
+}
+			
+
+global proc HelpPage()
+{
+showHelp -absolute "http://www.3dcentral.com/rigomatic/rigomatic.html";
+}
+
+		
+			
+// - - - - - - - - - 
+// - - - - - - - - - 
+// LEG SETUP
+// - - - - - - - - - 
+// - - - - - - - - - 
+global proc LegSetup (string $knee, int $stretchy, int $fkik, int $distRotate, float $controlSize, int $shelfbutton, int $characterset)
+	{
+
+			global string $preprefix;
+			global int $numOfJoints;
+			$preprefix = `textField -query -text preprefix`;
+			
+			string $bodySide = "L_";
+			string $joints[] = `ls -sl -type joint`;
+			
+			$numOfJoints = size ($joints);
+			if ($numOfJoints == 0) 
+			{
+ 				error "No joints were selected.\n";
+			}
+			
+			if ($numOfJoints < 5 || $numOfJoints > 6)
+			{
+ 				error "Please select five or six leg joints (hip, knee, knee2 (optional), ankle, ball, toe tip).\n";
+			}
+			
+			
+			$prefix = ($preprefix+$bodySide);
+
+			print "- - - - - creating leg setup - - - - - \n";
+			
+			// just pickwalking down the chain and renaming joints
+			rename ($prefix + "IKHip");
+			pickWalk -d down;
+			rename ($prefix + "IKKnee");
+			if ($numOfJoints == 6)
+				{	
+				pickWalk -d down;
+				rename ($prefix + "IKKneeLower");
+				}
+			pickWalk -d down;
+			rename ($prefix + "IKAnkle");
+			pickWalk -d down;
+			rename ($prefix + "IKBall");
+			pickWalk -d down;
+			rename ($prefix + "IKToe");
+			
+			// controller and group names
+			string $footControl = ($prefix + "FootControl");
+			
+			// position vector names
+			vector $anklePosition;
+			
+			// getting the positions of all the joints
+			$anklePosition = `xform -query -worldSpace -translation ($prefix + "IKAnkle")`; 
+
+			HeelAdjust $prefix $knee $stretchy $fkik $distRotate $controlSize $shelfbutton $characterset;
+		}
+		
+global proc LegSetupFinish (string $knee, int $stretchy, int $fkik, int $distRotate, float $controlSize, int $shelfbutton, int $characterset)
+		{		
+			global int $numOfJoints;
+			global string $preprefix;
+			int $noFlipKnee;
+			$preprefix = `textField -query -text preprefix`;
+			if ($knee == "noFlipKnee")
+			$noFlipKnee = 1;
+			else
+			$noFlipKnee = 0;
+			
+			global int $armsDone;
+			global int $legsDone;
+			global int $legsStretchyDone;
+			global int $legsFKDone;
+			global int $legsDistDone;
+				
+			int $extraJoints = 4;
+			int $numSides = 2;
+			string $prefix = "L_";
+			string $bodySide = "L_";
+			string $joints[] = `ls -sl -type joint`;
+			float $footScale = 1;
+			$prefix = ($preprefix+$prefix);
+			
+			vector $userHeelPosition;
+			vector $userHeelPosition = `xform -query -worldSpace -translation "UserHeelPosition"`; 
+			delete UserHeelPosition;
+			
+			
+			// adding IK handles
+			// from hip to ankle
+			select -r ($prefix + "IKHip.rotatePivot") ;
+			select -add ($prefix + "IKAnkle.rotatePivot") ;
+			ikHandle -n ($prefix + "AnkleIK") -sol ikRPsolver;
+
+			// from ankle to ball
+			select -r ($prefix + "IKAnkle.rotatePivot") ;
+			select -add ($prefix + "IKBall.rotatePivot") ;
+			ikHandle -n ($prefix +"BallIK") -sol ikSCsolver;
+
+			// from ball to toe
+			select -r ($prefix + "IKBall.rotatePivot") ;
+			select -add ($prefix + "IKToe.rotatePivot") ;
+			ikHandle -n ($prefix + "ToeIK") -sol ikSCsolver;
+			
+			
+			for($legsDone = 0;$legsDone<$numSides;$legsDone++)
+			{
+				
+			vector $anklePosition;
+			vector $ballPosition;
+			vector $toePosition;
+			vector $kneePosition;
+			vector $kneeLowerPosition;
+			vector $hipPosition;
+				
+			// getting the positions of all the joints
+			$anklePosition = `xform -query -worldSpace -translation ($prefix + "IKAnkle")`; 
+			$ballPosition = `xform -query -worldSpace -translation ($prefix + "IKBall")`; 
+			$toePosition = `xform -query -worldSpace -translation ($prefix + "IKToe")`; 
+			$kneePosition = `xform -query -worldSpace -translation ($prefix + "IKKnee")`; 
+			$hipPosition = `xform -query -worldSpace -translation ($prefix + "IKHip")`; 
+
+			// grouping the IK handles, then grouping groups and moving pivot points
+			group -n ($prefix + "ToeTapGrp");
+			xform -os -piv ($ballPosition.x) ($ballPosition.y) ($ballPosition.z);
+			parent  ($prefix +"BallIK") ($prefix + "ToeTapGrp");
+			//parent ToeIK to ToeTapGrp;
+			group -n ($prefix + "HeelPeelGrp");
+			xform -os -piv ($ballPosition.x) ($ballPosition.y) ($ballPosition.z);
+			parent ($prefix + "AnkleIK") ($prefix + "HeelPeelGrp");
+			select -r ($prefix + "ToeTapGrp") ($prefix + "HeelPeelGrp");
+			group -n ($prefix + "ToePivotGrp");
+			xform -os -piv ($toePosition.x) ($toePosition.y) ($toePosition.z);
+			group -n ($prefix + "BallSwivelGrp");
+			xform -os -piv ($ballPosition.x) ($ballPosition.y) ($ballPosition.z);
+			group -n ($prefix + "AnklePivotGrp");
+			xform -os -piv ($anklePosition.x) ($anklePosition.y) ($anklePosition.z);
+			group -n ($prefix + "AnklePivotGrp_Offset");
+			xform -os -piv ($anklePosition.x) ($anklePosition.y) ($anklePosition.z);
+			
+			
+			if ($numOfJoints == 6)
+				{
+				$kneeLowerPosition = `xform -query -worldSpace -translation ($prefix + "IKKneeLower")`; 
+				}
+				
+			// controller and group names
+			string $footControl = ($prefix + "FootControl");
+			
+			if ($userHeelPosition.z < 0)
+				$footScale = (abs($toePosition.z)+abs($userHeelPosition.z));
+			else
+				$footScale = (abs($toePosition.z) - abs($userHeelPosition.z));
+
+				
+			// just creating a shape for a foot
+			circle -c 0 0 0 -nr 0 1 0 -sw 360 -r 1 -d 3 -ut 0 -tol 0.01 -s 12 -ch 1 -n $footControl;
+			move 0 0 -1 ($footControl+".scalePivot") ($footControl+".rotatePivot") ;
+			move -rpr 0 0 0 ;
+			makeIdentity -apply true -t 1 -r 1 -s 1 -n 2;
+			select -r ($footControl+".cv[0:2]")  ;
+			scale -r -p 0cm 0cm 0.0467458cm 0.783294 1 1 ;
+			select -r ($footControl+".cv[3]")  ($footControl+".cv[11]")  ;
+			scale -r -p 0cm 0cm 0.953254cm 0.824363 1 1 ;
+			select -r ($footControl+".cv[10]")  ;
+			move -r -0.782183 0 0 ;
+			select -r ($footControl+".cv[6:8]")  ;
+			scale -r -p 0cm 0cm 3.953254cm 0.5 1 1 ;
+			select -r ($footControl+".cv[9]")  ;
+			move -r -0.0679194 0 0 ;
+			select -r ($footControl+".cv[5]")  ;
+			move -r 0.0467105 0 0 ;
+			select -r ($footControl+".cv[3]")  ($footControl+".cv[11]")  ;
+			scale -r -p 0cm 0cm 0.953254cm 0.846131 1 1 ;
+			move -r -0.0114762 0 0 ;
+			select -r ($footControl+".cv[4]")  ;
+			move -r 0.0930603 -0.00432621 0.000324843 ;
+			select -r ($footControl+".cv[5]")  ;
+			move -r 0.0929285 -0.00432008 0.000324383 ;
+
+			// scaling foot based on user defined heel position
+			move 0 0 0 ($footControl+".scalePivot") ($footControl+".rotatePivot");
+			setAttr ($footControl+".translateZ") ($userHeelPosition.z);
+			setAttr ($footControl+".translateX") ($anklePosition.x);
+
+			setAttr ($footControl+".scaleZ") ($footScale*.5);
+			setAttr ($footControl+".scaleX") ($footScale*.25);
+
+			
+			// freezing transforms
+			makeIdentity -apply true -t 1 -r 1 -s 1 -n 2 $footControl;
+			
+			//signature
+			addAttr -ln riggedBy -at "enum" -en "J. Baskin" $footControl;
+			
+			if ($bodySide =="L_")
+			{
+				setAttr ($footControl+".scaleX") -1;
+			}
+
+			// deleting history
+			DeleteHistory;
+			
+			// adding custom attributes to the foot control curve
+			select $footControl;
+			addAttr -longName heelPeel -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+			addAttr -longName toeTap -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+			addAttr -longName anklePivot -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+			addAttr -longName toePivot -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+			addAttr -longName ballSwivel -defaultValue 0 -maxValue 90 -minValue -90 -keyable true;
+			
+			// freezing transforms
+			select $footControl;
+			makeIdentity -apply true -t 1 -r 1 -s 1 -n 2;
+
+			// locking and hiding scale, hiding visiblitiy
+			LockHide $footControl 1 1 0 0 0 0 0 0 1 1 1 1;
+			
+		  	// parent constraining all the groups to the foot control curve
+			parentConstraint -mo $footControl ($prefix + "AnklePivotGrp_Offset");
+			
+			// connecting custom attributes to the group transform nodes
+			connectAttr ($footControl+".heelPeel") ($prefix + "HeelPeelGrp.rx");
+			connectAttr ($footControl+".toeTap") ($prefix + "ToeTapGrp.rx");
+			connectAttr ($footControl+".anklePivot") ($prefix + "AnklePivotGrp.rx");
+			connectAttr ($footControl+".toePivot") ($prefix + "ToePivotGrp.rx");
+			connectAttr ($footControl+".ballSwivel") ($prefix + "BallSwivelGrp.ry");
+			
+			// adding spacer attribute
+			select $footControl;
+			if ($stretchy == true || $fkik == true || $noFlipKnee == true)
+			{
+			addAttr -longName __________ -defaultValue 0 -maxValue 0 -minValue 0 -keyable true;
+			setAttr -lock true ($footControl+".__________ ");
+			}
+			
+			
+			// creating no flip knee or pole vector constrained knee
+			if ($noFlipKnee == 1)
+			{	
+			addAttr -longName "kneeTwist" -defaultValue 0 -maxValue 90 -minValue -90 -keyable true $footControl;
+			addAttr -longName "kneeOffset" -defaultValue 90 -maxValue 90 -minValue 90 -keyable false $footControl;
+			
+			shadingNode -asUtility plusMinusAverage -n ($prefix + "noFlipKnee");
+			connectAttr -f ($footControl+".kneeTwist") ($prefix + "noFlipKnee.input1D[0]");
+			connectAttr -f ($footControl+".kneeOffset") ($prefix + "noFlipKnee.input1D[1]");
+			
+			setAttr ($prefix + "AnkleIK.poleVectorX") 1;
+			setAttr ($prefix + "AnkleIK.poleVectorY") 0;
+			setAttr ($prefix + "AnkleIK.poleVectorZ") 0;
+			
+			connectAttr ($prefix + "noFlipKnee.output1D") ($prefix + "AnkleIK.twist");
+			}
+			else
+			{
+			// creating knee pole vector constraint
+			
+			
+			curve -d 1 -p -0.375 0.375 -0.375 -p -0.375 0.375 0.375 -p 0.375 0.375 0.375 -p 0.375 0.375 -0.375 -p -0.375 0.375 -0.375 -p -0.375 -0.375 -0.375 -p -0.375 -0.375 0.375 -p 0.375 -0.375 0.375 -p 0.375 -0.375 -0.375 -p -0.375 -0.375 -0.375 -p -0.375 -0.375 0.375 -p -0.375 0.375 0.375 -p 0.375 0.375 0.375 -p 0.375 -0.375 0.375 -p 0.375 -0.375 -0.375 -p 0.375 0.375 -0.375 -p -0.375 0.375 -0.375 -p -0.375 -0.375 -0.375 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -k 14 -k 15 -k 16 -k 17 -name ($prefix + "KneeControl");
+
+
+			//curve -d 1 -p 0 0 0 -p -.5 0 -1 -p .5 0 -1 -p 0 0 0 -p 0 -.5 -1 -p 0 .5 -1 -p 0 0 0 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -name ($prefix + "KneeControl");
+			scale  ($controlSize * .4) ($controlSize * .4) ($controlSize * .4);
+			xform -cp;
+			setAttr ($prefix + "KneeControl.rotateY") 180;
+			move -rpr ($kneePosition.x) ($kneePosition.y) ($kneePosition.z);
+			move -r 0 0 2;
+			makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+			
+			// aiming Knee Control at Knee
+			/*
+			aimConstraint -mo -weight 1 -aimVector 1 0 0 -upVector 0 1 0 -worldUpType "vector" -worldUpVector 0 1 0 ($prefix + "IKKnee") ($prefix + "KneeControl");
+			setAttr -lock true -keyable false -channelBox false ($prefix + "KneeControl_aimConstraint1.nds");
+			setAttr -lock true -keyable false -channelBox false ($prefix + "KneeControl_aimConstraint1.ox");
+			setAttr -lock true -keyable false -channelBox false ($prefix + "KneeControl_aimConstraint1.oy");
+			setAttr -lock true -keyable false -channelBox false ($prefix + "KneeControl_aimConstraint1.oz");
+			setAttr -lock true -keyable false -channelBox false ($prefix + "KneeControl_aimConstraint1.w0");
+			*/
+			
+			
+			LockHide ($prefix + "KneeControl") 1 1 0 0 0 1 1 1 1 1 1 1;
+			
+			if ($shelfbutton == 1)
+			{
+				$set[0] = ($prefix + "KneeControl");
+				makeShelfButton($set, $preprefix);
+			}
+			if ($characterset == 1)
+			{
+				$set[0] = ($prefix + "KneeControl");
+				makeCharacterSet($set, $preprefix);
+			}
+
+			// deleting history
+			DeleteHistory;
+
+			select -tgl ($prefix + "AnkleIK") ;
+			poleVectorConstraint -weight 1;
+
+			parent ($prefix + "KneeControl") $footControl;
+			
+			// add pole vector guide lines
+			$kneePointer = `curve -d 1 -p -0 0 0 -p 1 0 1 -k 0 -k 1 -name ($prefix+"KneePointer")`;
+			$cluster1 = `cluster -name ($prefix+"KneePointerStart") ($kneePointer+".cv[0]")`;
+			$cluster2 = `cluster -name ($prefix+"KneePointerEnd")($kneePointer+".cv[1]")`;
+			$shape = `listRelatives -shapes $kneePointer`;
+
+			setAttr ($shape[0]+".overrideEnabled") 1;
+			setAttr ($shape[0]+".overrideDisplayType") 2;
+
+			pointConstraint ($prefix + "KneeControl") $cluster1;
+			pointConstraint ($prefix + "IKKnee") $cluster2;
+			
+			select -r $cluster1 $cluster2;
+			CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+			select -r $kneePointer;
+			CleanUp `ls -sl` ($preprefix +  "controls") ($preprefix +  "controlLayer");
+			}
+			
+
+			
+			// MAKING STRETCHY LEGS
+			if ($stretchy == true)
+			{
+				select -r ($prefix + "IKHip") ($prefix + "IKKnee");
+				if ($numOfJoints == 6)
+				select -tgl ($prefix + "IKKneeLower");
+				select -tgl ($prefix + "IKAnkle");
+				MakeStretchy `ls -sl` ($prefix+"Leg") $footControl;
+				$legsStretchyDone = 1;
+				
+				// ADDING PINNED KNEE FUNCTIONALITY
+					if (($numOfJoints != 6) && ($knee != "noFlipKnee"))
+					{
+					// adding "pin knee" attribute
+					addAttr -ln "pinKnee" -k on -h off -at double  -min 0 -max 1 -dv 0 ($prefix + "KneeControl");
+				
+					// creating a locator (used for measurement later on) that is point constrained to $elbowPoleVector
+					$pinnedKneeLocator = `spaceLocator -p 0 0 0 -name ($prefix+"PinnedKneeLocator")`;
+					pointConstraint ($prefix + "KneeControl") $pinnedKneeLocator;
+					
+					$seg1Length = `shadingNode -asUtility distanceBetween -name ($prefix+"hipLength")`;
+					$seg1Normalize = `shadingNode -asUtility multiplyDivide -name ($prefix+"hipNormalize")`;
+					$seg2Length = `shadingNode -asUtility distanceBetween -name ($prefix+"shinLength")`;
+					$seg2Normalize = `shadingNode -asUtility multiplyDivide -name ($prefix+"shinNormalize")`;
+					$seg1Blend = `shadingNode -asUtility blendColors -name ($prefix+"hipBlend")`;
+					$seg2Blend = `shadingNode -asUtility blendColors -name ($prefix+"shinBlend")`;
+					
+					// get first segment lengths
+					$tempMeas = `shadingNode -asUtility distanceBetween -name "tempMeas"`;
+					setAttr ($tempMeas+".point1X") ($kneePosition.x);
+					setAttr ($tempMeas+".point1Y") ($kneePosition.y);
+					setAttr ($tempMeas+".point1Z") ($kneePosition.z);
+					setAttr ($tempMeas+".point2X") ($hipPosition.x);
+					setAttr ($tempMeas+".point2Y") ($hipPosition.y);
+					setAttr ($tempMeas+".point2Z") ($hipPosition.z);
+					$tempDist = `getAttr ($tempMeas+".distance")`;
+					delete $tempMeas;			
+
+					// connecting new pinElbowAttribute to color blend nodes
+					connectAttr ($prefix + "KneeControl.pinKnee") ($seg1Blend+".blender");
+					connectAttr ($prefix + "KneeControl.pinKnee") ($seg2Blend+".blender");
+
+					// measure first segment
+					connectAttr -f ($prefix+"LegStartLocator.translateX") ($seg1Length+".point1X");
+					connectAttr -f ($prefix+"LegStartLocator.translateY") ($seg1Length+".point1Y");
+					connectAttr -f ($prefix+"LegStartLocator.translateZ") ($seg1Length+".point1Z");
+
+					connectAttr -f ($pinnedKneeLocator[0]+".translateX") ($seg1Length+".point2X");
+					connectAttr -f ($pinnedKneeLocator[0]+".translateY") ($seg1Length+".point2Y");
+					connectAttr -f ($pinnedKneeLocator[0]+".translateZ") ($seg1Length+".point2Z");
+					
+					// normalize first segment
+					setAttr ($seg1Normalize+".operation") 2;
+					connectAttr -f ($seg1Length+".distance") ($seg1Normalize+".input1X");
+					setAttr ($seg1Normalize+".input2X") $tempDist;
+					
+					// get second segment lengths
+					$tempMeas = `shadingNode -asUtility distanceBetween -name "tempMeas"`;
+					setAttr ($tempMeas+".point1X") ($kneePosition.x);
+					setAttr ($tempMeas+".point1Y") ($kneePosition.y);
+					setAttr ($tempMeas+".point1Z") ($kneePosition.z);
+					setAttr ($tempMeas+".point2X") ($anklePosition.x);
+					setAttr ($tempMeas+".point2Y") ($anklePosition.y);
+					setAttr ($tempMeas+".point2Z") ($anklePosition.z);
+					$tempDist = `getAttr ($tempMeas+".distance")`;
+					delete $tempMeas;					
+					 		
+					// measure second segment
+					connectAttr -f ($prefix+"LegEndLocator.translateX") ($seg2Length+".point2X");
+					connectAttr -f ($prefix+"LegEndLocator.translateY") ($seg2Length+".point2Y");
+					connectAttr -f ($prefix+"LegEndLocator.translateZ") ($seg2Length+".point2Z");
+					
+					connectAttr -f ($pinnedKneeLocator[0]+".translateX") ($seg2Length+".point1X");
+					connectAttr -f ($pinnedKneeLocator[0]+".translateY") ($seg2Length+".point1Y");
+					connectAttr -f ($pinnedKneeLocator[0]+".translateZ") ($seg2Length+".point1Z");
+
+					// normalize second segment
+					setAttr ($seg2Normalize+".operation") 2;
+					connectAttr -f ($seg2Length+".distance") ($seg2Normalize+".input1X");
+					setAttr ($seg2Normalize+".input2X") $tempDist;
+				
+					// connecting normalized values to color blend nodes
+					connectAttr ($seg1Normalize+".outputX") ($seg1Blend+".color1R");
+					connectAttr ($seg2Normalize+".outputX") ($seg2Blend+".color1R");
+					connectAttr -f ($prefix+"LegStretchCondition.outColorR") ($seg1Blend+".color2R");
+					connectAttr -f ($prefix+"LegStretchCondition.outColorR") ($seg2Blend+".color2R");
+							
+					// breaking existing stretch connection which feeds just one value into all leg joints
+					disconnectAttr ($prefix+"LegStretchCondition.outColorR") ($prefix+"LegStretchExtend.input1D[0]");
+					connectAttr ($seg1Blend+".outputR") ($prefix+"LegStretchExtend.input1D[0]");
+					connectAttr ($seg2Blend+".outputR") ($prefix+"LegStretchBlend.color1G");
+		
+					setAttr ($prefix+"LegStretchBlend.color2R") 1;
+					setAttr ($prefix+"LegStretchBlend.color2G") 1;
+					
+					disconnectAttr ($prefix+"LegStretchBlend.outputR") ($prefix+"IKKnee.scaleX");
+					connectAttr ($prefix+"LegStretchBlend.outputG") ($prefix+"IKKnee.sx");
+					
+					select -r ($pinnedKneeLocator[0]);
+					CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+					}
+				
+				
+				
+			}
+			
+			if (($fkik == 1) || ($fkik == 0 && $distRotate == 1))
+			{
+				duplicate -name ($prefix + "BoundHip") ($prefix + "IKHip");
+				select ($prefix + "BoundHip");
+				searchReplaceNames "IK" "Bound" "hierarchy";
+				
+				group -em -n ($prefix+"IKFKLegs");
+		  		$tempConstraint = `parentConstraint ($prefix+"BoundHip") ($prefix+"IKFKLegs")`;
+		  		delete $tempConstraint;
+		  		select ($prefix+"IKFKLegs");
+				CleanUp `ls -sl` ($preprefix +  "IKFKGuides") "none";
+		  		$legsDistDone = 1;
+				
+			}
+			if ($fkik == 1)
+			{
+				select $footControl;
+				addAttr -longName FK_IK -defaultValue 0 -maxValue 1 -minValue 0 -keyable true;
+
+				// note: the name flag has to come FIRST when using it in the duplicate command - otherwise it is ignored.
+				duplicate -name ($prefix + "FKHip") ($prefix + "IKHip");
+				select  ($prefix + "FKHip");
+				searchReplaceNames "IK" "FK" "hierarchy";
+				
+			
+				// creating FK leg controls
+				select -r ($prefix + "FKHip") ($prefix + "FKKnee");
+				if ($numOfJoints == 6)
+				{
+					select -tgl ($prefix + "FKKneeLower");
+				}
+				select -tgl ($prefix + "FKAnkle") ($prefix + "FKBall");
+				FKControls `ls -sl` $controlSize $shelfbutton $characterset;
+				delete ($prefix + "FKHipControl_Offset_pointConstraint1");
+				
+				
+							
+				// adding an attribute to scale legs in FK mode
+				addAttr -ln "fkStretch" -h off -k on -at double -min 0 -dv 0 ($prefix + "FKHipControl");
+				addAttr -ln "helper" -h on -k off -dv 1 ($prefix + "FKHipControl");
+				
+				// making FK chain scalable
+				$fkScale = ($prefix+"LegFKScale");
+				shadingNode -asUtility plusMinusAverage -name $fkScale;
+				
+				// connecting FK scale attribute to FK arms
+				connectAttr -f ($prefix + "FKHipControl.fkStretch") ($fkScale + ".input1D[0]");
+				connectAttr -f ($prefix + "FKHipControl.helper") ($fkScale + ".input1D[1]");
+				
+				// connectAttr -f  ($fkScale + ".output1D") ($scaleBlender + ".color2R"); - won't work here
+				
+				
+				
+				// blending between FK and IK
+				if ($distRotate == 1)
+				{
+					ConnectToColorBlend $prefix ($prefix + "IKHip") ($prefix + "FKHip") ($prefix + "BoundHip") ($footControl+".FK_IK") $extraJoints $stretchy;
+					ConnectToColorBlend $prefix ($prefix + "IKKnee") ($prefix + "FKKnee") ($prefix + "BoundKnee") ($footControl+".FK_IK") -1 $stretchy;
+					ConnectToColorBlend $prefix ($prefix + "IKAnkle") ($prefix + "FKAnkle") ($prefix + "BoundAnkle") ($footControl+".FK_IK") -1 $stretchy;
+					ConnectToColorBlend $prefix ($prefix + "IKBall") ($prefix + "FKBall") ($prefix + "BoundBall") ($footControl+".FK_IK") -1 $stretchy;
+					if ($numOfJoints == 6)
+						{
+						ConnectToColorBlend $prefix  ($prefix + "IKKneeLower") ($prefix + "FKKneeLower") ($prefix + "BoundKneeLower") ($footControl+".FK_IK") -1 $stretchy;
+						}
+				}
+					
+				else
+				{
+					ConnectToColorBlend $prefix ($prefix + "IKHip") ($prefix + "FKHip") ($prefix + "BoundHip") ($footControl+".FK_IK") 0 $stretchy;	
+					ConnectToColorBlend $prefix ($prefix + "IKKnee") ($prefix + "FKKnee") ($prefix + "BoundKnee") ($footControl+".FK_IK") 0 $stretchy;
+					ConnectToColorBlend $prefix ($prefix + "IKAnkle") ($prefix + "FKAnkle") ($prefix + "BoundAnkle") ($footControl+".FK_IK") 0 $stretchy;
+					ConnectToColorBlend $prefix ($prefix + "IKBall") ($prefix + "FKBall") ($prefix + "BoundBall") ($footControl+".FK_IK") 0 $stretchy;
+					if ($numOfJoints == 6)
+						{
+						ConnectToColorBlend $prefix  ($prefix + "IKKneeLower") ($prefix + "FKKneeLower") ($prefix + "BoundKneeLower") ($footControl+".FK_IK") 0 $stretchy;
+						}
+				}
+				
+				
+
+				
+
+				
+				if ($numOfJoints == 6)
+				{
+					LockHide ($prefix + "FKAnkleControl_Offset") 0 0 1 1 1 1 1 1 1 1 1 1;
+					parent ($prefix + "FKAnkleControl_Offset") ($prefix + "FKKneeControl");
+					
+					select -r ($prefix+"FKAnkleControl_Offset") ;
+					group -name ($prefix+"FKKneeControl_Offset2"); 
+					xform -os -piv 0 0 0;
+					connectAttr -f ($prefix+"FKKneeControl.rotateX") ($prefix+"FKKneeControl_Offset2.rotateX");
+					connectAttr -f ($prefix+"FKKneeControl.rotateY") ($prefix+"FKKneeControl_Offset2.rotateY");
+					connectAttr -f ($prefix+"FKKneeControl.rotateZ") ($prefix+"FKKneeControl_Offset2.rotateZ");
+					
+					LockHide ($prefix + "FKAnkleControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+					delete ($prefix + "FKKneeLowerControl_Offset");
+					connectAttr ($prefix + "FKKneeControl.rotateX") ($prefix + "FKKneeLower.rotateX");
+					connectAttr ($prefix + "FKKneeControl.rotateY") ($prefix + "FKKneeLower.rotateY");
+					connectAttr ($prefix + "FKKneeControl.rotateZ") ($prefix + "FKKneeLower.rotateZ");
+				}
+				
+				// creating a reverse utility node to automatically turn off FK control visibility
+				shadingNode -asUtility reverse -n ($prefix+"ShowFKLegControls");
+				connectAttr -f ($footControl+".FK_IK")  ($prefix+"ShowFKLegControls.inputX");
+				LockHide ($prefix+"FKHipControl_Offset") 0 0 1 1 1 1 1 1 1 1 1 1;
+					
+				connectAttr -f ($prefix+"ShowFKLegControls.outputX") ($prefix+"FKHipControl_Offset.visibility");
+				LockHide ($prefix+"FKHipControl_Offset") 1 1 1 1 1 1 1 1 1 1 1 1;
+				select -r ($prefix + "FKHipControl_Offset");
+				CleanUp `ls -sl` ($preprefix +  "controls") ($preprefix +  "controlLayer");
+				
+				// make knee a hinge joint
+				LockHide ($prefix +"FKKneeControl") 1 1 1 1 1 1 1 0 1 1 1 1;
+				
+				$legsFKDone = 1;
+			}
+			
+			if ($fkik == 0 && $distRotate == 1)
+			{
+				// blending between FK and IK
+				{
+					ConnectToColorBlend $prefix  ($prefix + "IKHip") "none"  ($prefix + "BoundHip") "none" $extraJoints $stretchy;
+					ConnectToColorBlend $prefix  ($prefix + "IKKnee") "none"  ($prefix + "BoundKnee") "none" -1 $stretchy;
+					ConnectToColorBlend $prefix  ($prefix + "IKAnkle") "none" ($prefix + "BoundAnkle")"none" -1 $stretchy;
+					ConnectToColorBlend $prefix  ($prefix + "IKBall") "none"  ($prefix + "BoundBall") "none" -1 $stretchy;
+					if ($numOfJoints == 6)
+						{
+						ConnectToColorBlend $prefix  ($prefix + "IKKneeLower") "none" ($prefix + "BoundKneeLower") "none" -1 $stretchy;
+						}
+					connectAttr ($prefix + "IKHip.scaleX") ($prefix + "BoundHip.scaleX");
+					connectAttr ($prefix + "IKKnee.scaleX") ($prefix + "BoundKnee.scaleX");
+				}
+			}
+
+			
+			// CLEANING UP HYPERGRAPH AND ORGANIZING INTO DISPLAY LAYERS
+   			select -r ($prefix + "AnklePivotGrp_Offset");
+			CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+			
+			select -r $footControl;
+			CleanUp `ls -sl` ($preprefix +  "controls") ($preprefix +  "controlLayer");
+			if ($shelfbutton == 1)
+				{
+					$set = `ls -sl`;
+					makeShelfButton($set, $preprefix);
+				}
+			if ($characterset == 1)
+				{
+					$set = `ls -sl`;
+					makeCharacterSet($set, $preprefix);
+				}
+			
+			if ($legsDone >=1)
+			{
+				// IK Legs
+				select -r ($preprefix+"R_IKHip") ($preprefix+"L_IKHip");
+				if ($fkik == 0 && $distRotate == 1)
+					{
+					CleanUp `ls -sl` "none" ($preprefix +  "noTouch");
+					}
+				else
+					{
+					CleanUp `ls -sl` "none" ($preprefix +  "skeletonLayer");
+					Override ($preprefix + "L_IKHip") ($preprefix +  "skeletonLayer") 4;
+					Override ($preprefix + "R_IKHip") ($preprefix +  "skeletonLayer") 4;
+					}
+					
+				// Bound Legs
+				if (`objExists ($preprefix+"R_BoundHip")` != 1)
+				{
+					select -r ($preprefix+"L_IKHip") ($preprefix+"R_IKHip");
+					searchReplaceNames "IK" "" "hierarchy";
+					CleanUp `ls -sl` "none" ($preprefix +  "skeletonLayer");
+				}
+				else
+				{
+					select -r ($preprefix+"R_BoundHip") ($preprefix+"L_BoundHip");
+					CleanUp `ls -sl` "none" ($preprefix +  "skeletonLayer");
+					//pointConstraint ($preprefix+"L_BoundHip") ($preprefix+"L_IKFKLegs");
+					//pointConstraint ($preprefix+"R_BoundHip") ($preprefix+"R_IKFKLegs");
+				}
+					
+				// FK Legs
+				if ($fkik == 1)
+				{
+					select -r ($preprefix+"R_FKHip") ($preprefix+"L_FKHip");
+					CleanUp `ls -sl` "none" ($preprefix +  "skeletonLayer");
+					Override ($preprefix + "L_FKHip") ($preprefix +  "skeletonLayer") 4;
+					Override ($preprefix + "R_FKHip") ($preprefix +  "skeletonLayer") 4;
+					
+					parent ($preprefix + "L_FKHip") ($preprefix + "L_IKFKLegs");
+					parent ($preprefix + "R_FKHip") ($preprefix + "R_IKFKLegs");
+					parent ($preprefix + "L_IKHip") ($preprefix + "L_IKFKLegs");
+					parent ($preprefix + "R_IKHip") ($preprefix + "R_IKFKLegs");
+				}
+				
+				// Dist Rotate
+				if ($distRotate == 1 && $fkik == 0)
+				{
+					parent ($preprefix + "L_IKHip") ($preprefix + "L_IKFKLegs");
+					parent ($preprefix + "R_IKHip") ($preprefix + "R_IKFKLegs");
+					setAttr ($preprefix + "R_IKFKLegs.visibility") 0;
+					setAttr ($preprefix + "L_IKFKLegs.visibility") 0;
+				}
+				
+			}
+			// selecting the foot control curve
+			select $footControl;
+	
+			if (($numSides == 2) && ($legsDone == 0))
+				{
+ 				select ($prefix + "IKHip");
+ 				mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "L_" "R_";
+				$prefix = ($preprefix+"R_");
+				$bodySide = "R_";
+				}
+			} 
+
+		//source rigomatic.mel;
+}
+
+
+
+global proc LockHide(string $object, int $lock, int $hide, int $tx, int $ty, int $tz, int $rx, int $ry, int $rz, int $sx, int $sy, int $sz, int $v)
+{
+	// this global procedure provides a quick way of locking and/or hiding multiple attributes of an object.
+	// usage: LockHide [name of object] [locked] [hidden] [tx] [ty] [tz] [rx] [ry] [rz] [sx] [sy] [sz] [v]
+
+				int $keyable;
+				int $locked;
+				if ($lock == "1")
+					$locked = 1;
+					else
+					$keyable = 0;
+				if ($hide == "1")
+					$keyable = 0;
+					else 
+					$keyable = 1;
+				if ($tx == 1)
+					setAttr -lock $locked -keyable $keyable ($object +".tx");
+				if ($ty == 1)
+					setAttr -lock $locked -keyable $keyable ($object +".ty");
+				if ($tz == 1)
+					setAttr -lock $locked -keyable $keyable ($object +".tz");
+				if ($rx == 1)
+					setAttr -lock $locked -keyable $keyable ($object +".rx");
+				if ($ry == 1)
+					setAttr -lock $locked -keyable $keyable ($object +".ry");
+				if ($rz == 1)
+					setAttr -lock $locked -keyable $keyable ($object +".rz");
+				if ($sx == 1)
+					setAttr -lock $locked -keyable $keyable ($object +".sx");
+				if ($sy == 1)
+					setAttr -lock $locked -keyable $keyable ($object +".sy");
+				if ($sz == 1)
+					setAttr -lock $locked -keyable $keyable ($object +".sz");
+				if ($v == 1)
+					setAttr -lock $locked -keyable $keyable ($object +".v");
+}
+			
+	
+global proc MakeStretchy (string $selectedJoints[], string $name, string $controller)
+{
+			// usage: MakeStretchy [selection] [name prefix for various locators and utility nodes] [controller object]
+			// defining variables
+			global string $preprefix;
+			int $numJoints = `size ($selectedJoints)`;
+			string $distanceBetween = ($name+"DistanceBetween");
+			string $startLocator = ($name+"StartLocator");
+			string $endLocator = ($name+"EndLocator");
+			string $normalize = ($name+"Normalize");
+			string $stretchCondition = ($name+"StretchCondition");
+			string $stretchBlend = ($name+"StretchBlend");
+			string $stretchExtend = ($name+"StretchExtend");
+			
+			float $length = 0;
+			float $position[];
+			vector $buffer;
+	
+			// creating IK controller 
+			select $controller;
+		  	addAttr -longName stretch -defaultValue 0 -maxValue 1 -minValue -0 -keyable true;
+		  	addAttr -longName stretchExtend -defaultValue 0 -minValue -0 -keyable true;
+		  		
+			// getting the positions of all the joints
+			for ($i = 1, $j=0; $i<($numJoints*3); $i=$i+3, $j++)
+				{
+				$buffer =`xform -query -worldSpace -translation $selectedJoints[$j]`; 
+				$position[$i] = $buffer.x; 
+				$position[$i+1] = $buffer.y; 
+				$position[$i+2] = $buffer.z; 
+				}
+				
+			// creating locators for the start and end joints of the IK chain
+			spaceLocator -p 0 0 0 -n $startLocator;
+			spaceLocator -p 0 0 0 -n $endLocator;
+							
+			// creating a distanceBetween node 
+			shadingNode -asUtility distanceBetween -name $distanceBetween;
+
+			// point constraining the start locator to the first joint
+			pointConstraint -offset 0 0 0 -weight 1 $selectedJoints[0] $startLocator;
+			
+			// moving the end locator to the last joint
+			$tempConstraint = `pointConstraint -offset 0 0 0 -weight 1 $selectedJoints[$numJoints-1] $endLocator`;
+			delete $tempConstraint;
+			// and parent constraining it to the controller
+			parentConstraint -mo -weight 1 $controller $endLocator;
+
+			// connecting the locators to the distanceBetween node
+			connectAttr -force ($startLocator+".translateX") ($distanceBetween+".point1X");
+			connectAttr -force ($startLocator+".translateY") ($distanceBetween+".point1Y");
+			connectAttr -force ($startLocator+".translateZ") ($distanceBetween+".point1Z");
+			connectAttr -force ($endLocator+".translateX") ($distanceBetween+".point2X");
+			connectAttr -force ($endLocator+".translateY") ($distanceBetween+".point2Y");
+			connectAttr -force ($endLocator+".translateZ") ($distanceBetween+".point2Z");
+			
+			// now I'm going to find the maximum  length of the joint chain by determining the length of each joint
+			string $measure = `shadingNode -asUtility distanceBetween`;
+			for ($i = 0; $i<(($numJoints-1)*3); $i=$i+3)
+			{
+				float $jointLength;
+				setAttr ($measure+".point1X") ($position[$i+1]);
+				setAttr ($measure+".point1Y") ($position[$i+2]);
+				setAttr ($measure+".point1Z") ($position[$i+3]);
+				setAttr ($measure+".point2X") ($position[$i+4]);
+				setAttr ($measure+".point2Y") ($position[$i+5]);
+				setAttr ($measure+".point2Z") ($position[$i+6]);
+				$jointLength = `getAttr ($measure+".distance")`;
+				// adding these lengths together to determine the maximum  length when straightened
+				$length = $length + $jointLength;
+			}
+			delete $measure;
+		
+			// creating a multiplyDivide node to normalize scaling
+			shadingNode -asUtility multiplyDivide -name $normalize ;
+			// feeding the current distance between our locators into input1X of the multiply divide node
+			connectAttr -f ($distanceBetween+".distance") ($normalize+".input1X");
+			
+			// set the operation to "divide"
+			setAttr ($normalize+".operation") 2;
+			// finally, I set the maximum  length attribute of the normalize node
+			setAttr ($normalize+".input2X") $length;
+			
+			// creating a conditional node so that the joints only scale if they stretch
+			shadingNode -asUtility condition -name $stretchCondition;
+
+			// modifying the values of the conditional node.  If the normalized scale (first term) is greater than or
+			// equal to one, use the new normalized scale.  Otherwise, use a scale of one.
+			connectAttr -f ($normalize+".outputX") ($stretchCondition+".firstTerm");
+			connectAttr -f ($normalize+".outputX") ($stretchCondition+".colorIfTrueR");
+			setAttr ($stretchCondition+".operation") 3;
+			setAttr ($stretchCondition+".secondTerm") 1;
+			
+			
+			
+			// creating stretch extend functionality
+			shadingNode -asUtility plusMinusAverage -name $stretchExtend;
+			setAttr ($stretchExtend+".operation") 1;
+			select $controller;
+			//addAttr -longName helperValue -defaultValue 1 -keyable false;
+			connectAttr -f ($stretchCondition+".outColorR") ($stretchExtend+".input1D[0]");
+			connectAttr -f ($controller+".stretchExtend") ($stretchExtend+".input1D[1]");
+			
+			
+			
+
+			// create color blend node to fade stretch on and off
+			shadingNode -asUtility blendColors -name $stretchBlend;
+			
+			
+			// add stretch extend to output of stretch condition
+		
+			
+			// connect conditional node from normalized scale to stretchBlend node
+			connectAttr -f ($stretchExtend+".output1D") ($stretchBlend+".color1R");
+			
+			// set color 2 value of stretch blend node to 1 - if stretch attribute is off, use a scale of 1.
+			setAttr ($stretchBlend+".color2R") 1;
+			
+			// connect the controller to the stretchBlend node (blends stretch effect on and off)
+			connectAttr -force ($controller+".stretch") ($stretchBlend+".blender");
+			
+			// feeding the scale value from the stretchBlend node into the joint scaleX attributes
+			for ($i = 0; $i<($numJoints-1); $i++)
+			{
+			connectAttr -force ($stretchBlend+".outputR") ($selectedJoints[$i]+".scaleX");
+			}
+			
+			
+			select -r $startLocator $endLocator;
+			CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+
+}
+
+global proc Override (string $object, string $layer, int $color)
+{
+	global string $preprefix;
+	// if the object hasn't been assigned to any display layer
+	// this first conditional statement just allows the user to set the visibility
+	// and display type.  Color is also set at the very end of this procedure
+	if ($layer != "defaultLayer")
+	{
+	  	connectAttr -f ($layer+".visibility") ($object+".overrideVisibility");
+		connectAttr -f ($layer+".displayType") ($object+".overrideDisplayType");
+	}
+			
+	if ($layer == ($preprefix +  "skeletonLayer"))
+	{
+		// this breaks the connections of the "skeletonLayer" layer so that override will work.
+		disconnectAttr ($layer+".drawInfo") ($object+".drawOverride");
+		disconnectAttr ($layer+".displayType") ($object+".overrideDisplayType");
+		setAttr ($object+".overrideDisplayType") 1;
+	}
+		
+	// this sets the color of the object, but only works if the object display type is NOT reference
+	// or template  Override enabled is required if the object is already associated with a dislpay layer
+	setAttr ($object+".overrideEnabled") 1;
+	setAttr ($object+".overrideColor") $color;
+}
+
+
+global proc QuitProc()
+{
+		// deletes the sample controller that I create as a scale indicator
+		// when the user closes the rigomatic window
+		//source rigomatic.mel;
+		if (`objExists "sampleController"`)
+		{
+			delete sampleController;
+		}
+		if (`window -exists rigomaticUI` ==1)
+			deleteUI rigomaticUI;
+}
+
+global proc ResetSettings()
+{
+	//source rigomatic;
+	tabLayout -edit -selectTab LEGS TABS;
+	checkBox -edit -value true stretchyArms;
+	checkBox -edit -value true stretchyLegs;
+	checkBox -edit -value true -enable true stretchyBack;
+	checkBox -edit -value false fkikLegs;
+	checkBox -edit -value true fkikArms;
+	checkBox -edit -value true distLegs;
+	checkBox -edit -value true distArms;
+	checkBox -edit -value false -enable true advancedTwist;
+	radioButton -edit -select fkTail;
+	radioButton -edit -enable false -select IKstyle; 
+	radioButton -edit -enable false FKstyle;
+	radioButton -edit -enable false -select yup;
+	radioButton -edit -enable false zup;
+	intSliderGrp -edit -value 2 -enable false numSpans;
+	radioButton -edit -select fiveFingers;
+	textField -edit -text "" -editable true appendageName;
+	textField -edit -text "" -editable true preprefix;
+	checkBox -edit -value false characterset;
+	checkBox -edit -value true shelfbutton;
+	radioButton -edit -select poleVectorKnee;
+	radioButton -edit -select ikBack;
+	radioButton -edit -enable false zup;
+	radioButton -edit -enable false yup;
+	
+	
+	
+	if (`objExists "sampleController"` != 1)
+	{
+	CreateSampleController;
+	attrFieldSliderGrp -edit
+				-label " control scale" 
+				-columnWidth4  85 70 128 1 
+				-columnAlign4 "left" "left" "left" "right" 
+				-columnAttach 1 "both" 10
+				-columnAttach 2 "right" 10
+				-min .2 -max 8 
+				-at "sampleController.controlSize" 
+				controlSize;
+	}
+	
+	setAttr sampleController.controlSize 1;
+	
+}
+
+
+
+global proc rigomatic ()
+{	
+	global int $warningDone = 0;
+	$warningDone = 0;
+	string $joints[] = `ls -sl -type joint`;
+	if (`window -exists rigomaticUI` ==1)
+	deleteUI rigomaticUI;
+	
+	window 
+	-title "Rig-o-matic version 5.5"
+	-menuBar true
+	-sizeable false
+	-topLeftCorner 185 55
+	rigomaticUI;
+	
+	menu -label "Edit";
+	menuItem -label "Reset Settings" -command ResetSettings;
+	menu -label "About";
+	menuItem -label "Online help..." -command HelpPage;
+	
+	columnLayout
+	-adjustableColumn true
+					-columnAlign "center"
+					mainColumnLayout;
+					
+	// LEG CONTROLS
+	string $tab = `tabLayout -selectCommand "UIUpdate" TABS`;
+	string $formLegs = `formLayout 
+	-numberOfDivisions 100 -height 70 LEGS`;
+	
+	checkBox -label "stretchy"  
+			-value true stretchyLegs;
+	checkBox -label "distributed rotate"  
+			-value true distLegs;
+	checkBox 
+			-label "FK/IK switching" 
+			fkikLegs;
+	radioCollection kneeOptions;
+	radioButton 
+			-label "no flip knee" noFlipKnee;
+	radioButton 
+			-label "pole vector knee" -select poleVectorKnee ;
+	
+	// LEG CONTROL (edit)
+	formLayout -edit
+	-attachForm		stretchyLegs    "top"    	8
+	-attachForm		stretchyLegs    "left"  	5
+	-attachNone		stretchyLegs    "bottom" 
+	-attachNone		stretchyLegs    "right"
+	
+	-attachControl	distLegs     	"top" 		0 	stretchyLegs 
+	-attachForm		distLegs    	"left"   	5
+	-attachNone		distLegs     	"bottom"         
+	-attachNone		distLegs     	"right"
+	
+	-attachControl	fkikLegs     	"top"  		0 	distLegs 
+	-attachForm		fkikLegs     	"left"   	5
+	-attachNone		fkikLegs    	"bottom" 
+	-attachNone		fkikLegs     	"right"
+
+	-attachForm		noFlipKnee  	"top" 		8  
+	-attachForm		noFlipKnee  	"left"  	140 
+	-attachNone		noFlipKnee  	"bottom"
+	-attachForm		noFlipKnee  	"right"  	5
+	
+	-attachControl	poleVectorKnee  "top" 		0  	noFlipKnee
+	-attachForm		poleVectorKnee  "left"  	140 
+	-attachNone		poleVectorKnee  "bottom"
+	-attachForm		poleVectorKnee  "right"  	5
+	$formLegs;
+	
+	// ARM CONTROLS	
+	setParent $tab;
+	string $formArms = `formLayout -numberOfDivisions 100 -height 70 ARMS`;
+	checkBox 
+		-label "stretchy" 
+		-value true stretchyArms;
+	
+	checkBox 
+		-label "distributed rotate"  
+		-value true distArms;
+		
+	checkBox 
+		-label "FK/IK switching"  
+		-value true 
+		fkikArms;
+	radioCollection fingers;
+	radioButton 
+		-label "no fingers" noFingers;
+	radioButton 
+		-label "four fingers" 
+		fourFingers;
+	radioButton 
+		-label "five fingers" 
+		-select 
+		fiveFingers;
+	
+	// ARMS CONTROLS (edit)
+	formLayout -edit
+	-attachForm		stretchyArms    "top"    	8
+	-attachForm		stretchyArms   	"left"  	5
+	-attachNone		stretchyArms    "bottom" 
+	-attachNone		stretchyArms    "right"
+	
+	-attachControl	distArms     	"top" 		0 	stretchyArms
+	-attachForm		distArms    	"left"   	5
+	-attachNone		distArms     	"bottom"         
+	-attachNone		distArms     	"right"
+	
+	-attachControl	fkikArms     	"top" 		0 	distArms 
+	-attachForm		fkikArms   		"left"   	5
+	-attachNone		fkikArms     	"bottom"         
+	-attachNone		fkikArms     	"right"
+	
+	-attachForm		noFingers		"top"  		8
+	-attachForm		noFingers  		"left" 		140
+	-attachNone		noFingers  		"bottom"
+	-attachNone		noFingers  		"right"  
+		
+	-attachControl	fourFingers     "top"  		0 	noFingers
+	-attachForm		fourFingers     "left" 		140 
+	-attachNone		fourFingers    	"bottom" 
+	-attachNone		fourFingers     "right"
+	
+	-attachControl	fiveFingers		"top"  		0  	fourFingers
+	-attachForm		fiveFingers  	"left" 		140  	
+	-attachNone		fiveFingers  	"bottom"
+	-attachNone		fiveFingers  	"right" 
+	$formArms;
+				
+	// BACK CONTROLS
+	setParent $tab;
+	string $formBack = `formLayout -numberOfDivisions 100  -height 80 BACK`;
+	radioCollection backStyle;
+	radioButton -label "IKBack" 
+			-select 
+			-onCommand "checkBox -edit -enable true stretchyBack; checkBox -edit -enable true advancedTwist;" 
+			ikBack;
+	radioButton -label "FKBack" 
+			-onCommand "checkBox -edit -enable false stretchyBack; checkBox -edit -value false -enable false advancedTwist; radioButton -edit -enable false zup; radioButton -edit -enable false yup;" 
+			fkBack;
+	
+	checkBox -label "stretchy" -value true stretchyBack;
+	checkBox 	
+			-label "advanced twist" 
+			-value false 
+			-onCommand "radioButton -edit -enable true zup; radioButton -edit -enable true yup;" 
+			-offCommand "radioButton -edit -enable false zup; radioButton -edit -enable false yup;"
+			advancedTwist;
+	radioCollection backOrientation;
+	radioButton 
+		-label "Y axis forward" 
+		-enable false 
+		-select yup;
+	radioButton 
+		-label "Z axis forward" 
+		-enable false zup;
+		
+	// BACK CONTROLS (edit)
+	formLayout -edit
+	-attachForm		ikBack		    "top"    	8
+	-attachForm		ikBack		   	"left"  	5
+	-attachNone		ikBack		    "bottom" 
+	-attachNone		ikBack			"right"
+	
+	-attachControl	fkBack	     	"top" 		0 	ikBack
+	-attachForm		fkBack    		"left"   	5
+	-attachNone		fkBack  	   	"bottom"         
+	-attachNone		fkBack	     	"right"
+	
+	-attachForm		stretchyBack	"top"  		8
+	-attachForm		stretchyBack    "left"   	140
+	-attachNone		stretchyBack    "bottom"         
+	-attachNone		stretchyBack    "right"
+	
+	-attachControl	advancedTwist	"top"  		0	stretchyBack
+	-attachForm		advancedTwist  	"left" 		140
+	-attachNone		advancedTwist  	"bottom"
+	-attachNone		advancedTwist  	"right"  
+		
+	-attachControl	yup			    "top"  		0 	advancedTwist
+	-attachForm		yup    			"left" 		140  
+	-attachNone		yup    			"bottom" 
+	-attachNone		yup     		"right"
+	
+	-attachControl	zup				"top"  		0  	yup
+	-attachForm		zup  			"left" 		140 	
+	-attachNone		zup  			"bottom"	
+	-attachNone		zup  			"right" 
+	$formBack;
+					
+	// APPENDAGE CONTROLS
+	setParent $tab;
+	string $formAppendage = `formLayout -numberOfDivisions 100 -height 110 APPENDAGE`;
+	
+	radioCollection tailOptions;
+	radioButton -label "FK controls" 
+				-onCommand "radioButton -edit -enable false IKstyle; radioButton -edit -enable false FKstyle; intSliderGrp -edit -enable false numSpans;"
+				-select fkTail;
+	radioButton -label "IK spline controls" 
+				-onCommand "radioButton -edit -enable true IKstyle; radioButton -edit -enable true FKstyle; intSliderGrp -edit -enable true numSpans;" 
+				splineTail;
+	radioButton -label "auto overlap" 
+				-onCommand "radioButton -edit -enable false IKstyle; radioButton -edit -enable false FKstyle; intSliderGrp -edit -enable false numSpans;" 
+				overlapTail;
+	radioCollection ikTailOptions;
+	radioButton 
+				-label "IK style" 
+				-enable false 
+				-select IKstyle;
+	radioButton 
+				-label "FK style" 
+				-enable false 
+				FKstyle;
+	text 		-label "number of spans" 
+				numSpansText;
+	intSliderGrp  		
+				-columnWidth 1 40
+				-ad2 2
+		        -columnWidth 2 80
+		        //-label "not labeled"
+		        -field true
+		        -value 2
+		        -min 1 -max 20
+				-fieldMinValue 2 
+				-fieldMaxValue 10
+				numSpans;
+	
+	text 
+	-label "appendage name" 
+	appendageLabel;
+	
+	textField 
+	-visible true 
+	-editable true
+	-width 120
+	appendageName;
+	
+	// APPENDAGE CONTROLS (edit)
+	formLayout -edit
+	-attachForm		fkTail		    "top"    	8
+	-attachForm		fkTail		   	"left"  	5
+	-attachNone		fkTail		    "bottom" 
+	-attachNone		fkTail			"right"
+	
+	-attachControl	splineTail	    "top" 		0 	fkTail
+	-attachForm		splineTail    	"left"   	5
+	-attachNone		splineTail  	"bottom"         
+	-attachNone		splineTail	    "right"
+	
+	-attachControl	overlapTail    	"top" 		0 	splineTail 
+	-attachForm		overlapTail    	"left"   	5
+	-attachNone		overlapTail    	"bottom"         
+	-attachNone		overlapTail    	"right"
+	
+	-attachForm		IKstyle			"top"  		8
+	-attachForm		IKstyle		  	"left" 		140 	
+	-attachNone		IKstyle		  	"bottom"
+	-attachNone		IKstyle		  	"right"  
+		
+	-attachControl	FKstyle			"top"  		0 	IKstyle
+	-attachForm		FKstyle    		"left" 		140  
+	-attachNone		FKstyle    		"bottom" 
+	-attachNone		FKstyle     	"right"
+	
+	-attachControl	numSpansText	"top"  		6  	overlapTail
+	-attachForm		numSpansText 	"left" 		5  	
+	-attachNone		numSpansText  	"bottom"
+	-attachNone		numSpansText  	"right" 
+	
+	-attachControl	numSpans		"top"  		0  	overlapTail
+	-attachForm		numSpans  		"left" 		105	
+	-attachNone		numSpans  		"bottom"
+	-attachForm		numSpans  		"right" 	6
+	
+	-attachControl	appendageLabel	"top"  		0  	numSpans
+	-attachForm		appendageLabel  "left" 		5	
+	-attachNone		appendageLabel  "bottom"
+	-attachNone		appendageLabel  "right" 
+	
+	-attachControl	appendageName	"top"  		0  	numSpans
+	-attachForm		appendageName  	"left" 		105 	
+	-attachNone		appendageName  	"bottom"	
+	-attachForm		appendageName  	"right" 	6
+	$formAppendage;
+	
+	// EYE CONTROLS
+	setParent $tab;
+	string $formEye = `formLayout -numberOfDivisions 100 -height 10 EYES`;
+	
+	// creating a sample scale object
+	if (`objExists "sampleController"` == 1)
+		delete sampleController;
+	CreateSampleController;
+	select $joints;
+
+	setParent mainColumnLayout;
+	// creating COMMON FORM
+	string $formCommon = `formLayout -numberOfDivisions 100 common`;
+	text 
+			-label " character name" nameLabel;
+	textField 
+			-visible true 
+			-width 134
+			-editable true preprefix;
+	checkBox 
+			-label "character set" 
+			-value false characterset;
+	checkBox 
+			-label "shelf button" 
+			-value true shelfbutton;
+	separator 
+			-width 300  sep1;
+	
+	attrFieldSliderGrp 		
+				-columnWidth 1 60
+		        -columnWidth 2 50
+		        -columnWidth 3 155
+		        -columnAlign3 left right right
+		        -at "sampleController.controlSize" 
+		        -label "control size"
+		        -min .2 
+		        -max 8
+				controlSize;
+	separator 
+			-width 300 sep2;
+	button 
+			-label "RIG LEGS"
+			-width 238
+			-command "RigomaticWarning" 
+			goButton;
+	
+	// COMMON LAYOUT elements - edits
+	formLayout -edit
+	-attachForm				nameLabel  		"top" 		5
+	-attachNone				nameLabel  		"bottom"
+	-attachForm				nameLabel  		"left" 		6
+	-attachNone				nameLabel  		"right"
+	
+	-attachOppositeControl	preprefix  		"top" 		0 	nameLabel
+	-attachNone				preprefix  		"bottom"
+	-attachForm				preprefix  		"left" 		118 
+	-attachForm				preprefix  		"right"		8
+	
+	-attachControl			characterset  	"top" 		4  	preprefix
+	-attachNone				characterset  	"bottom"
+	-attachForm 			characterset  	"left" 		8
+	-attachNone				characterset  	"right"
+	
+	-attachOppositeControl	shelfbutton    	"top"  		0 	characterset 
+	-attachNone				shelfbutton  	"bottom"
+	-attachForm	 			shelfbutton  	"left" 		144
+	-attachNone				shelfbutton  	"right"
+	
+	-attachControl			sep1    		"top"  		5 	shelfbutton
+	-attachNone				sep1     		"bottom"
+	-attachForm				sep1     		"left" 		8 
+	-attachForm				sep1     		"right"		8
+	
+	-attachControl			controlSize    "top"  		6 	sep1
+	-attachNone				controlSize    "bottom"
+	-attachForm				controlSize    "left" 		8
+	-attachForm				controlSize    "right"  	8
+	
+	-attachControl			sep2    		"top"  		8 	controlSize
+	-attachNone				sep2     		"bottom"
+	-attachForm				sep2     		"left" 		8
+	-attachForm				sep2     		"right"  	8
+	
+	-attachControl			goButton    	"top" 		8 	sep2
+	-attachForm				goButton     	"bottom"	8
+	-attachForm				goButton     	"left" 		20
+	-attachForm				goButton     	"right"		20
+	$formCommon;
+	
+	// editing window dimensions
+	window 
+	-edit
+	-width 284
+	-height 315
+	rigomaticUI;
+	
+				
+	// this is a super fancy little bit of code - runs a script when a specified UI element (window, for example) is deleted.
+	scriptJob -uiDeleted rigomaticUI QuitProc;
+				
+			
+	showWindow rigomaticUI;
+	}
+			
+
+// RIGOMATIC EXECUTION global procedure
+global proc RigomaticGo()
+	{
+		global int $armsDone = 0;
+		global int $armsDistDone =0;
+		global int $armsFKDone = 0;
+		global int $armsStretchyDone = 0;
+		global int $handSetupDone = 0;
+		global int $handSetupDone = 0;
+		global int $legsDone = 0;
+		global int $legsStretchyDone = 0;
+		global int $legsFKDone = 0;
+		global int $legsDistDone = 0;
+		global string $preprefix = "";
+		
+		float $controlSize;
+		
+		textField -edit -editable false preprefix;
+		
+		if (`objExists "sampleController"` == 1)
+		$controlSize = `getAttr sampleController.controlSize`;
+		else 
+		$controlSize = 1;
+
+		int $stretchyLegs = `checkBox -query -value stretchyLegs`;
+		int $stretchyArms = `checkBox -query -value stretchyArms`;
+		int $stretchyBack = `checkBox -query -value stretchyBack`;
+		
+		int $advancedTwist = `checkBox -query -value advancedTwist`;
+		
+		string $backOrientation = `radioCollection -query -select  backOrientation`;
+		string $backStyle = `radioCollection -query -select  backStyle`;
+				
+		int $fkikArms = `checkBox -query -value fkikArms`;
+		int $fkikLegs = `checkBox -query -value fkikLegs`;
+				
+		int $distLegs = `checkBox -query -value distLegs`;
+		int $distArms = `checkBox -query -value distArms`;
+		
+		string $tailOptions = `radioCollection -query -select tailOptions`;
+		string $splineStyle = `radioCollection -query -select ikTailOptions`;
+		
+		int $numSpans = `intSliderGrp -query -value numSpans`;
+		
+		string $appendageName = `textField -query -text appendageName`;
+		
+		string $knee = `radioCollection -query -select kneeOptions`;
+		string $numFingers = `radioCollection -query -select fingers`;
+		string $bodyPart = `tabLayout -query -selectTab TABS`;
+		
+		int $characterset= `checkBox -query -value characterset`;
+		int $shelfbutton = `checkBox -query -value shelfbutton`;
+		
+		print "- - - - - rigging - - - - - \n";
+		print "- bodyPart is: ";
+		print ($bodyPart+"\n");
+		print "- naming prefix is: ";
+		print ($preprefix+"\n");
+
+		// one cool way of running a section of a script is just a simple if statement to see if something has a value of 1 - otherwise, ignore
+		// if ($armSetup)
+		
+		if ($bodyPart == "LEGS")
+		LegSetup $knee $stretchyLegs $fkikLegs $distLegs $controlSize $shelfbutton $characterset;
+		if ($bodyPart == "ARMS")
+		ArmSetup $stretchyArms $numFingers $fkikArms $distArms $controlSize $shelfbutton $characterset;
+		if ($bodyPart == "BACK")
+		BackSetup $stretchyBack $advancedTwist $backStyle $backOrientation $controlSize $shelfbutton $characterset;
+		if ($bodyPart == "APPENDAGE")
+		AppendageSetup $controlSize $tailOptions $splineStyle $numSpans $appendageName $shelfbutton $characterset;
+		if ($bodyPart == "EYES")
+		EyeSetup $controlSize $shelfbutton $characterset;
+		
+		
+}
+
+// NO UNDO WARNING
+global proc RigomaticWarning()
+	{
+		global int $warningDone;
+
+		//string $yes = "textField -edit -editable false preprefix;$warningDone = 1;RigomaticGo;";
+		if ($warningDone == 1)
+		{
+			RigomaticGo;
+		}
+		else
+		{
+		$warningDone = 1;
+		$result = 
+		`confirmDialog -title "Confirm" -ma "center" -message "These commands cannot be undone.\n Do you want to proceed?"
+		-button "Yes" -button "Cancel" -defaultButton "Yes"
+		-cancelButton "Cancel" -dismissString "Cancel"`;
+		
+		 if ($result == "Yes") 
+			 {
+				textField -edit -editable false preprefix;
+				print "- - - - Proceeding with Rigging - - - - ";
+				RigomaticGo;
+			}
+		 else if ($result == "Cancel") 
+			 {
+			 error "Operation was cancelled.\n";
+			 }
+		 }
+	 }
+
+
+	
+global proc SplineTail (float $controlSize, string $joints[], int $spans, string $splineStyle, string $appendageName, int $shelfbutton, int $characterset)
+{
+	global string $preprefix;
+	int $cvs = ($spans+3);
+	$size = size($joints);
+	$counter = 1;
+	
+	$ikHandle = `ikHandle 
+		-n $appendageName 
+		-sj $joints[0] 
+		-ee $joints[$size-1] 
+		-numSpans $spans
+		-sol ikSplineSolver
+		-parentCurve false`;
+	$curve = $ikHandle[2];
+
+	
+	// first cluster
+	select -r ($curve+".cv[0:1]");
+	$firstCluster = `cluster -name ($appendageName+"ClusterStart")`;
+	select $joints[0];
+	$parent = `listRelatives -parent`;
+	if (`size($parent)` == 1)
+	parentConstraint -mo $parent $firstCluster[1];
+	
+	if (`objExists ($preprefix + "superMover")` == 1)
+	scaleConstraint ($preprefix + "superMover") $firstCluster[1];
+	
+	if (`size($parent)` == 0)
+	{
+		$firstControl = `curve -d 1 -p -1.24922e-008 0 0.285788 -p -0.285788 0 -2.49844e-008 -p 0 0.33 0 -p -1.24922e-008 0 0.285788 -p 0.285788 0 0 -p 0 0.33 0 -p 3.74768e-008 0 -0.285788 -p 0.285788 0 0 -p 0 -0.33 0 -p -1.24922e-008 0 0.285788 -p -0.285788 0 -2.49844e-008 -p 0 -0.33 0 -p 3.74768e-008 0 -0.285788 -p -0.285788 0 -2.49844e-008 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -name ($appendageName+"ControlBase")`;
+		scale ($controlSize)  ($controlSize) ($controlSize);
+
+		$tempConstraint = `pointConstraint $joints[0] $firstControl`;
+		delete $tempConstraint;
+		parentConstraint -mo $firstControl $firstCluster[1];
+		
+		
+		if ($shelfbutton == 1)
+		{
+			$set[0] = ($appendageName+"ControlBase");
+			makeShelfButton($set, $preprefix);
+		}
+		if ($characterset == 1)
+		{
+			$set[0] = ($appendageName+"ControlBase");
+			makeCharacterSet($set, $preprefix);
+		}
+		
+		
+		select ($appendageName+"ControlBase");
+		CleanUp `ls -sl` ($preprefix +  "superMover") ($preprefix +  "controlLayer");
+
+	}
+	
+	select $firstCluster $ikHandle[0] $ikHandle[2];
+	CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+	
+	for ($i = 2; $i<($cvs-2); $i++)
+		{		
+		select -r ($curve+".cv["+$i+"]");
+		$cluster = `cluster -name ($appendageName+"Cluster"+($i-1))`;
+		$control = `curve -d 1 -p -1.24922e-008 0 0.285788 -p -0.285788 0 -2.49844e-008 -p 0 0.33 0 -p -1.24922e-008 0 0.285788 -p 0.285788 0 0 -p 0 0.33 0 -p 3.74768e-008 0 -0.285788 -p 0.285788 0 0 -p 0 -0.33 0 -p -1.24922e-008 0 0.285788 -p -0.285788 0 -2.49844e-008 -p 0 -0.33 0 -p 3.74768e-008 0 -0.285788 -p -0.285788 0 -2.49844e-008 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -name ($appendageName+"Control"+($i-1))`;
+		scale ($controlSize)  ($controlSize) ($controlSize);
+		$tempConstraint = `pointConstraint $cluster[1] $control`;
+		delete $tempConstraint;
+		parentConstraint $control $cluster[1];
+		
+		if ($shelfbutton == 1)
+		{
+			$set[0] = ($appendageName+"Control"+($i-1));
+			makeShelfButton($set, $preprefix);
+		}
+		if ($characterset == 1)
+		{
+			$set[0] = ($appendageName+"Control"+($i-1));
+			makeCharacterSet($set, $preprefix);
+		}
+		
+		select $cluster[1];
+		CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+	
+		if ($splineStyle == "FKstyle")
+			{
+			if (`objExists ($appendageName+"Control"+($i-2)) `== 1)
+			parent ($appendageName+"Control"+($i-1)) ($appendageName+"Control"+($i-2));
+			}
+			else
+			{
+			select ($appendageName+"Control"+($i-1));
+			CleanUp `ls -sl` ($preprefix +  "superMover") ($preprefix +  "controlLayer");
+			}
+		}
+	
+	// last cluster
+	select -r ($curve+".cv["+($cvs-2)+":"+($cvs-1)+"]");
+	print ($curve+".cv["+($cvs-1)+":"+($cvs-2)+"]");
+	$lastCluster = `cluster -name ($appendageName+"ClusterEnd")`;
+	
+	$lastControl = `curve -d 1 -p -1.24922e-008 0 0.285788 -p -0.285788 0 -2.49844e-008 -p 0 0.33 0 -p -1.24922e-008 0 0.285788 -p 0.285788 0 0 -p 0 0.33 0 -p 3.74768e-008 0 -0.285788 -p 0.285788 0 0 -p 0 -0.33 0 -p -1.24922e-008 0 0.285788 -p -0.285788 0 -2.49844e-008 -p 0 -0.33 0 -p 3.74768e-008 0 -0.285788 -p -0.285788 0 -2.49844e-008 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -name ($appendageName+"ControlTip")`;
+	scale ($controlSize)  ($controlSize) ($controlSize);
+	$tempConstraint = `pointConstraint $joints[($size-1)] $lastControl`;
+	delete $tempConstraint;
+	parentConstraint -mo $lastControl $lastCluster[1];
+	
+		if ($shelfbutton == 1)
+		{
+			$set[0] =  ($appendageName+"ControlTip");
+			makeShelfButton($set, $preprefix);
+		}
+		if ($characterset == 1)
+		{
+			$set[0] =  ($appendageName+"ControlTip");
+			makeCharacterSet($set, $preprefix);
+		}
+		
+	
+	select $lastCluster[1];
+	CleanUp `ls -sl` ($preprefix +  "hidden") ($preprefix +  "noTouch");
+	
+	if ($splineStyle == "FKstyle")
+	{
+	//parent ($name+"2") ($name+"Base");
+	parent ($appendageName+"ControlTip") ($appendageName+"Control"+($cvs-4));
+	select ($appendageName+"Control1");
+	CleanUp `ls -sl` ($preprefix +  "superMover") ($preprefix +  "controlLayer");
+	}
+	else
+	{
+	select ($appendageName+"ControlTip");
+	CleanUp `ls -sl` ($preprefix +  "superMover") ($preprefix +  "controlLayer");
+	}
+	
+	select $joints[0];
+	CleanUp `ls -sl`none ($preprefix +  "skeletonLayer");
+	
+	select -cl;
+	
+}
+
+
+global proc SquashStretch (string $control, string $joint)
+{
+	// naming
+	global string $preprefix;
+	$squashMultiplyName = ($preprefix + "SquashStretchMultiply");
+		
+	// creates squash and stretch behavior for a specified joint
+	$squashMult = `shadingNode -asUtility multiplyDivide -n $squashMultiplyName`;
+	
+	// set operation to divide
+	setAttr ($squashMult+".operation") 2;
+	
+	// set numerators to 1
+	setAttr ($squashMult+".input1X") 1;
+	
+	// calculate inverse scale
+	connectAttr -force ($control+".scaleX") ($squashMult+".input2X");
+	
+	// connecting squash and stretch to joints
+	connectAttr -force ($control+".scaleX") ($joint+".scaleX");
+	connectAttr -force ($squashMult+".outputX") ($joint+".scaleZ");
+	connectAttr -force ($squashMult+".outputX") ($joint+".scaleY");
+}
+
+
+global proc UIUpdate()
+{
+	string $bodyPart = `tabLayout -query -selectTab TABS`;
+	button -e -label ("RIG "+$bodyPart) goButton;
+				if ($bodyPart == "LEGS")
+				{
+	  			button -edit -label "RIG LEGS" goButton;
+	  			//window -edit -height 275 rigomaticUI;
+  				}
+				if ($bodyPart == "ARMS")
+				{
+	  			button -edit -label "RIG ARMS" goButton;
+	  			//window -edit -height 275 rigomaticUI;
+  				}
+				if ($bodyPart == "BACK")
+				{
+	  			button -edit -label "RIG BACK" goButton;
+	  			//window -edit -height 283 rigomaticUI;
+  				}
+				if ($bodyPart == "APPENDAGE")
+				{
+	  			button -edit -label "RIG APPENDAGE" goButton;
+	  			//window -edit -height 313 rigomaticUI;
+  				}
+				if ($bodyPart == "EYES")
+				{
+	  			button -edit -label "RIG EYES" goButton;
+	  			//window -edit -height 213 rigomaticUI;
+  				}
+}
+
+
+global proc makeShelfButton (string $selection[], string $shelfLabel)
+{
+        global string $gShelfTopLevel;
+
+        string $shelfTab = `tabLayout -q -selectTab $gShelfTopLevel`;
+        string $command = "";
+        string $oldCommand;
+
+
+        {
+                // put all the selection commands in the $command string
+                for ($i = 0; $i < size($selection); $i++)
+                        $command += ("select -tgl " + $selection[$i] + ";\n");
+
+                   if (`shelfButton -exists $shelfLabel` != 1)
+                    {
+		                shelfButton 
+		                -parent $shelfTab 
+		                -label $shelfLabel
+		                -style "iconAndTextCentered" 
+		                -command ("select -cl;\n"+$command)
+		                $shelfLabel;
+	                }
+	                
+	                else
+	                {
+	                $oldCommand = `shelfButton -query -command $shelfLabel`;
+	                $oldCommand = $oldCommand + $command;
+	                shelfButton -edit -command $oldCommand $shelfLabel;
+                	}
+        }
+}
+
+
+global proc makeCharacterSet(string $selection[], string $setName)
+{
+        string $oldMembers[];
+
+if (`objExists $setName`)
+{
+//print ("adding new members to " + $setName);
+character -add $setName $selection;
+}
+
+else
+{
+character -name $setName $selection;
+}
+}
+
+
+
+
+
+
+

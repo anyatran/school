@@ -1,0 +1,51 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRpickWalkSetup.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jan 05, 2005
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// establish the pickwalking connections
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRpickWalkSetup ( string $objList )
+{
+	string $objArray[];
+
+	tokenize $objList "," $objArray;
+
+	for ($item in $objArray)
+	{
+		icCRaddMsgAttr ($item, 0, 0, "charRigPickWalkLeft", "");
+		icCRaddMsgAttr ($item, 0, 0, "charRigPickWalkRight", "");
+		icCRaddMsgAttr ($item, 0, 0, "charRigPickWalkUp", "");
+		icCRaddMsgAttr ($item, 0, 0, "charRigPickWalkDown", "");
+	}
+
+	//if it's just one control (the hand or toes) there are no
+	//sibling controls to connect to
+	if (size($objArray) > 1)
+	{
+		for ($i = 0; $i < (size($objArray) - 1); $i ++)
+		{
+			connectAttr -f
+				($objArray[$i] + ".charRigPickWalkDown")
+				($objArray[$i + 1] + ".charRigPickWalkUp");
+		}
+	}
+}

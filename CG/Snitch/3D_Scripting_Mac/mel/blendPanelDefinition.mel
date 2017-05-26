@@ -1,0 +1,255 @@
+global proc blendPanelDefinition ()
+{
+	// define the scripted panel type for the blender
+	// panel
+	scriptedPanelType
+		-createCallback blenderCreateCallback
+		-initCallback blenderInitCallback
+		-addCallback blenderAddCallback
+		-removeCallback blenderRemoveCallback
+		-deleteCallback blenderDeleteCallback
+		-saveStateCallback blenderSaveStateCallback
+		-unique true
+		blenderScriptedPanelType;
+}
+
+global proc blenderCreateCallback( string $panelName )
+{
+	// panel creation procedure
+	// just declare global variables
+	global string $blndPanbShape;
+	global string $blndPanCon[];
+	global float $blndPanWts[];
+	global string $blndPanName;
+}
+
+
+global proc blenderInitCallback ( string $panelName )
+{
+	// panel initialization procedure
+	// declaration of global variables
+	global string $blndPanbShape;
+	global string $blndPanCon[];
+	global float $blndPanWts[];
+	global string $blndPanName;
+
+	// reset global variable values
+	$blndPanbShape = "";
+	clear $blndPanCon;
+	clear $blndPanWts;
+
+	// update the panel
+	blenderUpdatePanel;
+}
+
+
+global proc blenderAddCallback ( string $panelName )
+{
+	// declaration of global variables
+	global string $blndPanbShape;
+	global string $blndPanCon[];
+	global float $blndPanWts[];
+	global string $blndPanName;
+
+	string $blenderForm = `formLayout
+								-numberOfDivisions 100
+								blndPanFrm`;
+
+	string $scrollLay = `scrollLayout
+							-horizontalScrollBarThickness 2
+							-verticalScrollBarThickness 5
+							-childResizable true
+							blndPanScrl`;
+						
+	string $blenderColumn = `columnLayout
+								-columnAttach "both" 0
+								-adjustableColumn true
+								blndPanCol`;
+
+	string $panLayout =  `setParent -q`;
+	$blndPanName = $panLayout;
+
+	for ( $i = 0; $i < `size $blndPanWts`; $i++ )
+		{
+			rowLayout
+				-numberOfColumns 2
+				-columnWidth2 30 50
+				-adjustableColumn 1
+				-columnAlign 1 "center"
+				-columnAlign 2 "center"
+				-columnAttach 1 "both" 0
+				-columnAttach 2 "both" 0
+				( "blndPanRow_" + $i )
+				;
+
+			attrFieldSliderGrp
+						-min 0.0
+						-max 1.0
+						-at ( $blndPanbShape + "." + $blndPanCon[$i] )
+						-label $blndPanCon[$i]
+						-adjustableColumn 3
+						-columnAlign 1 right
+						-columnWidth 1 90
+						-columnWidth 4 1
+						;
+
+			button
+				-label "Key"
+				-align center
+				-command ( "setKeyframe " + $blndPanbShape + "." + $blndPanCon[$i] );
+			
+			setParent..;
+		}
+	setParent..;
+	setParent..;
+
+	string $getButt = `button
+							-label "Update Panel"
+							-command "blenderPanelGetVars;blenderUpdatePanel;"`;
+
+	formLayout
+		-edit
+		-attachForm $scrollLay "top" 2
+		-attachForm $scrollLay left 2
+		-attachControl $scrollLay "bottom" 2 $getButt
+		-attachForm $scrollLay right 2
+		-attachForm $getButt left 2
+		-attachForm $getButt "bottom" 2
+		-attachForm $getButt right 2
+		$blenderForm;
+}
+
+global proc int blenderPanelGetVars ()
+{
+	// declaration of global variables
+	global string $blndPanbShape;
+	global string $blndPanCon[];
+	global float $blndPanWts[];
+
+	// Find All the info on the blend node
+	// on current object
+	string $sel[] = `ls -selection`;
+	string $hist[], $attribs[], $blendShapeNode;
+
+	if ( `size $sel` == 1 )
+		{
+			$hist = `listHistory -il 2`;
+		
+			for ( $each in $hist )
+				if ( `nodeType $each` == "blendShape" )
+					$blendShapeNode = $each;
+
+			string $contrib[] = `listAttr -multi ( $blendShapeNode + ".weight" )`;
+
+			float $conWts[] = `getAttr ( $blendShapeNode + ".weight" )`;
+
+			// assign found values to variables
+			$blndPanbShape = $blendShapeNode;
+			$blndPanCon = $contrib;
+			$blndPanWts = $conWts;
+		}
+	else
+		warning "Please select a single blendshape object";
+
+	if ( `size $blendShapeNode` == 0 )
+		{
+			warning "Selected object is not a blendshape";
+			return 0;
+		}
+	else
+		return 1;
+}
+
+global proc blenderUpdatePanel ()
+{
+	// declaration of global variables
+	global string $blndPanbShape;
+	global string $blndPanCon[];
+	global float $blndPanWts[];
+	global string $blndPanName;
+
+	int $numRowLayouts;
+ 
+	if ( `columnLayout -exists $blndPanName` )
+		{ 
+			$numRowLayouts = `columnLayout
+									-query
+									-numberOfChildren
+									$blndPanName`;
+			if ( $numRowLayouts > 0 )
+				for ( $i = 0; $i < $numRowLayouts; $i++ )
+					if ( `rowLayout -exists ( "blndPanRow_" + $i )` )
+						deleteUI ( "blndPanRow_" + $i );
+		}
+	// Explicitly state the path to place the rowLayouts in
+
+	if ( `columnLayout -exists $blndPanName` )
+		setParent $blndPanName;
+
+	print ( $blndPanName + "\n" );
+
+
+	for ( $i = 0; $i < `size $blndPanWts`; $i++ )
+		{
+			rowLayout
+				-numberOfColumns 2
+				-columnWidth2 30 50
+				-adjustableColumn 1
+				-columnAlign 1 "center"
+				-columnAlign 2 "center"
+				-columnAttach 1 "both" 0
+				-columnAttach 2 "both" 0
+				( "blndPanRow_" + $i )
+				;
+
+			attrFieldSliderGrp
+						-min 0.0
+						-max 1.0
+						-at ( $blndPanbShape + "." + $blndPanCon[$i] )
+						-label $blndPanCon[$i]
+						-adjustableColumn 3
+						-columnAlign 1 right
+						-columnWidth 1 90
+						-columnWidth 4 1
+						;
+
+			button
+				-label "Key"
+				-align center
+				-command ( "setKeyframe " + $blndPanbShape + "." + $blndPanCon[$i] );
+			
+			setParent..;
+		}
+}
+
+
+global proc blenderRemoveCallback ( string $panelName )
+{
+	// panel initialization procedure
+	// declaration of global variables
+	global string $blndPanbShape;
+	global string $blndPanCon[];
+	global float $blndPanWts[];
+	global string $blndPanName;
+}
+
+
+global proc blenderDeleteCallback ( string $panelName )
+{
+	// panel delete procedure
+	// declaration of global variables
+	global string $blndPanbShape;
+	global string $blndPanCon[];
+	global float $blndPanWts[];
+	global string $blndPanName;
+}
+
+global proc string blenderSaveStateCallback ( string $panelName )
+{
+	// panel save state procedure
+	// declaration of global variables
+	global string $blndPanbShape;
+	global string $blndPanCon[];
+	global float $blndPanWts[];
+	return "";
+}

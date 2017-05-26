@@ -1,0 +1,142 @@
+.globl main
+.data  
+    bracket: .asciiz "[ "
+    initarray: .asciiz "Initial array is:\n"
+    bracket_end: " ]\n"
+    space: ", "
+    
+    data:
+    .align 5
+    .asciiz  "Joe",
+    .align 5
+    .asciiz  "Jenny",
+    .align 5
+    .asciiz  "Jill", 
+    .align 5
+    .asciiz  "John",
+    .align 5
+    .asciiz  "Jeff",
+    .align 5
+    .asciiz  "Joyce",
+    .align 5
+    .asciiz  "Jerry",
+    .align 5
+    .asciiz  "Janice",
+    .align 5
+    .asciiz  "Jake",
+    .align 5
+    .asciiz  "Jonna",
+    .align 5
+    .asciiz  "Jack",
+    .align 5
+    .asciiz  "Jocelyn",
+    .align 5
+    .asciiz  "Jessie",
+    .align 5
+    .asciiz  "Jess",
+    .align 5
+    .asciiz  "Janet",
+    .align 5
+    .asciiz  "Jane"
+    
+    .align 5
+    size: .word 16
+    
+    pointers: .space 64 #16*4. declare space in advance to use later
+    capacity: .word 64
+    
+.text
+main:
+    addi $sp, $sp, -24 #adjust the stackpointer
+    #sw $s3, 20($sp) #capacity
+    #sw $s0, 16($sp) #size
+    #sw $s1, 12($sp) #arrays[pointer]
+    #sw $s2, 8($sp) #names
+    #sw $s4, 4($sp) #new pointers
+    sw $ra, 0($sp)
+    
+    
+    lw $s0, size #load size
+    la $s1, pointers #addresses of pointers
+    la $s2, data
+    lw $s3, capacity #64 is the size of the array of pointers
+    add $s5, $s1, $s3 #the last pointer
+    
+    jal set_up_ptrs
+    
+    la $a0, initarray #initial array is:
+    li $v0, 4
+    syscall
+    
+    jal print
+    
+    
+    li $v0, 10
+    syscall
+
+set_up_ptrs:
+    #sw $s3, 20($sp) #capacity
+    #sw $s0, 16($sp) #size
+    #sw $s1, 12($sp) #arrays[pointer]
+    #sw $s2, 8($sp) #names
+    #sw $s4, 4($sp) #new pointers
+    #sw $ra, 0($sp)
+    bge $s1, $s5, done # i = last pointer
+    sw $s2, ($s1) #put a pointer to the array to the array of pointers
+    
+    addi $s1, $s1, 4 #point to the next element the array
+    addi $s2, $s2, 32 #move to the next string
+    
+    j set_up_ptrs
+done:
+    la $s1, pointers
+    jr $ra
+    
+    
+print:
+    #lw $s0, size #load size
+    #la $s1, pointers
+    #la $s2, data
+    #lw $s3, capacity
+    
+    la $a0, bracket #"["
+    li $v0, 4
+    syscall
+    
+    jal print_array
+    
+    la $a0, bracket_end #" ]"
+    li $v0, 4
+    syscall
+    
+    li $v0, 10 # exit
+    syscall
+    
+    jr $ra
+    
+print_array:
+    #lw $s0, size #load size
+    #la $s1, pointers
+    #la $s2, data
+    #lw $s3, capacity
+    
+    beq $s1, $s5, exit # if the pointer of pointers >= 64, exit
+    
+    lw $a0, ($s1) #load the string from the pointer s1
+    li $v0, 4 #print string
+    syscall
+    
+    la $a0, space
+    li $v0, 4
+    syscall
+    
+    addi $s1, $s1, 4 #move pointer
+    
+    j print_array
+    
+exit:
+    jr $ra
+    
+    
+
+

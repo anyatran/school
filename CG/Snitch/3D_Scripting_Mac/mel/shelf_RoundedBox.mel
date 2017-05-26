@@ -1,0 +1,216 @@
+global proc shelf_RoundedBox () {
+    global string $gBuffStr;
+    global string $gBuffStr0;
+    global string $gBuffStr1;
+
+
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -align "center"
+        -label "Add UV Color to default shader"
+        -labelOffset 0
+        -font "tinyBoldLabelFont"
+        -image "makeUV_DefaultClr.xpm"
+        -image1 "makeUV_DefaultClr.xpm"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "makeUV_DefaultClr;"
+        -actionIsSubstitute 0
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -align "center"
+        -label "'Create Rounded Box' UI --- options dialog"
+        -labelOffset 0
+        -font "tinyBoldLabelFont"
+        -image "nRB_createUI.xpm"
+        -image1 "nRB_createUI.xpm"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "nRB_createUI;"
+        -actionIsSubstitute 0
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -align "center"
+        -label "create 'Rounded Box'; current settings"
+        -labelOffset 0
+        -font "tinyBoldLabelFont"
+        -image "nRB_create.xpm"
+        -image1 "nRB_create.xpm"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "NURBS_RoundedBox;"
+        -actionIsSubstitute 0
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -align "center"
+        -label "'Attach Rounded Box Surfaces' UI --- options dialog"
+        -labelOffset 0
+        -font "tinyBoldLabelFont"
+        -image "nRB_attachUI.xpm"
+        -image1 "nRB_attachUI.xpm"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "nRB_attachSurfacesUI;\r\n"
+        -actionIsSubstitute 0
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -align "center"
+        -label "attach 'Rounded Box' surfaces; current settings"
+        -labelOffset 0
+        -font "tinyBoldLabelFont"
+        -image "nRB_attach.xpm"
+        -image1 "nRB_attach.xpm"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "nRB_attachSurfaces;"
+        -actionIsSubstitute 0
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -align "center"
+        -label "'Delete Rounded Box Controls' UI --- options dialog"
+        -labelOffset 0
+        -font "tinyBoldLabelFont"
+        -image "nRB_deleteUI.xpm"
+        -image1 "nRB_deleteUI.xpm"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "nRB_deleteControlsUI;\r\n"
+        -actionIsSubstitute 0
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -align "center"
+        -label "delete 'Rounded Box' history and controls; current settings"
+        -labelOffset 0
+        -font "tinyBoldLabelFont"
+        -image "nRB_delete.xpm"
+        -image1 "nRB_delete.xpm"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "nRB_deleteControls;"
+        -actionIsSubstitute 0
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -align "center"
+        -label "Clean: delete any controls and history from 'Rounded Box'"
+        -labelOffset 0
+        -font "tinyBoldLabelFont"
+        -image "nRB_clean.xpm"
+        -image1 "nRB_clean.xpm"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command
+         (
+           "if (! `exists now_nRB_deleteControls` )\r\n" +
+           "    source nRB_deleteControls.mel;\r\n" +
+           "\r\n" +
+           "now_nRB_deleteControls \"any\";"
+         )
+        -actionIsSubstitute 0
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -align "center"
+        -label "Get 'Rounded Box' HTML docs"
+        -labelOffset 0
+        -font "tinyBoldLabelFont"
+        -image "nRB_help.xpm"
+        -image1 "nRB_help.xpm"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "getHelpDocs \"NURBS_RoundedBox.mel\" \"RoundedBox/nRB_intro.html\";"
+        -actionIsSubstitute 0
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -align "center"
+        -label "Source 'NURBS Rounded Box' scripts"
+        -labelOffset 0
+        -font "tinyBoldLabelFont"
+        -imageOverlayLabel "Src"
+        -image "commandButton.xpm"
+        -image1 "commandButton.xpm"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command
+        (
+          "source makeUV_DefaultClr.mel;\r\n" +
+          "source NURBS_RoundedBox.mel;\r\n" +
+          "source nRB_createUI.mel;\r\n" +
+          "source nRB_testHierarchy.mel;\r\n" +
+          "source nRB_deleteControlsUI.mel;\r\n" +
+          "source nRB_deleteControls.mel;\r\n" +
+          "source nRB_attachSurfacesUI.mel;\r\n" +
+          "source nRB_attachSurfaces.mel;\r\n" +
+          "source getHelpDocs.mel;"
+        )
+        -actionIsSubstitute 0
+    ;
+
+}

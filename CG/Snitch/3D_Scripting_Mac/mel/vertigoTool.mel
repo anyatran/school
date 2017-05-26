@@ -1,0 +1,41 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: vertigoTool
+''    Author: sinaseifee 
+''    Last Updated: Jun 19, 2007
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/interface_display/1481.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+//vertigoTool
+//created by Sina Seifee 2007 june
+
+string $currentPanel = `getPanel -withFocus`;
+global string $camera;
+$camera = `modelPanel -q -camera $currentPanel`;
+global float $centerOf;
+global float $focal;
+$centerOf = `getAttr ($camera+".centerOfInterest")`;
+$focal = `getAttr ($camera+".focalLength")`;
+
+	string $slider = `window -t "vertigo"`;
+ 	columnLayout -adjustableColumn true;
+ 	floatSlider -min 0.14 -max 7 -v 1 -h 30 -dc changValue size;
+ 	showWindow;
+
+global proc changValue(){
+ global float $centerOf;
+ global float $focal;
+ global string $camera;
+ float $Num[] ;
+ $Num[0] = `floatSlider -q -v size`;
+ setAttr ($camera+".focalLength") ($focal/$Num[0]);
+ dolly -abs -d ($centerOf/$Num[0]) $camera;
+}
+
+       window -e -wh 400 60 -tlc 350 550 $slider;

@@ -1,0 +1,41 @@
+
+//
+//  Creation Date:	Oct 20, 2008
+//
+//  Procedure Name:
+//	AEconditionRangeTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the curvefunc node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+//	Author:		Morteza Ramezanali (xDreamer)
+//				www.cgdna.com - moto@cgdna.com
+
+global proc AEconditionRangeTemplate ( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "Curve Function Attributes" -collapse 0;
+			editorTemplate -addControl "input";
+			editorTemplate -addControl "operation";
+			editorTemplate -addControl "minRange";
+			editorTemplate -addControl "maxRange";
+			editorTemplate -addControl "true";
+			editorTemplate -addControl "false";
+			editorTemplate -addControl "output";
+		editorTemplate -endLayout;
+
+	// include/call base class/node attributes
+	AEdependNodeTemplate $nodeName;
+	
+	
+	editorTemplate -addExtraControls;
+	editorTemplate -endScrollLayout;
+}

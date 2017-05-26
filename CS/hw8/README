@@ -1,0 +1,47 @@
+			Homework 4
+		Due:  Wednesday, October 15, 2014
+
+The assignment is in hw4.assignment.  It uses code in hw4.c .
+
+The provided source code implements a small shell.
+Note that the command "make" looks for a default file, "Makefile",
+   in the current directory, and then executes the commands in "Makefile".
+To test it, cd to this directory, and try:
+  make
+  % ls
+  % ls -l
+  % exit
+
+# NEXT, NOTE WHAT HAPPENS WHEN WE EXECUTE OUR SHELL PROGRAM RECURSIVELY.
+  ./myshell
+  % ls
+  % myshell
+  % exit
+  % exit
+
+# BUG 1:  '#' should be the comment character in the shell.
+  ./myshell
+  % ls # This is a comment.
+# COMMENT:
+# It's okay if your shell does not handle:  ls# comment
+#   AS LONG AS IT HANDLES:  ls # comment
+
+# BUG 2:  We can't read a script file containing a list of commands.
+# We would like to execute:  ./myshell script.myshell
+#   and have the commands in script.myshell executed.
+# When you fix this bug, you will gain access to the UNIX/Linux feature
+#   for scripts.  This is similar to the DOS feature for batch files: .bat
+#   For example, consider autoexec.bat .  However, a .bat file must only
+#   be interpreted by DOS, and a UNIX interpreted file can be interpreted
+#   by whatever command is listed after "#!".
+#   The first line of script.myshell, "#!./myshell" says this is an
+#   an interpreted file, and should be executed as if it were:
+#   "./myshell script.myshell"
+
+# NEXT, NOTE SOME BUGS IN OUR myshell;
+# BUG 3:  WE CAN'T INTERRUPT WITHOUT ALSO KILLING THE ENTIRE SHELL.
+#         sleep 2 SLEEPS FOR 2 SECONDS.
+  ./myshell
+  % sleep 2
+  % sleep 50
+  % ^C

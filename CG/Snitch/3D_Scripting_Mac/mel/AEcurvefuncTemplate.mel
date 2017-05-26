@@ -1,0 +1,61 @@
+
+//
+//  Creation Date:	Oct 20, 2008
+//
+//  Procedure Name:
+//	AEcurvefuncTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the curvefunc node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+//	Author:		Morteza Ramezanali (xDreamer)
+//				www.cgdna.com - moto@cgdna.com
+
+global proc curveTypeChanged (string $nodeName)
+{
+	string $nodeAttr = $nodeName + ".operation";
+	int $value = `getAttr $nodeAttr`;
+	
+	if( $value == 3 )	
+	{
+		editorTemplate -dimControl $nodeName "inputCurveOrder" false;
+		editorTemplate -dimControl $nodeName "inputStart" true;
+		editorTemplate -dimControl $nodeName "inputEnd" true;
+	}
+	else
+	{
+		editorTemplate -dimControl $nodeName "inputCurveOrder" true;
+		editorTemplate -dimControl $nodeName "inputStart" false;
+		editorTemplate -dimControl $nodeName "inputEnd" false;
+	}
+}
+
+
+global proc AEcurvefuncTemplate ( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "Curve Function Attributes" -collapse 0;
+			editorTemplate -addControl "operation" "curveTypeChanged";
+			editorTemplate -addControl "inputStart";
+			editorTemplate -addControl "inputEnd";
+			editorTemplate -addControl "inputCurveOrder";
+			editorTemplate -addControl "inputParam";
+			editorTemplate -addControl "output";
+		editorTemplate -endLayout;
+
+	// include/call base class/node attributes
+	AEdependNodeTemplate $nodeName;
+	
+	editorTemplate -dimControl $nodeName "inputCurveOrder" true;
+	
+	editorTemplate -addExtraControls;
+	editorTemplate -endScrollLayout;
+}

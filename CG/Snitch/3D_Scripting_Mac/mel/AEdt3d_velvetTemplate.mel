@@ -1,0 +1,59 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Velvet Shader
+''    Author:  
+''    Last Updated: May 01, 2009
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/plugins/rendering/mental_ray/2752.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+//////////////////////////////////////////////////
+//                                    		//
+// COPYRIGHT (C) 2002 - 2006 DigiTeck3D   	//
+// FILE NAME: AEdt3d_velvetTemplate.mel	      //
+//                                    		//
+// AUTHOR: Miguel A Santiago        		//
+// EMAIL: miguel@digiteck3d.com			//
+//                                    		//
+// DATE: June 28, 2006            			//
+//                                    		//
+// DESCRIPTION: Velvet Shader UI    		//
+//								//
+//////////////////////////////////////////////////
+
+global proc AEdt3d_velvetTemplate( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+ 		editorTemplate -beginLayout "Common Material Attributes" -collapse false;
+			editorTemplate -addControl "color";
+			editorTemplate -addControl "ambientColor";
+			editorTemplate -addControl "incandescence";
+			editorTemplate -addControl "bumpMapping";
+			editorTemplate -addControl "diffuse";
+		editorTemplate -endLayout;
+		editorTemplate -beginLayout "Velvet Attributes";
+			editorTemplate -addControl "edginess";
+			editorTemplate -addControl "strength";
+			editorTemplate -addControl "specularColor";
+		editorTemplate -endLayout;
+		editorTemplate -beginLayout "Irradiance Attributes";
+			editorTemplate -addControl  "useIrradiance";
+			editorTemplate -addControl  "radiance";
+		editorTemplate -endLayout;
+		editorTemplate -beginLayout "Hardware Texturing" -collapse true;
+        	    AEhardwareTextureTemplate $nodeName
+                	("color ambientColor incandescence "+
+	                 "diffuse");
+        	editorTemplate -endLayout;
+		editorTemplate -addExtraControls;  
+	editorTemplate -endScrollLayout;
+	editorTemplate -suppress "lights";
+ 	editorTemplate -suppress "caching";
+	editorTemplate -suppress "nodeState";
+}

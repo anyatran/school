@@ -1,0 +1,116 @@
+/*  This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: stairsCreator v0.1
+''    Author: Rasul Rasulov
+''    Last Updated: February 18, 2003
+''    Update/Change this file at:
+''    http://www.highend3d.com/maya/mel/?section=modeling#2149
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+
+//
+//  Author:		Rasul Rasulov
+//
+//  My e-mail:		rrasulov@ukr.net
+//
+//  Creation Date:       ( 17/02/03 )
+//  
+//  For Maya 4.0 - 4.5
+//
+//  Description:	
+//  This script creates polygonal stairs.
+//
+// ------ 
+// If you have any comments please e-mail me.
+// I hope you will find it usefull.
+//
+// ------------------------------------------
+global proc stairsCreator()
+{
+string $StairsWin = "SC";
+if (`window -exists $StairsWin`) 
+       deleteUI -window $StairsWin;
+
+windowPref -r  $StairsWin;
+
+window -t "Stairs Creator" -w 402 -h 150  -s 0 -rtf 1 -iconName "Stairs Creator" 	$StairsWin;
+
+columnLayout;
+
+separator -height 20 -st none;
+
+	floatSliderGrp -l "Width" -field true
+    	-minValue 0.0	-fieldMinValue -0 -fieldMaxValue 100.0 -value 10 width;
+
+	floatSliderGrp -l "Height" -field true
+    	-minValue 0.0	-fieldMinValue -0 -fieldMaxValue 100.0 -value 10 height;
+
+	floatSliderGrp -l "Depth" -field true
+    	-minValue 0.0	-fieldMinValue -0 -fieldMaxValue 100.0 -value 10 depth;
+	
+	floatSliderGrp -l "Step Height " -field true
+    	-minValue 0.0	-fieldMinValue -0 -fieldMaxValue 100 -value 2 h;
+ 
+separator -height 20 -st none;
+
+rowColumnLayout -numberOfRows 1 -rowHeight 1 30;
+
+	button -label "Create" -w 134 -command "genStairs()";
+
+	button -label "Update" -w 134 -command "delete $name; genStairs()";
+
+	button -label "Close" -w 134 -command ("deleteUI -window " + $StairsWin);
+
+showWindow $StairsWin;
+
+}
+//---------------------------------------
+
+global proc genStairs()
+{
+
+nurbsToPolygonsPref -f 0 -pt 1 -pc 1;
+
+float $width = `floatSliderGrp -q -value width`;
+float $height = `floatSliderGrp -q -value height`;
+float $h = `floatSliderGrp -q -value h`;
+float $depth = `floatSliderGrp -q -value depth`;
+
+global string $name = "stairs";
+global int $f = 0;
+$f += 1;
+$name = "stairs" + $f;
+
+int $quantity = $height / $h;
+float $d = $depth / $quantity;
+float $x = 0, $y = 0, $z = 0, $i;
+curve -d 1 -p 0 0 0;
+string $cn[] = `ls-sl`;
+ 
+for ($i=0; $i<$quantity; $i++)
+	{
+$y += $h;
+curve -a -p $x $y $z $cn;
+$x += $d;
+curve -a -p $x $y $z $cn;
+}
+
+curve -a -p $x 0 $z -p 0 0 0 $cn;
+
+planarSrf  -ch 0  -d 1 -n $name -po 1  $cn;
+
+delete $cn;
+select $name.f[0];
+
+polyExtrudeFacet -ch 0 -ltz $width;
+print $name;
+select $name;
+
+}
+
+

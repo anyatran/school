@@ -1,0 +1,121 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: random Swapper
+''    Author: Mel 
+''    Last Updated: Jul 19, 2008
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/utility_external/copying/2282.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+//Tool Name 2008
+	random swapper - randomly swap from a selection of targets and a selection of sources
+
+//Version
+	1.0
+	For Maya 8.5
+
+//Author
+	Dann Tarmy
+
+//Run Command
+	randSwap;
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+
+
+global proc randSwap()
+{
+
+	if (`window -exists randomSwapper_w`)
+	deleteUI randomSwapper_w;
+
+	global string $selected = "Medium Box Only";
+
+	string $run = "runSwapper()";
+	string $getTargets = "getSelected(\"targetField\")";
+	string $getSources = "getSelected(\"sourceField\")";
+
+	string $tempA = "";
+	string $tempB = "";
+
+	window -menuBar false -maximizeButton false -title "Random Swapper - by Dann Tarmy" -w 500 -h 120 randomSwapper_w;
+	columnLayout;
+
+	rowColumnLayout -numberOfRows 4;
+
+	textFieldButtonGrp -l "Target Object(s)" -text $tempA -bl "Add selected" -ed true -bc $getTargets targetField;
+	textFieldButtonGrp -l "Source Object(s)" -text $tempB -bl "Add selected" -ed true -bc $getSources sourceField;
+	button -label "Swap 'em!" -c $run;
+
+	showWindow randomSwapper_w;
+
+}
+global proc getSelected(string $guiCommandUpdate){
+	string $objList[] = `ls -sl`;
+	string $objSelected;
+	string $command = "ls";
+
+	if(size($objList) > 0){
+		for ($objSelected in $objList){
+			$command = $command + " " + $objSelected;
+		}
+		textFieldButtonGrp -e -text $command $guiCommandUpdate;
+	}
+}
+
+global proc runSwapper()
+{
+//	string $scriptCommand;
+
+	string $textFieldCommand = `textFieldButtonGrp -q -text targetField`;
+	string	$targets[] = `eval($textFieldCommand)`;
+	string	$tempTargets[] = `eval($textFieldCommand)`;
+
+	$textFieldCommand = `textFieldButtonGrp -q -text sourceField`;
+	string $sources[] = `eval($textFieldCommand)`;
+
+	int $numTargets=size($targets);
+	int $numSources=size($sources);
+	int $i = 0;
+	int $r;
+	string $shuffleTargets[];
+
+	while ($i < $numTargets) {
+		$r = rand(0,$numTargets);
+		if ($targets[$r] != ""){
+//			print ("random # is " + $r +"\n");
+			$shuffleTargets[$i] = $targets[$r];
+//			print ($shuffleTargets[$i] + " will replace " + $tempTargets[$i] +"\n");
+			$targets[$r] = "";
+		   	$i += 1;
+		}
+	}
+//	print ($shuffleTargets);
+
+	$i = 0;
+
+	while ($shuffleTargets[$i] != "") {
+		int $m = ($i % $numSources);
+//		print ("m is " + $m +"\n");
+	   	select $sources[$m];
+	   	duplicate -rc $sources[$m];
+	   	string $selTemp[] = `ls -sn -sl`;
+		string $objParent[] = `listRelatives -p -f $shuffleTargets[$i]`;
+
+	   	pointConstraint -offset 0 0 0 -weight 1 ($shuffleTargets[$i]) ( $selTemp[0]);
+	   	orientConstraint -offset 0 0 0 -weight 1 ($shuffleTargets[$i]) ( $selTemp[0]);
+	   	delete ($shuffleTargets[$i]);
+	   	if ($objParent[0] != "") {
+		   	parent $selTemp[0] $objParent;
+		}
+	   	$i += 1;
+	}
+}

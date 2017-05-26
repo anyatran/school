@@ -1,0 +1,114 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icQRsetup.mel
+//
+//	AUTHOR:			Ingo Clemens
+//
+//	DATE:			Jun 30, 2011
+//					created: Jun 30, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// setup the shelf buttons
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRsetup ()
+{
+	string $customShelfTab;
+
+	//open a window to select the shelf tab
+	string $confirm = `promptDialog -t "Select Shelf Tab"
+					-m "Type shelf tab name to add icons to."
+					-b "Select" -b "Cancel"
+					-cb "Cancel" -ds "Cancel"`;
+
+	//get the shelf tab name
+	if ($confirm == "Select")
+	{
+		$customShelfTab = `promptDialog -q -t`;
+	}
+	else
+	{
+		error "Action canceled!";
+	}
+
+	//add the shelf buttons
+	if ($customShelfTab != "")
+	{
+		if (!`shelfButton -ex quadRigUI_icShelfButton`)
+		{
+			shelfButton -p $customShelfTab -st "iconOnly" -i "icQuadrupedRiggerUI.png"
+						-label "Quadruped Rigger UI" 
+						-annotation "Quadruped Rigger UI"
+						-c "icQuadrupedRiggerUI;" quadRigUI_icShelfButton;
+		}
+
+		if (!`shelfButton -ex quadRigPickWalkToggle_icShelfButton`)
+		{
+			shelfButton -p $customShelfTab -st "iconOnly" -i "icCRpickWalkToggle.png"
+						-label "Pickwalk toggle" 
+						-annotation "Switch between default pickwalking and Quadruped Rigger pickwalking"
+						-c "icQRpickWalkToggle;" quadRigPickWalkToggle_icShelfButton;
+		}
+
+		if (!`shelfButton -ex quadRigMatchControlShape_icShelfButton`)
+		{
+			shelfButton -p $customShelfTab -st "iconOnly" -i "icCRmatchControlShape.png"
+						-label "Match FK control shapes between character sides" 
+						-annotation "Match FK control shapes between character sides"
+						-c "icCRmatchControlShape;" quadRigMatchControlShape_icShelfButton;
+		}
+	}
+
+
+
+
+//----------------------------------------------------------------------------------------------
+// these lines define the hotkey for the making menu
+//
+// edit the hotkey before executing this script
+//
+// - capital letters associate the hotkey with the SHIFT-modifier
+// - add   -alt    after the hotkey for adding the alt button modifier
+// - add   -ctl    after the hotkey for adding the control button modifier
+// - add   -cmd    after the hotkey for adding the command button modifier
+//----------------------------------------------------------------------------------------------
+
+
+	hotkey -keyShortcut "Y" -name ("icQRchangeSpaceMM_NameCommand");
+	hotkey -keyShortcut "Y" -releaseName ("icQRchangeSpaceMMpopDown_NameCommand");
+
+
+//----------------------------------------------------------------------------------------------
+// end - marking menu hotkey
+//----------------------------------------------------------------------------------------------
+
+
+
+	nameCommand -annotation "icQRchangeSpace"
+		-command ("icQuadRig_BuildMM") icQRchangeSpaceMM_NameCommand;
+	nameCommand -annotation "icQRchangeSpacePopDown"
+		-command ("icQuadRig_BuildMMpopDown") icQRchangeSpaceMMpopDown_NameCommand;
+
+	runTimeCommand
+	-annotation "Open the Quadruped Rigger marking menu"
+	-category "User"
+	-command ("icQRbuildMM")
+	icQuadRig_BuildMM;
+
+	runTimeCommand
+	-annotation "Close the Quadruped Rigger marking menu"
+	-category "User"
+	-command ("MarkingMenuPopDown")
+	icQuadRig_BuildMMpopDown;
+}

@@ -1,0 +1,528 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icQRbuildTemplateSkeleton.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jul 03, 2011
+//					created: Jun 30, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// the template names for the joints and their positions
+//
+//----------------------------------------------------------------------------------------------
+
+proc string[] icQRBTtemplateNames ()
+{
+	string $joints[] = {"spineStart_jnt","neckStart_jnt","head_jnt","headEnd_jnt","tailStart_jnt","L_F_leg_shoulder_jnt","L_F_leg_upLeg_jnt","L_F_leg_lowLeg_jnt","L_F_leg_foot_jnt","L_F_leg_fetlock_jnt","L_F_leg_pastern_jnt","L_F_leg_coffin_jnt","L_F_leg_coffinEnd_jnt","L_B_leg_upLeg_jnt","L_B_leg_lowLeg_jnt","L_B_leg_foot_jnt","L_B_leg_fetlock_jnt","L_B_leg_pastern_jnt","L_B_leg_coffinEnd_jnt","L_earStart_jnt"};
+	return $joints;
+}
+
+proc int[] icQRBTtemplatePosition ()
+{
+	int $position[] = {0,142,-39,0,138,56,0,185,108,0,157,155,0,143,-78,16,140,50,16,113,71,16,87,58,16,49,54,16,20,51,16,12,52,16,7,54,16,1,64,15,128,-55,15,95,-49,15,52,-69,15,17,-69,15,10,-65,15,1,-55,7,199,114};
+	return $position;
+}
+
+//----------------------------------------------------------------------------------------------
+//
+// orient the joints with given axes and curved options
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRBTorientTemplateJoints ()
+{
+	string $charName = `textField -q -tx QRcharName`;
+
+	//get the joint template names
+	string $joints[] = icQRBTtemplateNames ();
+
+	string $orientSide = "p";
+	if (`checkBox -q -v QRreverseLegAxis` == 1) $orientSide = "n";
+
+	//the spine joints
+	string $rel[] = `listRelatives -c -ad ($joints[0] + "1" + $charName)`;
+	select ($joints[0] + "1" + $charName) $rel[0];
+	icQRBTorientTemplateJointsExecute ( "aimX", "upYp", 1, "world" );
+	//the neck joints
+	select ($joints[1] + "1" + $charName) ($joints[3] + $charName);
+	icQRBTorientTemplateJointsExecute ( "aimX", "upYp", 1, "world" );
+	//the front leg joints
+	select ($joints[5] + $charName) ($joints[12] + $charName);
+	icQRBTorientTemplateJointsExecute ( "aimX", ("upY" + $orientSide), 1, "local" );
+	//the back leg joints
+	select ($joints[13] + $charName) ($joints[18] + $charName);
+	icQRBTorientTemplateJointsExecute ( "aimX", ("upY" + $orientSide), 1, "local" );
+	//the tail joints
+	string $rel[] = `listRelatives -c -ad ($joints[4] + "1" + $charName)`;
+	select ($joints[4] + "1" + $charName) $rel[0];
+	icQRBTorientTemplateJointsExecute ( "aimX", "upYp", 1, "world" );
+	//the ear joints
+	string $rel[] = `listRelatives -c -ad ($joints[19] + "1" + $charName)`;
+	select ($joints[19] + "1" + $charName) $rel[0];
+	icQRBTorientTemplateJointsExecute ( "aimX", "upYp", 1, "local" );
+
+	//temporarily parent the legs and ear
+	parent ($joints[5] + $charName) ($joints[4] + "1" + $charName);
+	parent ($joints[13] + $charName) ($joints[0] + "1" + $charName);
+	parent ($joints[19] + "1" + $charName) ($joints[2] + $charName);
+
+	//mirror the legs and ear
+	mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "L_" "R_" ($joints[5] + $charName);
+	mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "L_" "R_" ($joints[13] + $charName);
+	mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace "L_" "R_" ($joints[19] + "1" + $charName);
+
+	//unparent the legs and ears
+	parent -w ($joints[5] + $charName);
+	parent -w ($joints[13] + $charName);
+	parent -w ($joints[19] + "1" + $charName);
+	string $rightName = `substitute "L_" ($joints[5] + $charName) "R_"`;
+	parent -w $rightName;
+	$rightName = `substitute "L_" ($joints[13] + $charName) "R_"`;
+	parent -w $rightName;
+	$rightName = `substitute "L_" ($joints[19] + "1" + $charName) "R_"`;
+	parent -w $rightName;
+
+	select -cl;
+
+	//put all existing joints into the fields for the character definition
+	icQRBTcompleteCharacterFields;
+
+	frameLayout -e -cl 0 QRfinishFrame;
+	icQRresizeUIexpand QRfinishFrame;
+	button -e -en 1 QRbuildRigButton;
+}
+
+//----------------------------------------------------------------------------------------------
+//
+// main orient procedure for each joint or joint chain / the same as in the orient joint tool
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRBTorientTemplateJointsExecute ( string $aimAxis, string $upAxis, int $curved, string $space )
+{
+	string $sourceJoint;
+	string $targetJoint;
+	string $parentJoint[];
+	string $selectedJoint[];
+	string $currentChildren[];
+	string $currentChildrenJoints[];
+	string $upVectorHelp[];
+	string $confirm;
+	string $selectedUpAxis;
+	string $selectedAimAxis;
+	float $sourcePos[];
+	float $storeJointOrient[];
+
+	string $jointList = "";
+	int $upX = $upY = $upZ = 0;
+	int $aimX = $aimY = $aimZ = 0;
+
+	//get the selected joints
+	$selectedJoint = `ls -sl -type joint`;
+
+	//get the aim axis selection
+	switch ($aimAxis)
+	{
+		case "aimX":
+			$aimX = 1;
+			break;
+		case "aimY":
+			$aimY = 1;
+			break;
+		case "aimZ":
+			$aimZ = 1;
+			break;
+		case "aimXn":
+			$aimX = -1;
+			break;
+		case "aimYn":
+			$aimY = -1;
+			break;
+		case "aimZn":
+			$aimZ = -1;
+			break;
+	}
+	//get the up axis selection
+	switch ($upAxis)
+	{
+		case "upXp":
+			$upX = 1;
+			break;
+		case "upXn":
+			$upX = -1;
+			break;
+		case "upYp":
+			$upY = 1;
+			break;
+		case "upYn":
+			$upY = -1;
+			break;
+		case "upZp":
+			$upZ = 1;
+			break;
+		case "upZn":
+			$upZ = -1;
+			break;
+	}
+
+	//if the curved option is selected create an up vector object
+	if ($curved == 1)
+	{
+		icQRcreateCurvedJointUpVector ( $selectedJoint, $space );
+		select -hi $selectedJoint[0];
+		$selectedJoint = `ls -sl -type joint`;
+	}
+
+	for ($sourceJoint in $selectedJoint)
+	{
+		//get the children of the current joint
+		$currentChildrenJoints = `listRelatives -c -type joint $sourceJoint`;
+		$currentChildren = `listRelatives -c $sourceJoint`;
+
+		//get the parent joint
+		$parentJoint = `listRelatives -p $sourceJoint`;
+
+		//if the last joint is reached discontinue
+		if (size($currentChildrenJoints) == 0)
+		{
+			break;
+		}
+
+		$targetJoint = $currentChildrenJoints[0];
+
+		//unparent the children
+		for ($child in $currentChildren)
+		{
+			parent -w $child;
+		}
+
+		//set rotation and orientation back to 0 for the selected joint
+		setAttr ($sourceJoint + ".rotate") 0 0 0;
+		setAttr ($sourceJoint + ".jointOrient") 0 0 0;
+
+		//if the curved option is not selected create an up vector locator
+		if ($curved == 0)
+		{
+			//get the absolute position of the source joint for locator placement
+			$sourcePos = `xform -q -ws -t $sourceJoint`;
+	
+			//add the locator and place it at the source joint
+			if (`objExists "upLocatorHelper"`)
+			{
+				delete "upLocatorHelper";
+			}
+			$upVectorHelp = `spaceLocator -n "upLocatorHelper"`;
+			move -ws $sourcePos[0] $sourcePos[1] $sourcePos[2] $upVectorHelp[0];
+	
+			//parent it to the direct parent of the source joint
+			//if the joint is the first joint no parenting is needed
+			if (size($parentJoint) != 0)
+			{
+				parent $upVectorHelp[0] $parentJoint[0];
+			}
+	
+			//move the locator to positive y
+			move -r -ws 0 10 0 $upVectorHelp[0];
+	
+			//unparent it from the joint if the joint is not the first joint
+			if (size($parentJoint) != 0)
+			{ 
+				parent -w $upVectorHelp[0];
+			}
+		}
+		//if the curved option is selected use the previously created locator
+		else
+		{
+			$upVectorHelp[0] = "upLocatorHelper";
+		}
+
+		//create an aim constraint
+		select $targetJoint $sourceJoint;
+		delete(`aimConstraint -aim $aimX $aimY $aimZ -u $upX $upY $upZ -wut "object" -wuo $upVectorHelp[0]`);
+
+		//get the new rotation values for the joint
+		$storeJointOrient = `getAttr ($sourceJoint + ".rotate")`;
+		//if a joint has a x roation value of about 180 set it back to 0
+		if (abs($storeJointOrient[0]) > 120) $storeJointOrient[0] = 0;
+		//and use them as orientation values
+		setAttr ($sourceJoint + ".jointOrient") $storeJointOrient[0] $storeJointOrient[1] $storeJointOrient[2];
+		//set rotation back to 0
+		setAttr ($sourceJoint + ".rotate") 0 0 0;
+
+		//re-parent the children
+		for ($child in $currentChildren)
+		{                          
+			parent $child $sourceJoint;
+		}
+	}                            
+	//delete the locator
+	delete $upVectorHelp[0];
+}
+
+//----------------------------------------------------------------------------------------------
+//
+// create an up vector object if the curved option is selected
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRcreateCurvedJointUpVector ( string $sel[], string $space )
+{
+	string $firstJoint[];
+	string $lastJoint[];
+	string $axisArray[];
+	string $selChild[];
+	string $upLocator[];
+	string $axis;
+	float $pos[];
+	float $jointDistance;
+	int $count;
+
+	$axisArray = {"x", "y", "z"};
+
+	$selChild = `listRelatives -c -type "joint" $sel[0]`;
+
+	//if more than two joints are selected give an error
+	if (size($sel) != 2)
+	{
+		error ("only two joints need to be selected with the curved joint option\n");
+	}
+
+	//duplicate the first joint
+	$firstJoint = `duplicate -rc $sel[0]`;
+	//delete all the children
+	delete(`listRelatives -c $firstJoint[0]`);
+	//duplicate the end joint
+	$lastJoint = `duplicate -rc $sel[1]`;
+	//aim constraint the first joint to the last joint
+	delete(`aimConstraint $lastJoint[0] $firstJoint[0]`);
+	//freeze the transformations
+	makeIdentity -a 1 -t 1 -r 1 -s 1 -n 0 $firstJoint[0];
+	makeIdentity -a 1 -t 1 -r 1 -s 1 -n 0 $lastJoint[0];
+	//parent the last joint to the first
+	parent $lastJoint[0] $firstJoint[0];
+	//get the distance of the last joint to the first joint
+	$pos = `xform -q -t $lastJoint[0]`;
+
+	for ($i in $pos)
+	{
+		if ($i > $jointDistance)
+		{
+			$jointDistance = $i;
+			$axis = $axisArray[$count];
+		}
+		$count ++;
+	}
+	setAttr ($lastJoint[0] + ".t" + $axis) ($jointDistance / 2);
+
+	//aim constraint the last joint to the end selection and use the child of the first
+	//selection as the up vector object
+	delete(`aimConstraint -wut "object" -wuo $selChild[0] $sel[1] $lastJoint[0]`);
+
+	//create a locator to use as an up vector helper
+	$upLocator = `spaceLocator`;
+	$upLocator[0] = `rename $upLocator[0] "upLocatorHelper"`;
+	//parent the locator to the last joint
+	parent $upLocator[0] $lastJoint[0];
+	//temporarily point and orient constrain the locator
+	delete(`pointConstraint $lastJoint[0] $upLocator[0]`);
+	delete(`orientConstraint $lastJoint[0] $upLocator[0]`);
+	//move the locator up with the measured distance
+	if ($space == "local")
+	{
+		setAttr ($upLocator[0] + ".ty") $jointDistance;
+	}
+	else
+	{
+		move -r -ws 0 $jointDistance 0 $upLocator[0];
+	}
+	//unparent the locator
+	parent -w $upLocator[0];
+	//delete the duplicated joints
+	delete $firstJoint[0];
+}
+
+//----------------------------------------------------------------------------------------------
+//
+// fill the fields for the character definition
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRBTcompleteCharacterFields ()
+{
+	string $fields[] = {"QRspineJoint","QRneckJoint",
+						"QRtailJoint","QRleftFrontJoint","QRrightFrontJoint",
+						"QRleftBackJoint","QRrightBackJoint","QRleftEarJoint","QRrightEarJoint"};
+
+	string $joints[] = {"spineStart_jnt1","neckStart_jnt1",
+						"tailStart_jnt1","L_F_leg_shoulder_jnt","R_F_leg_shoulder_jnt",
+						"L_B_leg_upLeg_jnt","R_B_leg_upLeg_jnt","L_earStart_jnt1","R_earStart_jnt1"};
+
+	string $charName = `textField -q -tx QRcharName`;
+
+	for ($f = 0; $f < size($fields); $f ++)
+	{
+		if (`objExists ($joints[$f] + $charName)`)
+		{
+			textFieldButtonGrp -e -tx ($joints[$f] + $charName) $fields[$f];
+			addAttr -at message -ln ("icQR_" + $fields[$f]) ($joints[$f] + $charName);
+		}
+	}
+}
+
+//----------------------------------------------------------------------------------------------
+//
+// toggle the axis visibility
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRBTtoggleAxis ()
+{
+	string $charName = `textField -q -tx QRcharName`;
+
+	string $joints[] = `ls -type joint`;
+	for ($joint in $joints)
+	{
+		if (`gmatch $joint ("*" + $charName)`)
+		{
+			$axisVisible = `getAttr ($joint + ".displayLocalAxis")`;
+			$axisVisible = !$axisVisible;
+			setAttr ($joint + ".displayLocalAxis") $axisVisible;
+		}
+	}
+}
+
+//----------------------------------------------------------------------------------------------
+//
+// create and position the template joints
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRbuildTemplateSkeleton ()
+{
+	string $charName = `textField -q -tx QRcharName`;
+
+	int $jointNum;
+	int $spineJoints = `intFieldGrp -q -v1 QRspineJoints`;
+	int $neckJoints = `intFieldGrp -q -v1 QRneckJoints`;
+	int $tailJoints = `intFieldGrp -q -v1 QRtailJoints`;
+	int $earJoints = `intFieldGrp -q -v1 QRearJoints`;
+	float $userHeight = `intField -q -v QRheight`;
+
+	//get the joint template names and positions
+	string $joints[] = icQRBTtemplateNames ();
+	int $jPos[] = icQRBTtemplatePosition ();
+
+	//create the joints
+	for ($j = 0;$j < size($joints); $j ++)
+	{		
+		if (!`gmatch $joints[$j] "*Start*"`)
+		{
+			//place the joints at the given position
+			joint -p $jPos[$j * 3] $jPos[$j * 3 + 1] $jPos[$j * 3 + 2] -n ($joints[$j] + $charName);
+
+			//build the basic hierarchies
+			if (`gmatch $joints[$j] "*_leg_*"` && !`gmatch $joints[$j] "*shoulder*"` && !`gmatch $joints[$j] "*B_leg_upLeg*"`)
+			{
+				parent ($joints[$j] + $charName) (($joints[$j - 1]) + $charName);
+			}
+			if (`gmatch $joints[$j] "*headEnd_*"`)
+			{
+				parent ($joints[$j] + $charName) (($joints[$j - 1]) + $charName);
+			}
+			select -cl;
+		}
+		//the spine, neck, ear and tails chains must be build from scratch
+		else
+		{
+			if (`gmatch $joints[$j] "spineStart_jnt*"`)
+			{
+				$jointNum = $spineJoints;
+			}
+			else if (`gmatch $joints[$j] "neckStart_jnt*"`)
+			{
+				$jointNum = $neckJoints;
+			}
+			else if (`gmatch $joints[$j] "tailStart_jnt*"`)
+			{
+				$jointNum = $tailJoints;
+			}
+			else if (`gmatch $joints[$j] "*earStart_jnt*"`)
+			{
+				$jointNum = $earJoints;
+			}
+			//get the start and end positions and calculate the increment value
+			vector $start = <<$jPos[$j * 3],$jPos[$j * 3 + 1],$jPos[$j * 3 + 2]>>;
+			vector $end = <<$jPos[$j * 3 + 3],$jPos[$j * 3 + 4],$jPos[$j * 3 + 5]>>;
+			if (`gmatch $joints[$j] "tailStart_jnt*"`)
+				$end = <<$jPos[$j * 3],$jPos[$j * 3 + 1],($jPos[$j * 3 + 2] - $jointNum * 15)>>;
+			if (`gmatch $joints[$j] "*earStart_jnt*"`)
+				$end = <<$jPos[$j * 3],($jPos[$j * 3 + 1] + $jointNum * 3),$jPos[$j * 3 + 2]>>;
+			vector $distance = $end - $start;
+			$distance = $distance / $jointNum;
+			for ($i = 0; $i <= $jointNum; $i ++)
+			{
+				if ($i > 0)
+				{
+					joint -p 	($jPos[$j * 3] + ($distance.x * $i))
+								($jPos[$j * 3 + 1] + ($distance.y * $i))
+								($jPos[$j * 3 + 2] + ($distance.z * $i))
+								-n ($joints[$j] + ($i + 1) + $charName);
+					parent ($joints[$j] + ($i + 1) + $charName) ($joints[$j] + $i + $charName);
+				}
+				else
+				{
+					joint -p 	$jPos[$j * 3] $jPos[$j * 3 + 1] $jPos[$j * 3 + 2] 
+								-n ($joints[$j] + ($i + 1) + $charName);
+				}
+				select -cl;
+			}
+			select -cl;
+		}
+	}
+	//delete the last neck joint
+	string $rel[] = `listRelatives -c -ad ($joints[1] + "1" + $charName)`;
+	delete $rel[0];
+	//parent the head joint to the last neck joint
+	$rel = `listRelatives -c -ad ($joints[1] + "1" + $charName)`;
+	parent ($joints[2] + $charName) $rel[0];
+
+	//orient the entire skeleton
+	joint -e -oj xyz -secondaryAxisOrient yup -ch -zso ($joints[0] + "1" + $charName);
+	joint -e -oj xyz -secondaryAxisOrient yup -ch -zso ($joints[1] + "1" + $charName);
+	joint -e -oj xyz -secondaryAxisOrient yup -ch -zso ($joints[4] + "1" + $charName);
+	joint -e -oj xyz -secondaryAxisOrient yup -ch -zso ($joints[5] + $charName);
+	joint -e -oj xyz -secondaryAxisOrient yup -ch -zso ($joints[13] + $charName);
+	joint -e -oj xyz -secondaryAxisOrient yup -ch -zso ($joints[19] + "1" + $charName);
+	select -cl;
+
+	//group all joints for scaling
+	string $scaleGrp = "scaleGroup_" + $charName;
+	rename (`CreateEmptyGroup`) $scaleGrp;
+
+	parent ($joints[0] + "1" + $charName) $scaleGrp;
+	parent ($joints[1] + "1" + $charName) $scaleGrp;
+	parent ($joints[4] + "1" + $charName) $scaleGrp;
+	parent ($joints[5] + $charName) $scaleGrp;
+	parent ($joints[13] + $charName) $scaleGrp;
+	parent ($joints[19] + "1" + $charName) $scaleGrp;
+
+	float $height = $userHeight / $jPos[4];
+	setAttr ($scaleGrp + ".sx") $height;
+	setAttr ($scaleGrp + ".sy") $height;
+	setAttr ($scaleGrp + ".sz") $height;
+	makeIdentity -a 1 -t 1 -r 1 -s 1 $scaleGrp;
+	ungroup $scaleGrp;
+}

@@ -1,0 +1,87 @@
+//////////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2011 loganathan perumal - Copyright (C) 2011 FxKiller
+// www.3drevolution.in
+// logu.rock@gmail.com
+//
+//  MultiplePolyEdgeToCurve V 1.0 
+//  Script File
+//  There is no restrictions to use or modify but its your own risk.
+//
+//  Creation Date:  January 02, 2011
+//
+//
+//  Description:
+//	To create curves on multiple selected  edges. 
+//	It is require maya 2009+ to work
+//	and click instancer baking button
+//
+//  How to use? :
+//    Source the script and enter this is in comman line polyEdgeToCurveUI 	
+//
+//  bug:
+//	If you find any bug please send me that information to me logu.rock@gmail.com
+//////////////////////////////////////////////////////////////////////////////////
+
+global proc polyEdgeToCurveUI()
+{
+	string $winUI			= "polyEdgetoCurveUI";
+	if(`window -exists $winUI`)
+	deleteUI $winUI;
+	if(`windowPref -exists $winUI`)
+	windowPref -remove $winUI;
+
+	string $window 		= `window -t "polyEdge to Curve" -w 200 -h 250 -s 0 -mnb 0 -mxb 0 -rtf 1 $winUI`;
+	string $formLay 		= `formLayout`;
+	string $RC			= `radioCollection RC`;
+	string $openRBtn		= `radioButton -label "Open" openRB`;
+	string $periodicRBtn		= `radioButton -label "Periodic" periodicRB`;
+	string $BGRBtn		= `radioButton -label "Best Guess" -sl BGRB`;
+	string $curveLabel		= `text -l "Curve Form:"`;			
+	string $degreeOptionMnu	= `optionMenu -l "Degree      : " degreeOptionMnu`;
+						menuItem -label "1";
+			       		menuItem -label "2";
+		       			menuItem -label "3";
+		       			menuItem -label "5";
+		       			menuItem -label "7";
+	string $CurveBtn		= `button -l "Create Curve" -w 100 -h 40 -c "createCurve" `;
+	formLayout -e 
+		-af	$curveLabel		"top"	5
+		-af	$curveLabel		"left"	5
+		-af 	$openRBtn		"top"	25
+		-af 	$openRBtn		"left"	70
+		-af 	$periodicRBtn		"top"	50
+		-af 	$periodicRBtn		"left" 70
+		-af 	$BGRBtn		"top"	75
+		-af 	$BGRBtn		"left" 70
+		-af 	$degreeOptionMnu	"top"	110
+		-af 	$degreeOptionMnu	"left"	5
+		-af	$CurveBtn		"top"	150
+		-af	$CurveBtn		"left" 40
+	$formLay;
+
+	optionMenu -e -sl 3 $degreeOptionMnu; 
+
+	showWindow $window;
+}
+polyEdgeToCurveUI;
+proc createCurve()
+{
+	int $Cd	= `optionMenu -q -v degreeOptionMnu`;
+	string $oRB	= `radioButton -q -sl openRB`;
+	string $pRB 	= `radioButton -q -sl periodicRB`;
+	string $bgRB 	= `radioButton -q -sl BGRB`;
+	int $CF;
+	if ($oRB ==1)
+	$CF = 0;
+	else if ($pRB ==1)
+	$CF = 1;
+	else if ($bgRB ==1)
+	$CF =2;
+	string $edgeSel[] = `ls -sl -fl`;
+	for ($i=0; $i<`size$edgeSel`; $i++)
+	{
+		select $edgeSel[$i];
+		polySelectSp -loop;	
+		polyToCurve -form $CF -degree $Cd;
+	}
+}

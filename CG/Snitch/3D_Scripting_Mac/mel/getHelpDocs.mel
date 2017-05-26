@@ -1,0 +1,86 @@
+/* getHelpDocs.mel
+
+   getHelpDocs.mel v.1.0
+   CyberArts Script File
+   Creation Date: 8/4/05
+   Update: ---
+   Author: Robert Rusick
+
+   Description:
+   ---------------------------------------------
+   Given a "reference" string and a "doc" string,
+   call up help files.
+
+   The "reference" string is the name of a script file
+   which we know has been loaded.
+   In the case of the bonusToolsHelp,
+   this might be: "scripts/BonusToolsMenu.mel".
+
+   The "doc" string is the doc file,
+   and path, relative to the reference string.
+   In the case of the bonusToolsHelp,
+   this might be: "docs/bonusTools6_5.html".
+
+   ---------------------------------------------
+   This is based (not suprisingly)
+   on code from "bonusToolsHelp.mel".
+
+   The code was modified to avoid the use of 'magic numbers',
+   and generalized to be useful for other help file applications.
+
+   Additionally, it opens the help files in a regular browser window,
+   like the standard Maya help file,
+   rather than its own ( too small ) window,
+   like the original bonusToolsHelp.
+
+   Related:
+
+*/
+
+global proc string getScriptRef( string $script )
+{
+  string $tokenBuffer[];
+  int $numTokens = `tokenize $script "/" $tokenBuffer`;
+
+  string $script = $tokenBuffer[$numTokens - 1];
+
+	string $scriptRef = `whatIs $script`;
+
+	// Clip string away from beginning
+	$startString = "Script found in: ";
+	int $clipChars = `size($startString)`;
+	int $numCharacters = `size($scriptRef)`;
+	$scriptRef = `endString $scriptRef ($numCharacters - $clipChars)`;
+
+	// Clip string away from end
+	int $clipChars = `size($script)`;
+	int $numCharacters = `size($scriptRef)`;
+	$scriptRef = `substring $scriptRef 1 ($numCharacters - $clipChars - 1)`;
+
+  return $scriptRef;
+
+} // end proc 'getScriptRef'
+
+
+
+// Get Help Doc Location
+global proc string getHelpDocLoc( string $ref, string $doc )
+{
+  string $scriptRef = `getScriptRef $ref`;
+
+	//add new docs path
+	string $docLoc = $scriptRef + "/" + $doc;
+
+  return $docLoc;
+
+} // end proc 'getHelpDocLoc'
+
+
+
+global proc getHelpDocs( string $ref, string $doc )
+{
+	string $docLoc = `getHelpDocLoc $ref $doc`;
+
+  showHelp -absolute ( "file://" + $docLoc );
+
+} // end proc 'getHelpDocs'

@@ -1,0 +1,52 @@
+//Author: Patrick Drewello 2010
+//Manchester School of Architecture
+//loop to generate 2 types of species
+/////////////////////////////////////////////////
+//stage: alpha_release
+
+select -all;
+doDelete;
+
+////////////////////////////////////////////
+//1st Loop: setup scene
+//Create polyspheres at randomXYZ within given range ($numbsetspheres x 10)
+$numbsetspheres = 50;
+for ($i=0;$i<$numbsetspheres;$i++) {	
+	for ($j=0;$j<10;$j++) {
+		float $RandX = rand(1, 23);
+		float $RandY = rand(1, 23);
+		float $RandZ = rand(1, 23);
+		polySphere -n "SH1";
+		scale -r 0.3 0.4 0.4;
+		move -r $RandX $RandY $RandZ;
+		currentTime $j;
+	}
+}
+
+//Insert floor planes
+$numbfloors = 1;
+for ($i=0;$i<$numbfloors;$i++) {
+	polyCube -n "PC1";
+	scale 23 0.23 23;
+	move 11.5 ($i*2.5) 11.5;
+	currentTime $i;
+
+}
+
+////////////////////////////////////////////
+//2nd loop: Bounding Box Loop:
+//What it does: creates a series of polycubes
+
+	//polyCube -w 10 -d 10 -h 15 -n PB;
+		
+	//Insert cubes
+	$numbcubes = 300;	//Number of inserted cubes
+	for ($i=0;$i<$numbcubes;$i++) {
+		float $RandX = rand(1, 23);
+		float $RandY = rand(1, 23);
+		float $RandZ = rand(1, 23);
+		polyCube -w 0.1 -d 0.1 -h 0.1 -n "PB";
+		scale $RandX $RandY $RandZ;
+		move $RandX $RandY $RandZ;
+		currentTime $i;
+	}

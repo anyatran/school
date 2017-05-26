@@ -1,0 +1,179 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: NM_SoccerBall
+''    Author:  
+''    Last Updated: Sep 24, 2006
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/modeling/poly_tools/4280.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+//Script created by Nonato Moreira (c). Brazil. 2006
+//Soccer Ball 1.0 for Maya 6.0, 6.5, 7.0 and 8.0
+//How to use this Script.
+//In Command line type: source NM_SoccerBall.mel and after type SoccerBall
+//Wait and fun!
+
+
+
+
+global proc SoccerBall()
+{
+
+//Cria Primitiva da Bola (Create Ball primitive)
+polySphere -r 2 -sx 5 -sy 3 -ax 0 1 0 -n Ball;
+	rotate -r -os 0 -36 0 Ball.vtx[0:4] Ball.vtx[10] ;
+	move -r 0 0 0 Ball.vtx[0:4] Ball.vtx[10] ;
+Triangulate Ball.f[0:4];
+move -r 0 0.3 0 Ball.vtx[0:4] Ball.vtx[10] ;
+select -r Ball ;
+polyChamferVtx 1 0.35 0;
+delete -ch Ball;
+
+
+polySmooth  -mth 0 -dv 2 -c 1 Ball;
+
+delete -ch Ball;
+
+//Gomos Pentagonais (Extrude Pentagonals)
+
+select -r Ball.f[0:7] Ball.f[9] Ball.f[12] Ball.f[15] Ball.f[19] Ball.f[32:63] Ball.f[69:72] Ball.f[83:86] Ball.f[97:100] Ball.f[116:119] Ball.f[180:203] Ball.f[207:209] Ball.f[216:218] Ball.f[225:227] Ball.f[237:239] Ball.f[276:371] Ball.f[387:398] Ball.f[429:440] Ball.f[471:482] Ball.f[528:539] ;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.024;
+	setAttr ".ls" -type double3 0.866667 0.866667 0.866667;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+	setAttr ".ls" -type double3 0.25 0.25 0.25 ;
+	setAttr ".ltz" 0.0125647 ;
+
+//Gomos Hexagonais (Extrude Hagonals)
+
+select -cl  ;
+select -r Ball.f[11] Ball.f[14] Ball.f[18] Ball.f[20] Ball.f[22] Ball.f[25] Ball.f[28] Ball.f[30] Ball.f[78:82] Ball.f[92:96] Ball.f[111:115] Ball.f[120:124] Ball.f[130:134] Ball.f[145:149] Ball.f[160:164] Ball.f[170:174] Ball.f[213:215] Ball.f[222:224] Ball.f[234:236] Ball.f[240:242] Ball.f[246:248] Ball.f[255:257] Ball.f[264:266] Ball.f[270:272] Ball.f[414:428] Ball.f[456:470] Ball.f[513:527] Ball.f[540:554] Ball.f[570:584] Ball.f[615:629] Ball.f[660:674] Ball.f[690:704] ;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.024;
+	setAttr ".ls" -type double3 0.866667 0.866667 0.866667;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+	setAttr ".ls" -type double3 0.25 0.25 0.25 ;
+	setAttr ".ltz" 0.0125647 ;
+
+select -cl  ;
+select -r Ball.f[10] Ball.f[13] Ball.f[17] Ball.f[21] Ball.f[24] Ball.f[27] Ball.f[73:77] Ball.f[87:91] Ball.f[106:110] Ball.f[125:129] Ball.f[140:144] Ball.f[155:159] Ball.f[210:212] Ball.f[219:221] Ball.f[231:233] Ball.f[243:245] Ball.f[252:254] Ball.f[261:263] Ball.f[399:413] Ball.f[441:455] Ball.f[498:512] Ball.f[555:569] Ball.f[600:614] Ball.f[645:659] ;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.024;
+	setAttr ".ls" -type double3 0.866667 0.866667 0.866667;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+	setAttr ".ls" -type double3 0.25 0.25 0.25 ;
+	setAttr ".ltz" 0.0125647 ;
+
+select -cl  ;
+select -r Ball.f[8] Ball.f[16] Ball.f[23] Ball.f[26] Ball.f[31] Ball.f[64:68] Ball.f[101:105] Ball.f[135:139] Ball.f[150:154] Ball.f[175:179] Ball.f[204:206] Ball.f[228:230] Ball.f[249:251] Ball.f[258:260] Ball.f[273:275] Ball.f[372:386] Ball.f[483:497] Ball.f[585:599] Ball.f[630:644] Ball.f[705:719] ;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.024;
+	setAttr ".ls" -type double3 0.866667 0.866667 0.866667;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+	setAttr ".ls" -type double3 0.25 0.25 0.25 ;
+	setAttr ".ltz" 0.0125647 ;
+
+select -cl  ;
+select -r Ball.f[29] Ball.f[165:169] Ball.f[267:269] Ball.f[675:689] ;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.024;
+	setAttr ".ls" -type double3 0.866667 0.866667 0.866667;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+	setAttr ".ls" -type double3 0.25 0.25 0.25 ;
+	setAttr ".ltz" 0.0125647 ;
+
+//Cria Shaders Black e Branco (Create Black and White Shaders)
+string $Fblinn = `shadingNode -asShader blinn -n "Ball_black"` ; 
+	setAttr ".color" -type double3 0 0 0 ;
+string $Fblinn = `shadingNode -asShader blinn -n "Ball_white"` ; 
+	setAttr ".color" -type double3 1 1 1 ;
+
+
+//Aplica Smooth (Aply Smooth)
+select -cl  ;
+select -r Ball ;
+
+move -r 0 1.385042 0 ;
+FreezeTransformations;
+performFreezeTransformations(0);
+makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+
+DeleteHistory;
+delete -ch;
+
+
+polySmooth  -mth 0 -dv 1 -c 0 Ball ;
+
+
+//Aplica Shader Black para os Pentagonos (Aply Black Shader to Pentagons)
+select -cl  ;
+select -r Ball ;
+
+select -r Ball.f[0:7] Ball.f[9] Ball.f[12] Ball.f[15] Ball.f[19] Ball.f[32:63] Ball.f[69:72] Ball.f[83:86] Ball.f[97:100] Ball.f[116:119] Ball.f[180:203] Ball.f[207:209] Ball.f[216:218] Ball.f[225:227] Ball.f[237:239] Ball.f[276:371] Ball.f[387:398] Ball.f[429:440] Ball.f[471:482] Ball.f[528:539] Ball.f[960:1439] Ball.f[2880:2903] Ball.f[2907:2909] Ball.f[2916:2918] Ball.f[2925:2927] Ball.f[2937:2939] Ball.f[2976:3071] Ball.f[3087:3098] Ball.f[3129:3140] Ball.f[3171:3182] Ball.f[3228:3239] Ball.f[3420:3491] Ball.f[3501:3509] Ball.f[3528:3536] Ball.f[3555:3563] Ball.f[3591:3599] Ball.f[3708:3995] Ball.f[4041:4076] Ball.f[4167:4202] Ball.f[4293:4328] Ball.f[4464:4499] Ball.f[5041:5042] Ball.f[5044:5045] Ball.f[5047:5048] Ball.f[5050:5051] Ball.f[5053:5054] Ball.f[5056:5057] Ball.f[5059:5060] Ball.f[5062:5063] Ball.f[5065:5066] Ball.f[5068:5069] Ball.f[5071:5072] Ball.f[5074:5075] Ball.f[5077:5078] Ball.f[5080:5081] Ball.f[5083:5084] Ball.f[5086:5087] Ball.f[5089:5090] Ball.f[5092:5093] Ball.f[5095:5096] Ball.f[5098:5099] Ball.f[5101:5102] Ball.f[5104:5105] Ball.f[5107:5108] Ball.f[5110:5111] Ball.f[5113:5114] Ball.f[5116:5117] Ball.f[5119:5120] Ball.f[5122:5123] Ball.f[5125:5126] Ball.f[5128:5129] Ball.f[5131:5132] Ball.f[5134:5135] Ball.f[5137:5138] Ball.f[5140:5141] Ball.f[5143:5144] Ball.f[5146:5147] Ball.f[5149:5150] Ball.f[5152:5153] Ball.f[5155:5156] Ball.f[5158:5159] Ball.f[5161:5162] Ball.f[5164:5165] Ball.f[5167:5168] Ball.f[5170:5171] Ball.f[5173:5174] Ball.f[5176:5177] Ball.f[5179:5180] Ball.f[5182:5183] Ball.f[5185:5186] Ball.f[5188:5189] Ball.f[5191:5192] Ball.f[5194:5195] Ball.f[5197:5198] Ball.f[5200:5201] Ball.f[5203:5204] Ball.f[5206:5207] Ball.f[5209:5210] Ball.f[5212:5213] Ball.f[5215:5216] Ball.f[5218:5219] Ball.f[5221:5222] Ball.f[5224:5225] Ball.f[5227:5228] Ball.f[5230:5231] Ball.f[5233:5234] Ball.f[5236:5237] Ball.f[5239:5240] Ball.f[5242:5243] Ball.f[5245:5246] Ball.f[5248:5249] Ball.f[5251:5252] Ball.f[5254:5255] Ball.f[5257:5258] Ball.f[5260:5261] Ball.f[5263:5264] Ball.f[5266:5267] Ball.f[5269:5270] Ball.f[5272:5273] Ball.f[5275:5276] Ball.f[5278:5279] Ball.f[5281:5282] Ball.f[5284:5285] Ball.f[5287:5288] Ball.f[5290:5291] Ball.f[5293:5294] Ball.f[5296:5297] Ball.f[5299:5300] Ball.f[5302:5303] Ball.f[5305:5306] Ball.f[5308:5309] Ball.f[5311:5312] Ball.f[5314:5315] Ball.f[5317:5318] Ball.f[5320:5321] Ball.f[5323:5324] Ball.f[5326:5327] Ball.f[5329:5330] Ball.f[5332:5333] Ball.f[5335:5336] Ball.f[5338:5339] Ball.f[5341:5342] Ball.f[5344:5345] Ball.f[5347:5348] Ball.f[5350:5351] Ball.f[5353:5354] Ball.f[5356:5357] Ball.f[5359:5360] Ball.f[5362:5363] Ball.f[5365:5366] Ball.f[5368:5369] Ball.f[5371:5372] Ball.f[5374:5375] Ball.f[5377:5378] Ball.f[5380:5381] Ball.f[5383:5384] Ball.f[5386:5387] Ball.f[5389:5390] Ball.f[5392:5393] Ball.f[5395:5396] Ball.f[5398:5399] Ball.f[5401:5402] Ball.f[5404:5405] Ball.f[5407:5408] Ball.f[5410:5411] Ball.f[5413:5414] Ball.f[5416:5417] Ball.f[5419:5420] Ball.f[5422:5423] Ball.f[5425:5426] Ball.f[5428:5429] Ball.f[5431:5432] Ball.f[5434:5435] Ball.f[5437:5438] Ball.f[5440:5441] Ball.f[5443:5444] Ball.f[5446:5447] Ball.f[5449:5450] Ball.f[5452:5453] Ball.f[5455:5456] Ball.f[5458:5459] Ball.f[5461:5462] Ball.f[5464:5465] Ball.f[5467:5468] Ball.f[5470:5471] Ball.f[5473:5474] Ball.f[5476:5477] Ball.f[5479:5480] Ball.f[5482:5483] Ball.f[5485:5486] Ball.f[5488:5489] Ball.f[5491:5492] Ball.f[5494:5495] Ball.f[5497:5498] Ball.f[5500:5501] Ball.f[5503:5504] Ball.f[5506:5507] Ball.f[5509:5510] Ball.f[5512:5513] Ball.f[5515:5516] Ball.f[5518:5519] Ball.f[5521:5522] Ball.f[5524:5525] Ball.f[5527:5528] Ball.f[5530:5531] Ball.f[5533:5534] Ball.f[5536:5537] Ball.f[5539:5540] Ball.f[5542:5543] Ball.f[5545:5546] Ball.f[5548:5549] Ball.f[5551:5552] Ball.f[5554:5555] Ball.f[5557:5558] Ball.f[5560:5561] Ball.f[5563:5564] Ball.f[5566:5567] Ball.f[5569:5570] Ball.f[5572:5573] Ball.f[5575:5576] Ball.f[5578:5579] Ball.f[5581:5582] Ball.f[5584:5585] Ball.f[5587:5588] Ball.f[5590:5591] Ball.f[5593:5594] Ball.f[5596:5597] Ball.f[5599:5600] Ball.f[5602:5603] Ball.f[5605:5606] Ball.f[5608:5609] Ball.f[5611:5612] Ball.f[5614:5615] Ball.f[5617:5618] Ball.f[5620:5621] Ball.f[5623:5624] Ball.f[5626:5627] Ball.f[5629:5630] Ball.f[5632:5633] Ball.f[5635:5636] Ball.f[5638:5639] Ball.f[5641:5642] Ball.f[5644:5645] Ball.f[5647:5648] Ball.f[5650:5651] Ball.f[5653:5654] Ball.f[5656:5657] Ball.f[5659:5660] Ball.f[5662:5663] Ball.f[5665:5666] Ball.f[5668:5669] Ball.f[5671:5672] Ball.f[5674:5675] Ball.f[5677:5678] Ball.f[5680:5681] Ball.f[5683:5684] Ball.f[5686:5687] Ball.f[5689:5690] Ball.f[5692:5693] Ball.f[5695:5696] Ball.f[5698:5699] Ball.f[5701:5702] Ball.f[5704:5705] Ball.f[5707:5708] Ball.f[5710:5711] Ball.f[5713:5714] Ball.f[5716:5717] Ball.f[5719:5720] Ball.f[5722:5723] Ball.f[5725:5726] Ball.f[5728:5729] Ball.f[5731:5732] Ball.f[5734:5735] Ball.f[5737:5738] Ball.f[5740:5741] Ball.f[5743:5744] Ball.f[5746:5747] Ball.f[5749:5750] Ball.f[5752:5753] Ball.f[5755:5756] Ball.f[5758:7199] ;
+
+source "dagMenuProc";
+	assignSG Ball_black Ball;
+InvertSelection;
+	assignSG Ball_white Ball;
+
+changeSelectMode -object;
+DisplayShadedAndTextured;
+
+select -r Ball ;
+CenterPivot;
+
+select -cl  ;
+
+string $str = "Bola de Futebol criada com sucesso!";
+print ($str+"\n");
+};

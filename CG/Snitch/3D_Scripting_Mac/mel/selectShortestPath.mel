@@ -1,0 +1,647 @@
+global proc string selectShortestPath()
+{
+timerstart;
+string $selection[] = sel();
+createSet tmpEdgesShorts;
+string $vertsSelected[] = selMask("v");
+if (`size $vertsSelected` < 2)
+	return "select two vertices";
+string $vert1 = $vertsSelected[0];
+string $vert2 = $vertsSelected[1];
+int $vert1Num = intSingle(getNumbersOfComponents({$vert1}));
+int $vert2Num = intSingle(getNumbersOfComponents({$vert2}));
+//select $vert1;
+float $center[] = centerOfVertices($vertsSelected);
+float $distance = twoVerticesDistance($vert1, $vert2);
+string $object = selObj();
+
+select $vert1;
+polySelectBorderShell 0;
+PolySelectTraverse 1;
+string $shellVertices[] = conv(sel(), "v");
+$numIs = forInNum($vert2, $shellVertices);
+if ($numIs == -1)
+	{
+	select $selection;
+	return "vertices isn't in one shell";
+	}
+
+selectPointsInDistance($center, $distance, $object);
+int $shellsCount = intSingle(`polyEvaluate -s $object`);
+if ($shellsCount > 5)
+	select (stringIntersect(sel(), $shellVertices));
+string $vertices[] = sel();
+
+selectionConstraintsOff();
+
+float $distances[] = {};
+int $vertsToEval[] = getNumbersOfComponents({$vert1});
+int $vert;
+
+float $poses[] = pointsPosition($vertices);
+int $vertNums[] = getNumbersOfComponents($vertices);
+
+string $vertS;
+string $vertsConv[];
+int $nums[];
+string $nearVerts[] = {};
+progressBegin "selecting ...";
+int $count;
+int $sizeV = `size $vertices`;
+for ($vertS in $vertices)
+{
+//$vertS = $vertices[0];
+int $nums[] = {};
+string $info1[] = `polyInfo -ve $vertS`;
+int $numsEdges[] = stringArrayToIntArray(stringCut (2, "end", stringToStringArray($info1[0], " \n")));
+string $namesEdges[] = getNamesOfComponents($numsEdges, "e", $object);
+string $info2[] = `polyInfo -ev $namesEdges`;
+string $inf;
+for ($inf in $info2)
+	{
+//$inf = $info2[0];
+	int $numsCurr[] = stringArrayToIntArray(stringCut (2, "end", stringToStringArray($inf, " \nHard")));
+	int $num;
+	for ($num in $numsCurr)
+		{
+	//$num = $numsCurr[0];
+		$nums[`size $nums`] = $num;
+		}
+	}
+string $numsSA[] = stringArrayRemoveDuplicates(intArrayToStringArray($nums));
+//print $nums
+//select (getNamesOfComponents($nums, "v", $object))
+$nearVerts[`size $nearVerts`] = stringArrayToString ($numsSA, " ");
+$count++;
+if ($count % 100 == 0)
+	{
+	progressText("preparing..  " + $count + " / " + $sizeV);
+	progressValue(intToFloat($count) / $sizeV * 100);
+	}
+}
+
+int $vertsToEvalNext[] = {};
+int $count = 0;
+int $countEvaled = 1;
+for (;;)
+{
+for ($vert in $vertsToEval)
+	{
+//$vert = $vertsToEval[0];
+	int $numInVert = forInNumInt($vert, $vertNums);
+	float $distanceCurr = $distances[$numInVert];
+//select (getNamesOfComponents({$vert}, "v", $object));
+	float $posVert[] = {$poses[$numInVert * 3 + 0], $poses[$numInVert * 3 + 1], $poses[$numInVert * 3 + 2]};
+//pointPosition
+	int $vertsNear[] = stringArrayToIntArray (stringToStringArray ($nearVerts[$numInVert], " "));
+//select (getNamesOfComponents($vertsNear, "v", $object));
+	int $vertTo;
+	for ($vertTo in $vertsNear)
+		{
+	//$vertTo = $vertsNear[0];
+	//select (getNamesOfComponents({$vertTo}, "v", $object));
+		int $numInVertTo = forInNumInt($vertTo, $vertNums);
+		if ($numInVertTo == -1)
+			continue;
+		float $posVertTo[] = {$poses[$numInVertTo * 3 + 0], $poses[$numInVertTo * 3 + 1], $poses[$numInVertTo * 3 + 2]};
+		float $distanceTo = twoPointsDistance($posVert, $posVertTo);
+		float $valueWas = $distances[$numInVertTo];
+		float $valueNew = $distanceCurr + $distanceTo;
+		if (($valueWas == 0 || $valueNew < $valueWas) && $vertTo != $vert1Num)
+			{
+			$distances[$numInVertTo] = $valueNew;
+			$vertsToEvalNext[`size $vertsToEvalNext`] = $vertTo;
+			}
+		}
+	}
+if (`size $vertsToEvalNext` == 0)
+//	print "a"; 
+	break;
+else
+	$vertsToEval = stringArrayToIntArray(stringArrayRemoveDuplicates(intArrayToStringArray($vertsToEvalNext)));
+$countEvaled += `size $vertsToEvalNext`;
+$vertsToEvalNext = {};
+//select (getNamesOfComponents($vertsToEval, "v", $object));
+
+progressValue (intToFloat($countEvaled) / `size $vertices` * 100);
+progressText ("thinking...   " + $countEvaled + " / " + `size $vertices` + " vertices");
+$count ++;
+print ("\n1 stage eval...  " + $count);
+}
+
+//print $distances
+//print $distances[forInNum(sel1(), $vertices)];
+
+$count = 0;
+//select $vert2
+int $verticesPath[] = {$vert1Num, $vert2Num};
+int $currVert = $vert2Num;
+for (;;)
+{
+int $numInVert = forInNumInt($currVert, $vertNums);
+int $vertsNear[] = stringArrayToIntArray (stringToStringArray ($nearVerts[$numInVert], " "));
+//select (getNamesOfComponents($vertsNear, "v", $object));
+
+float $distancesCurr[] = {};
+int $vertInt;
+for ($vertInt in $vertsNear)
+	{
+//$vertInt = $vertsNear[0];
+	int $numInVert = forInNumInt($vertInt, $vertNums);
+	$distancesCurr[`size $distancesCurr`] = $distances[$numInVert];
+	}
+//print $distancesCurr
+float $min = minOf($distancesCurr);
+int $numInList = forInNumFloat($min, $distancesCurr);
+int $nextVertex = $vertsNear[$numInList];
+//select (getNamesOfComponents({$nextVertex}, "v", $object));
+if ($nextVertex == $vert1Num)
+//	print "a";
+	break;
+else
+	{
+	$verticesPath[`size $verticesPath`] = $nextVertex;
+	$currVert = $nextVertex;
+	}
+//select (getNamesOfComponents({$currVert}, "v", $object));
+
+$count ++;
+print ("\n2 stage eval...  " + $count);
+if ($count > 10000)
+	{
+	warning "LOOP!!";
+	break;
+	}
+}
+select (getNamesOfComponents($verticesPath, "v", $object));
+ConvertSelectionToContainedEdges;
+select -add tmpEdgesShorts;
+delete tmpEdgesShorts;
+select -d (selMask("v"));
+selectionMode(selObj(), "v");
+progressEnd;
+return ("time: " + timerquery());
+}
+
+
+
+
+
+
+
+
+
+
+
+///UTILS
+
+global proc float[] centerOfVertices(string $vertices[])
+{
+//$vertices = conv(sel(), "v");
+float $x[] = {};
+float $y[] = {};
+float $z[] = {};
+string $vert;
+for ($vert in $vertices)
+	{
+//$vert = $vertices[0];
+	float $pos[] = `pointPosition $vert`;
+	$x[`size $x`] = $pos[0];
+	$y[`size $y`] = $pos[1];
+	$z[`size $z`] = $pos[2];
+	}
+float $xAv = floatArraySum($x) / `size $x`;
+float $yAv = floatArraySum($y) / `size $y`;
+float $zAv = floatArraySum($z) / `size $z`;
+return {$xAv, $yAv, $zAv};
+}
+
+global proc string[] conv(string $itemsForConv[], string $mode)
+{
+$itemsForConv = `ls -fl $itemsForConv`;
+
+string $converted[] = {};
+if ($mode == "v")
+	$converted = `polyListComponentConversion -tv $itemsForConv`;
+else if ($mode == "e")
+	$converted = `polyListComponentConversion -te $itemsForConv`;
+else if ($mode == "f")
+	$converted = `polyListComponentConversion -tf $itemsForConv`;
+else if ($mode == "u")
+	$converted = `polyListComponentConversion -tuv $itemsForConv`;
+else if ($mode == "vf")
+	$converted = `polyListComponentConversion -tvf $itemsForConv`;
+
+else if ($mode == "vi")
+	$converted = `polyListComponentConversion -tv -in $itemsForConv`;
+else if ($mode == "ei")
+	$converted = `polyListComponentConversion -te -in $itemsForConv`;
+else if ($mode == "fi")
+	$converted = `polyListComponentConversion -tf -in $itemsForConv`;
+else if ($mode == "ui")
+	$converted = `polyListComponentConversion -tuv -in $itemsForConv`;
+else if ($mode == "vfi")
+	$converted = `polyListComponentConversion -tvf -in $itemsForConv`;
+else
+	print "wrong argument";
+$converted = `ls -fl $converted`;
+return $converted;
+}
+
+global proc createSet(string $name)
+{
+if (`objExists $name`)
+	delete $name;
+sets -name $name;
+}
+
+global proc float floatArraySum(float $array[])
+{
+float $sum = 0;
+float $single;
+for ($single in $array)
+	$sum += $single;
+return $sum;
+}
+
+global proc int forInNum(string $item, string $array[])
+{
+//$item = "b";
+//$array = {"a", "b", "c"};
+$c = 0;
+for (; $c < `size $array`; $c++)
+	{
+	if ($array[$c] == $item)
+		break;
+	}
+if ($c == `size $array`)
+	return -1;
+return $c;
+}
+
+global proc int forInNumFloat(float $item, float $array[])
+{
+//$item = 1.0;
+//$array = {1.0, 2.0, 3.0};
+$c = 0;
+for (; $c < `size $array`; $c++)
+	{
+	if ($array[$c] == $item)
+		break;
+	}
+if ($c == `size $array`)
+	return -1;
+return $c;
+}
+
+global proc float intToFloat(int $int)
+{
+float $float = $int;
+return $float;
+}
+
+global proc float minOf(float $nums[])
+{
+//float $nums[] = {1.0,2.0,3.0,4.0,5.0};
+float $min = min($nums[0], $nums[1]);
+
+for ($num in $nums)
+	{
+	if ($num < $min)
+		$min = $num;
+	}
+return $min;
+}
+
+global proc progressBegin(string $name)
+{
+progressWindow -isInterruptable 1 -t $name -status "" -progress 0 -maxValue 1000;
+}
+
+global proc progressValue(float $value)
+{
+int $intValue = $value * 10;
+progressWindow -edit -progress $intValue;
+}
+
+global proc progressText(string $text)
+{
+progressWindow -edit -status $text;
+}
+
+global proc progressEnd()
+{
+progressWindow -edit -endProgress;
+}
+
+global proc int progressEsc()
+{
+if(`progressWindow -query -isCancelled`)
+	{
+	progressEnd;
+	return 1;
+	}
+return 0;
+}
+
+/*
+progressBegin progressic;
+progressValue 50.0;
+progressText "text";
+progressEsc;
+progressEnd;
+*/
+
+global proc string sel1()
+{
+string $sel[] = `ls -sl -fl`;
+return $sel[0];
+}
+
+global proc string[] sel()
+{
+return `ls -sl -fl`;
+}
+
+global proc selectionMode(string $item, string $mask)
+{
+/*masks real
+pv
+pe
+pfe
+pf
+puv
+pvf
+
+masks simple
+v
+e
+f
+u
+vf
+*/
+if ($mask == "v")
+	$mask = "pv";
+if ($mask == "e")
+	$mask = "pe";
+if ($mask == "f")
+	$mask = "pf";
+if ($mask == "u")
+	$mask = "puv";
+if ($mask == "vf")
+	$mask = "pvf";
+
+string $selectCmd;
+if (`selectMode -q -object`)
+	{
+	hilite $item;
+	selectType -ocm -alc false;
+	$selectCmd = "selectType -ocm -" + $mask + " true;";
+	}
+else
+	{
+	selectType -ocm -alc false;
+	$selectCmd = "selectType -" + $mask + " true;";
+	if (!`selectMode -q -preset`)
+		$selectCmd = $selectCmd + "hilite " + $item + ";";
+	}
+eval $selectCmd;
+}
+
+global proc selectPointsInDistance(float $pos[], float $maxDistance, string $obj)
+{
+/*
+float $maxDistance = 0.2;
+$pos = `pointPosition`;
+$obj = sel1();
+*/
+select $obj;
+polySelectConstraint -t 1 -m 3 -d 1 -db 0 $maxDistance -dp $pos[0] $pos[1] $pos[2];
+polySelectConstraint -t 0 -m 0;
+}
+
+global proc string[] selMask(string $mask)
+{
+/*
+Handle  0  
+Nurbs Curves  9  
+Nurbs Surfaces  10  
+Nurbs Curves On Surface  11  
+Polygon  12  
+Locator XYZ  22  
+Orientation Locator  23  
+Locator UV  24  
+Control Vertices (CVs)  28  
+Edit Points  30  
+Polygon Vertices  31  
+Polygon Edges  32  
+Polygon Face  34  
+Polygon UVs  35  
+Subdivision Mesh Points  36  
+Subdivision Mesh Edges  37  
+Subdivision Mesh Faces  38  
+Curve Parameter Points  39  
+Curve Knot  40  
+Surface Parameter Points  41  
+Surface Knot  42  
+Surface Range  43  
+Trim Surface Edge  44  
+Surface Isoparms  45  
+Lattice Points  46  
+Particles  47  
+Scale Pivots  49  
+Rotate Pivots  50  
+Select Handles  51  
+Subdivision Surface  68  
+Polygon Vertex Face  70  
+NURBS Surface Face  72  
+Subdivision Mesh UVs  73  
+
+$mask = "v";
+*/
+int $maskInt;
+if ($mask == "v")
+	$maskInt = 31;
+if ($mask == "e")
+	$maskInt = 32;
+if ($mask == "f")
+	$maskInt = 34;
+if ($mask == "u")
+	$maskInt = 35;
+if ($mask == "vf")
+	$maskInt = 70;
+
+string $sel[] = `filterExpand -sm $maskInt`;
+return $sel;
+}
+
+global proc string selObj()
+{
+$objs = `ls -sl -o`;
+return $objs[0];
+}
+
+global proc string[] stringIntersect(string $string1[], string $string2[])
+{
+/*
+$string1 = {"1", "2", "3"};
+$string2 = {"2", "3", "4"};
+*/
+string $string1no[] = stringArrayRemove($string2, $string1);
+string $string2no[] = stringArrayRemove($string1, $string2);
+
+string $string1yes[] = stringArrayRemove($string1no, $string1);
+string $string2yes[] = stringArrayRemove($string2no, $string2);
+
+return $string1yes;
+}
+
+global proc float timerquery()
+{
+global float $GstartTime;
+$totalTime = `timerX -startTime $GstartTime`;
+//hideUvEditor "";
+return $totalTime;
+}
+
+global proc timerstart()
+{
+global float $GstartTime;
+float $GstartTime = `timerX`;
+//hideUvEditor begin;
+}
+
+global proc float twoVerticesDistance(string $vertex1, string $vertex2)
+{
+float $v1[] = `pointPosition $vertex1`;
+float $v2[] = `pointPosition $vertex2`;
+float $distance = sqrt(pow(($v1[0] - $v2[0]), 2) + pow(($v1[1] - $v2[1]), 2) + pow(($v1[2] - $v2[2]), 2));
+return $distance;
+}
+
+global proc int forInNumInt(int $item, int $array[])
+{
+//$item = "b";
+//$array = {"a", "b", "c"};
+$c = 0;
+for (; $c < `size $array`; $c++)
+	{
+	if ($array[$c] == $item)
+		break;
+	}
+if ($c == `size $array`)
+	return -1;
+return $c;
+}
+
+global proc string[] getNamesOfComponents (int $numbers[], string $componentType, string $shape)
+{
+/*
+int $numbers[] = {15, 64, 28};
+string $componentType = "v";
+string $shape = "pSphere1";
+*/
+if ($componentType == "v")
+	$componentType = "vtx";
+string $names[] = {};
+
+for ($number in $numbers)
+	{
+	$names[`size $names`] = ($shape + "." + $componentType + "[" + $number + "]");
+	}
+return $names;
+}
+
+global proc int[] getNumbersOfComponents(string $items[])
+{
+string $buffer[];
+int $listNumbers[];
+for ($item in $items)
+	{
+	tokenize $item "[]" $buffer;
+	$listNumbers[`size $listNumbers`] = $buffer[1];
+	}
+return $listNumbers;
+}
+
+global proc string[] intArrayToStringArray (int $intArray[])
+{
+//int $intArray[] = getNumbersOfComponents($findedAll);
+string $stringArray[] = {};
+for ($intItem in $intArray)
+	{
+	$stringArray[`size $stringArray`] = $intItem;
+	}
+return $stringArray;
+}
+
+global proc int intSingle(int $array[])
+{return $array[0];}
+
+global proc float[] pointsPosition(string $vertices[])
+{
+//string $vertices[] = sel();
+string $vert;
+float $poses[] = {};
+float $pose[];
+for ($vert in $vertices)
+	{
+	//$vert = $vertices[0];
+	$pose = `pointPosition $vert`;
+	$poses[`size $poses`] = $pose[0];
+	$poses[`size $poses`] = $pose[1];
+	$poses[`size $poses`] = $pose[2];
+	}
+return $poses;
+}
+
+global proc selectionConstraintsOff()
+{
+$sel = sel();
+polySelectConstraint -t 1 -m 3 -d 1 -db 0 1000000000 -dp 0 0 0;
+polySelectConstraint -t 0 -m 0;
+select $sel;
+}
+
+global proc int[] stringArrayToIntArray(string $stringArray[])
+{
+int $intArray[];
+for ($stringItem in $stringArray)
+	{
+	$intArray[`size $intArray`] = $stringItem;
+	}
+return $intArray;
+}
+
+global proc string[] stringCut(int $begin, string $end, string $list[])
+{
+//$begin = 0;
+//string $end = "-1";
+//string $list[] = {"1", "2", "3", "4"};
+int $endNum;
+if ($end == "end")
+	$endNum = `size $list` - 1;
+else if (`substring $end 1 1` == "-")
+	{
+	int $endInt = $end;
+	$endNum = `size $list` - 1 + $endInt;
+	}
+else
+	$endNum = $end;
+
+string $newString[] = {};
+int $counter = 0;
+int $size = `size $list` - 1;
+for (; $counter <= $size; $counter++)
+	{
+	if ($counter >= $begin && $counter <= $endNum)
+		$newString[`size $newString`] = $list[$counter];
+	}
+return $newString;
+}
+
+global proc float twoPointsDistance (float $p1[], float $p2[])
+{
+float $distance = sqrt(pow(($p1[0] - $p2[0]), 2) + pow(($p1[1] - $p2[1]), 2) + pow(($p1[2] - $p2[2]), 2));
+return $distance;
+}

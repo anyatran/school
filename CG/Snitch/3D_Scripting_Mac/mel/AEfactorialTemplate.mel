@@ -1,0 +1,35 @@
+//
+//  Creation Date:	Oct 19, 2008
+//
+//  Procedure Name:
+//	AEfactorialTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the factorial node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+//	Author:		Morteza Ramezanali (xDreamer)
+//				www.cgdna.com - moto@cgdna.com
+
+global proc AEfactorialTemplate ( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "Factorial Attributes" -collapse 0;
+			editorTemplate -addControl "operation";
+			editorTemplate -addControl "base";
+			editorTemplate -addControl "output";
+		editorTemplate -endLayout;
+
+	// include/call base class/node attributes
+	AEdependNodeTemplate $nodeName;
+
+	editorTemplate -addExtraControls;
+	editorTemplate -endScrollLayout;
+}

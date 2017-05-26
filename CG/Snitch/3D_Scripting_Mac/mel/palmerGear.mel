@@ -1,0 +1,270 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: palmer Gear Builder
+''    Author: impalmer 
+''    Last Updated: Jun 01, 2008
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/modeling/misc/2185.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+//////////////////////////////////////////////////////////////////////////////
+//
+// Palmer Gear Builder
+//
+// V 1.0
+//
+// Isaiah Palmer (ipalmer@pratt.edu)
+//
+// Thanks to: Rob O'Neill 
+// 
+// Date: 05/05/2007
+// Description: 	Aids in "Gear" design and modeling allowing
+//		for easy mass production of same type, different size/number
+//		of teeth gears, cogs, splines and other objects.
+//
+//		Note: Primary function is to create Cogs, Sprockets
+//		      and Chainrings. 
+//
+// Anyone can use and/or modify this script and thier own risk. If you use it
+// for a project please drop me a note as I'd love to see it in action.
+//
+///////////////////////////////////////////////////////////////////////////////
+//
+// known Issues: The Error: Cannot perform boolean operation. May occur if:
+// 		 (1) A 0 transZ extrude has a scale value other than 1.
+//		 (2) If the Hole Size is greater than the resulting gear size.
+//
+//		     If this error is keeping you from making the object
+//		     you wish add: "//" before the "two" lines between:
+//
+//			"//cutting the center hole" and "//end edit"
+//
+//			This will void the hole cutting.		 
+//
+//		 Some extreme scale settings may create poor geometry.
+//		 Note: application creates a base mesh that my require
+//		 modification.
+//
+///////////////////////////////////////////////////////////////////////////////
+
+global proc gearBuild()
+{
+//query the UI
+
+	int $setTeeth = `intField -query -value teeth`;
+	float $thickness = `floatField -query -value thickness`;
+	float $holeSize = `floatField -query -value hole`;
+	string $nameGear = `textField -query -tx gearName`;
+
+	float $trans1 = `floatField -query -value Trans1`;
+	float $trans2 = `floatField -query -value Trans2`;
+	float $trans3 = `floatField -query -value Trans3`;
+	float $trans4 = `floatField -query -value Trans4`;
+	float $trans5 = `floatField -query -value Trans5`;
+	float $trans6 = `floatField -query -value Trans6`;
+	float $trans7 = `floatField -query -value Trans7`;
+	float $trans8 = `floatField -query -value Trans8`;
+
+	float $scaleX1 = `floatField -query -value ScaleX1`;
+	float $scaleX2 = `floatField -query -value ScaleX2`;
+	float $scaleX3 = `floatField -query -value ScaleX3`;
+	float $scaleX4 = `floatField -query -value ScaleX4`;
+	float $scaleX5 = `floatField -query -value ScaleX5`;
+	float $scaleX6 = `floatField -query -value ScaleX6`;
+	float $scaleX7 = `floatField -query -value ScaleX7`;
+	float $scaleX8 = `floatField -query -value ScaleX8`;
+
+	float $scaleY1 = `floatField -query -value ScaleY1`;
+	float $scaleY2 = `floatField -query -value ScaleY2`;
+	float $scaleY3 = `floatField -query -value ScaleY3`;
+	float $scaleY4 = `floatField -query -value ScaleY4`;
+	float $scaleY5 = `floatField -query -value ScaleY5`;
+	float $scaleY6 = `floatField -query -value ScaleY6`;
+	float $scaleY7 = `floatField -query -value ScaleY7`;
+	float $scaleY8 = `floatField -query -value ScaleY8`;
+
+	warning "Name entered has been amended";		
+
+//math to size gear to number of teeth
+//   C=3.14*d
+
+	float $gearSize = 0.785 * $setTeeth / 3.14 / 2;
+
+//building the base cylinder
+
+	string $gear[] = `polyCylinder -n ($nameGear + "_" + $setTeeth + "T-") -r $gearSize -h $thickness -sx $setTeeth -sy 1 -sz 1 -ax 0 1 0 -tx 1 -ch 1`;
+	rotate 0 0.5 0;
+
+//fixing number of teeth
+
+	int $getTeeth = $setTeeth-1;
+
+//extruding the teeth
+
+	string $extrudeOne[] = `polyExtrudeFacet -ch 1 -kft 1 -pvx 0 -pvy 0 -pvz 0 -tx 0 -ty 0 -tz 0 -rx 0 -ry 0 -rz 0 -sx 1 -sy 1 -sz 1 -ran 0 -divisions 1 -twist 0 -taper 1 -off 0 -ltz 1 -ws 0 -ltx 0 -lty 0 -lrx 0 -lry 0 -lrz 0 -lsx 1 -lsy 1 -lsz 1 -ldx 1 -ldy 0 -ldz 0 -w 0 -gx 0 -gy -1 -gz 0 -att 0 -mx 0 -my 0 -mz 0 -sma 30 ($gear[0] + ".f[0:" + $getTeeth + "]")`;
+	setAttr ($extrudeOne[0] + ".localTranslate") -type double3 0 0 $trans1;
+	setAttr ($extrudeOne[0] + ".localScaleX") $scaleX1;
+	setAttr ($extrudeOne[0] + ".localScaleY") $scaleY1;
+
+	string $extrudeTwo[] = `polyExtrudeFacet -ch 1 -kft 1 -pvx 0 -pvy 0 -pvz 0 -tx 0 -ty 0 -tz 0 -rx 0 -ry 0 -rz 0 -sx 1 -sy 1 -sz 1 -ran 0 -divisions 1 -twist 0 -taper 1 -off 0 -ltz 1 -ws 0 -ltx 0 -lty 0 -lrx 0 -lry 0 -lrz 0 -lsx 1 -lsy 1 -lsz 1 -ldx 1 -ldy 0 -ldz 0 -w 0 -gx 0 -gy -1 -gz 0 -att 0 -mx 0 -my 0 -mz 0 -sma 30 ($gear[0] + ".f[0:" + $getTeeth + "]")`;
+	setAttr ($extrudeTwo[0] + ".localTranslate") -type double3 0 0 $trans2;
+	setAttr ($extrudeTwo[0] + ".localScaleX") $scaleX2;
+	setAttr ($extrudeTwo[0] + ".localScaleY") $scaleY2;
+
+	string $extrudeThree[] = `polyExtrudeFacet -ch 1 -kft 0 -pvx 0 -pvy 0 -pvz 0 -tx 0 -ty 0 -tz 0 -rx 0 -ry 0 -rz 0 -sx 1 -sy 1 -sz 1 -ran 0 -divisions 1 -twist 0 -taper 1 -off 0 -ltz 1 -ws 0 -ltx 0 -lty 0 -lrx 0 -lry 0 -lrz 0 -lsx 1 -lsy 1 -lsz 1 -ldx 1 -ldy 0 -ldz 0 -w 0 -gx 0 -gy -1 -gz 0 -att 0 -mx 0 -my 0 -mz 0 -sma 30 ($gear[0] + ".f[0:" + $getTeeth + "]")`;
+	setAttr ($extrudeThree[0] + ".localTranslate") -type double3 0 0 $trans3;
+	setAttr ($extrudeThree[0] + ".localScaleX") $scaleX3;
+	setAttr ($extrudeThree[0] + ".localScaleY") $scaleY3;
+
+	string $extrudeFour[] = `polyExtrudeFacet -ch 1 -kft 0 -pvx 0 -pvy 0 -pvz 0 -tx 0 -ty 0 -tz 0 -rx 0 -ry 0 -rz 0 -sx 1 -sy 1 -sz 1 -ran 0 -divisions 1 -twist 0 -taper 1 -off 0 -ltz 1 -ws 0 -ltx 0 -lty 0 -lrx 0 -lry 0 -lrz 0 -lsx 1 -lsy 1 -lsz 1 -ldx 1 -ldy 0 -ldz 0 -w 0 -gx 0 -gy -1 -gz 0 -att 0 -mx 0 -my 0 -mz 0 -sma 30 ($gear[0] + ".f[0:" + $getTeeth + "]")`;
+	setAttr ($extrudeFour[0] + ".localTranslate") -type double3 0 0 $trans4;
+	setAttr ($extrudeFour[0] + ".localScaleX") $scaleX4;
+	setAttr ($extrudeFour[0] + ".localScaleY") $scaleY4;
+
+	string $extrudeFive[] = `polyExtrudeFacet -ch 1 -kft 0 -pvx 0 -pvy 0 -pvz 0 -tx 0 -ty 0 -tz 0 -rx 0 -ry 0 -rz 0 -sx 1 -sy 1 -sz 1 -ran 0 -divisions 1 -twist 0 -taper 1 -off 0 -ltz 1 -ws 0 -ltx 0 -lty 0 -lrx 0 -lry 0 -lrz 0 -lsx 1 -lsy 1 -lsz 1 -ldx 1 -ldy 0 -ldz 0 -w 0 -gx 0 -gy -1 -gz 0 -att 0 -mx 0 -my 0 -mz 0 -sma 30 ($gear[0] + ".f[0:" + $getTeeth + "]")`;
+	setAttr ($extrudeFive[0] + ".localTranslate") -type double3 0 0 $trans5;
+	setAttr ($extrudeFive[0] + ".localScaleX") $scaleX5;
+	setAttr ($extrudeFive[0] + ".localScaleY") $scaleY5;
+
+	string $extrudeSix[] = `polyExtrudeFacet -ch 1 -kft 0 -pvx 0 -pvy 0 -pvz 0 -tx 0 -ty 0 -tz 0 -rx 0 -ry 0 -rz 0 -sx 1 -sy 1 -sz 1 -ran 0 -divisions 1 -twist 0 -taper 1 -off 0 -ltz 1 -ws 0 -ltx 0 -lty 0 -lrx 0 -lry 0 -lrz 0 -lsx 1 -lsy 1 -lsz 1 -ldx 1 -ldy 0 -ldz 0 -w 0 -gx 0 -gy -1 -gz 0 -att 0 -mx 0 -my 0 -mz 0 -sma 30 ($gear[0] + ".f[0:" + $getTeeth + "]")`;
+	setAttr ($extrudeSix[0] + ".localTranslate") -type double3 0 0 $trans6;
+	setAttr ($extrudeSix[0] + ".localScaleX") $scaleX6;
+	setAttr ($extrudeSix[0] + ".localScaleY") $scaleY6;
+
+	string $extrudeSeven[] = `polyExtrudeFacet -ch 1 -kft 0 -pvx 0 -pvy 0 -pvz 0 -tx 0 -ty 0 -tz 0 -rx 0 -ry 0 -rz 0 -sx 1 -sy 1 -sz 1 -ran 0 -divisions 1 -twist 0 -taper 1 -off 0 -ltz 1 -ws 0 -ltx 0 -lty 0 -lrx 0 -lry 0 -lrz 0 -lsx 1 -lsy 1 -lsz 1 -ldx 1 -ldy 0 -ldz 0 -w 0 -gx 0 -gy -1 -gz 0 -att 0 -mx 0 -my 0 -mz 0 -sma 30 ($gear[0] + ".f[0:" + $getTeeth + "]")`;
+	setAttr ($extrudeSeven[0] + ".localTranslate") -type double3 0 0 $trans7;
+	setAttr ($extrudeSeven[0] + ".localScaleX") $scaleX7;
+	setAttr ($extrudeSeven[0] + ".localScaleY") $scaleY7;
+
+	string $extrudeEight[] = `polyExtrudeFacet -ch 1 -kft 0 -pvx 0 -pvy 0 -pvz 0 -tx 0 -ty 0 -tz 0 -rx 0 -ry 0 -rz 0 -sx 1 -sy 1 -sz 1 -ran 0 -divisions 1 -twist 0 -taper 1 -off 0 -ltz 1 -ws 0 -ltx 0 -lty 0 -lrx 0 -lry 0 -lrz 0 -lsx 1 -lsy 1 -lsz 1 -ldx 1 -ldy 0 -ldz 0 -w 0 -gx 0 -gy -1 -gz 0 -att 0 -mx 0 -my 0 -mz 0 -sma 30 ($gear[0] + ".f[0:" + $getTeeth + "]")`;
+	setAttr ($extrudeEight[0] + ".localTranslate") -type double3 0 0 $trans8;
+	setAttr ($extrudeEight[0] + ".localScaleX") $scaleX8;
+	setAttr ($extrudeEight[0] + ".localScaleY") $scaleY8;
+
+//cleaning and merging 0 extrudes
+
+	polyMergeVertex;
+	delete -ch $gear[0];
+	rotate  0 0 0 $gear[0];
+
+//cutting the center hole
+
+	polyCylinder -n ($gear[0] + "cutter") -r $holeSize -h ($thickness + 1) -sx $setTeeth -sy 1 -sz 1 -ax 0 1 0 -tx 1 -ch 1;
+	polyBoolOp -n ($nameGear + "_" + $setTeeth + "T-") -op 2 -ch 1 $gear[0] ($gear[0] + "cutter");
+
+//end edit
+	
+	delete -ch;
+	
+}
+
+//////////
+//  GUI
+/////////
+
+global proc palmerGear()
+{
+
+	if(`window -query -exists pgb`)
+	{
+		deleteUI pgb;
+	}
+
+	string $window_name = `window -title "Palmer Gear Builder" pgb`;
+
+	columnLayout;
+		window -e -h 249 -w 120 pgb;		
+		text -w 100 "Gear Name";
+		textField -w 100 gearName;
+		text "Teeth";
+ 		intField -value 16 -minValue 4 teeth;
+		text "Thickness";
+		floatField -value .2 thickness;
+		text "Hole Size";
+		floatField -value 1 hole;
+		
+		int $extOpt = 0;
+
+		button -w 100 -bgc 1 .9 0 -label "Build Gear" -command gearBuild;
+
+		text "Extrude Options";
+
+		button -w 100 -h 11 -bgc 0 .5 1 -label "+" -command "window -e -h 600 -w 200 pgb";
+		button -w 100 -h 11 -bgc 1 .5 0 -label "-" -command "window -e -h 249 -w 120 pgb";
+		
+		text "NOTE: To Void an extrude use:"; 
+		text "Z = 0, X = 1, Y = 1. (Info in Readme)";
+		
+		gridLayout -numberOfRowsColumns 2 3 -cellWidthHeight 60 20;
+		
+		text "(1) Trans Z";
+		text "Scal X";
+		text "Scale Y";	
+			
+		floatField -value .04 Trans1;
+		floatField -value 1 ScaleX1;
+		floatField -value .6 ScaleY1;
+
+		text "(2) Trans Z";
+		text "Scal X";
+		text "Scale Y";
+	
+		floatField -value .1 Trans2;
+		floatField -value 1 ScaleX2;
+		floatField -value 1 ScaleY2;
+
+		text "(3) Trans Z";
+		text "Scal X";
+		text "Scale Y";
+	
+		floatField -value .05 Trans3;
+		floatField -value .7 ScaleX3;
+		floatField -value 1 ScaleY3;
+
+		text "(4) Trans Z";
+		text "Scal X";
+		text "Scale Y";
+	
+		floatField -value .09 Trans4;
+		floatField -value .7 ScaleX4;
+		floatField -value .9 ScaleY4;
+
+		text "(5) Trans Z";
+		text "Scal X";
+		text "Scale Y";
+	
+		floatField -value .1 Trans5;
+		floatField -value .8 ScaleX5;
+		floatField -value .9 ScaleY5;
+
+		text "(6) Trans Z";
+		text "Scal X";
+		text "Scale Y";
+	
+		floatField -value .1 Trans6;
+		floatField -value .8 ScaleX6;
+		floatField -value .9 ScaleY6;
+
+		text "(7) Trans Z";
+		text "Scal X";
+		text "Scale Y";
+	
+		floatField -value .08 Trans7;
+		floatField -value .7 ScaleX7;
+		floatField -value .9 ScaleY7;
+
+		text "(8) Trans Z";
+		text "Scal X";
+		text "Scale Y";
+	
+		floatField -value .04 Trans8;
+		floatField -value .5 ScaleX8;
+		floatField -value .5 ScaleY8;
+
+		showWindow $window_name;
+}

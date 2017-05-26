@@ -1,0 +1,40 @@
+/* usage: load_RoundedBoxShelf ()
+
+   load_RoundedBox v.1.01
+   CyberArts Script File
+   Creation Date: 12/01/03
+   Update: 8/7/05
+   Author: Robert Rusick
+
+   Simple loader for 'Rounded Box' shelf.
+
+   History:
+   --------------------------------------
+   v.1.01 ( 8/7/05 ) -- modified to load from 'RoundedBox/shelf' directory
+
+   ==============================================================================
+                             LOAD ROUNDED BOX SHELF
+   ==============================================================================
+*/
+
+
+global proc string load_RoundedBoxShelf (  )
+{
+  string $notice = "Default notice";
+
+  global string $gShelfTopLevel;
+
+  if (`shelfLayout -ex "RoundedBox"`)
+  {
+    print ("First will delete the current 'RoundedBox' shelf...\n");
+    deleteShelfTab "RoundedBox";
+    print ("Now will load the new 'RoundedBox' shelf...\n");
+  }
+
+  loadNewShelf "RoundedBox/shelf/shelf_RoundedBox.mel";
+  saveAllShelves $gShelfTopLevel;
+
+  $notice = "Loaded current 'Rounded Box' shelf.";
+  return $notice;
+
+} // end proc 'load_RoundedBoxShelf'

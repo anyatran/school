@@ -1,0 +1,73 @@
+.globl main
+.data
+st1: .asciiz "Positive integer: "
+st2: .asciiz "The value of factorial "
+st3: .asciiz " is: "
+ 
+.text
+main:
+    # ask user for input
+    la        $a0, st1 #print first string
+    li        $v0, 4
+    syscall
+ 
+    li        $v0, 5 #read the input
+    syscall
+    move      $t0, $v0
+    
+    
+ 
+    # call factorial function
+    addi      $sp, $sp, -12  # alloc 12 bytes
+    sw        $t0, 0($sp)    # arg1: number n
+    sw        $ra, 8($sp)    # store word
+    jal       factorial
+    lw        $ra, 8($sp)    # load word
+    lw        $s0, 4($sp)    # load the final return value
+    addi      $sp, $sp, 12   # dealloc 12 bytes
+ 
+    # print result
+    la        $a0, st2
+    li        $v0, 4
+    syscall
+ 
+    move $a0, $t0
+    li $v0, 1
+    syscall
+ 
+    la      $a0, st3
+    li        $v0, 4
+    syscall
+    
+    move      $a0, $s0
+    li        $v0, 1
+    syscall
+ 
+    li        $v0, 10
+    syscall
+ 
+factorial:
+    # base case
+    lw        $t0, 0($sp) #if x = 0
+    beq       $t0, 0, return1 #go to return 1
+ 
+    addi      $t0, $t0, -1 #x - 1
+    addi      $sp, $sp, -12
+    sw        $t0, 0($sp)
+    sw        $ra, 8($sp)
+    jal       factorial
+    lw        $ra, 8($sp)
+    lw        $t1, 4($sp)
+ 
+    lw        $t0, 12($sp)
+    mul       $t2, $t1, $t0 #multiply on fact recursive
+    
+    sw        $t2, 16($sp)
+    addi     $sp, $sp, 12
+ 
+    jr        $ra
+ 
+return1:
+    li        $t0, 1
+    sw        $t0, 4($sp)
+    jr        $ra

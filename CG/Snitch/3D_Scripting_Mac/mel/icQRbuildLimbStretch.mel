@@ -1,0 +1,146 @@
+//----------------------------------------------------------------------------------------------
+//
+//	builts the stretchyness for a given joint chain
+//
+//	SCRIPT:			icQRbuildLimbStretch.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jun 29, 2011
+//					created: Jun 29, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+global proc string[] icQRbuildLimbStretch ( string $startJoint, string $midJoint, string $endJoint, 
+											string $twistJoint1, string $twistJoint2,
+											string $type, string $charSide, string $charName )
+{
+	string $distLocator[];
+	string $distanceTransNode[];
+	string $distanceShapeName[];
+	string $aimConst[];
+	string $wristAimConst[];
+	string $charScaleMultNode;
+	string $distanceNode;
+	string $prefix;
+	float $length;
+	float $lengthJoint1;
+	float $lengthJoint2;
+	float $lengthTwistJoint1;
+	float $lengthTwistJoint2;
+	int $vectorMultiply;
+
+	select -cl;
+
+
+	float $distStart[];
+	float $distEnd[];
+
+	//build a prefix name from the character side and the limb part
+	$prefix = ($charSide + $type + "_");
+
+	$distStart = `xform -q -ws -t $startJoint`;
+	$distEnd = `xform -q -ws -t $endJoint`;
+
+	//create the distance node and get all necessary information about it
+	//to avoid that locators are being reused during any other setup
+	//the locators are first setup in space before moved to the right positions
+	$distanceNode = `distanceDimension -sp 0 0 0 -ep 10 0 0`;
+
+	//get the distance locators
+	$distLocator = `listConnections -s 1 -d 0 $distanceNode`;
+	$distLocator[0] = `rename $distLocator[0]
+						($prefix + "stretchMeasureStart_loc" + $charName)`;
+	$distLocator[1] = `rename $distLocator[1]
+						($prefix + "stretchMeasureEnd_loc" + $charName)`;
+
+	//get the distance dimension transform node to hide its channels later
+	$distanceTransNode = `pickWalk -d "up" $distanceNode`;
+	//and rename the nodes
+	$distanceTransNode[0] = `rename $distanceTransNode[0]
+						($prefix + "stretchMeasure_dist" + $charName)`;
+	$distanceShapeName = `listRelatives -s $distanceTransNode[0]`;
+	$distanceNode = $distanceShapeName[0];
+
+	//position the locators at the start and end joints
+	delete (`pointConstraint $startJoint $distLocator[0]`);
+	delete (`pointConstraint $endJoint $distLocator[1]`);
+
+	$length = `getAttr ($distanceNode + ".distance")`;
+
+	$lengthJoint1 = `getAttr ($midJoint + ".tx")`;
+	$lengthJoint2 = `getAttr ($endJoint + ".tx")`;
+	$lengthTwistJoint1 = `getAttr ($twistJoint1 + ".tx")`;
+	$lengthTwistJoint2 = `getAttr ($twistJoint2 + ".tx")`;
+
+	//create a multiply node to compensate for changes in length of the distance node
+	//due to rescaling the character
+	$charScaleMultNode = `shadingNode -au multiplyDivide`;
+	$charScaleMultNode = `rename $charScaleMultNode ($prefix + "stretchCompensate_mult" + $charName)`;
+	setAttr ($charScaleMultNode + ".operation") 2;
+	//connect the measured distance with the first input
+	connectAttr -f ($distanceNode + ".distance") ($charScaleMultNode + ".input1X");
+	//the second input is reserved for the character scale
+	setAttr ($charScaleMultNode + ".input2X") 1;
+
+	//----------------------------------------------------------------------------------------
+	//
+	//create the stretchyness
+	//
+	//----------------------------------------------------------------------------------------
+
+	//find out if the aim axis is positive or negative
+	if ($lengthJoint1 < 0)
+	{
+		$vectorMultiply = -1;
+	}
+	else
+	{
+		$vectorMultiply = 1;
+	}
+
+	//set the set driven keys
+	string $nodeList[] = {$midJoint, $endJoint, $twistJoint1, $twistJoint2};
+	float $lengthList[] = {$lengthJoint1, $lengthJoint2, $lengthTwistJoint1, $lengthTwistJoint2};
+
+	for ($i = 0; $i < size($nodeList); $i ++)
+	{
+		setDrivenKeyframe 	-dv (($lengthJoint1 + $lengthJoint2) * $vectorMultiply) -v $lengthList[$i] -itt "clamped" -ott "clamped"
+							-cd ($charScaleMultNode + ".outputX") ($nodeList[$i] + ".tx");
+		setDrivenKeyframe 	-dv (($lengthJoint1 + $lengthJoint2) * $vectorMultiply * 2) -v ($lengthList[$i] * 2) -itt "clamped" -ott "clamped"
+							-cd ($charScaleMultNode + ".outputX") ($nodeList[$i] + ".tx");
+		
+		//setAttr ($nodeList[$i] + "_translateX.preInfinity") 1;
+		setAttr ($nodeList[$i] + "_translateX.postInfinity") 1;
+	}
+
+	//----------------------------------------------------------------------------------------
+	//
+	//cleanup
+	//
+	//----------------------------------------------------------------------------------------
+
+	setAttr ($distanceTransNode[0] + ".v") 0;
+	setAttr ($distLocator[0] + ".v") 0;
+	setAttr ($distLocator[1] + ".v") 0;
+
+	//lock and hide unnecessary channels
+
+	icCRlockHideAttr ( $distanceTransNode[0], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+
+	//the multiply nodes
+	icCRlockHideAttr ( $charScaleMultNode, "i1x,i1y,i1z,i2x,i2y,i2z" );
+
+	string $returnString[] = {$distLocator[0], $distLocator[1], $distanceTransNode[0], $charScaleMultNode};
+
+	return $returnString;
+}

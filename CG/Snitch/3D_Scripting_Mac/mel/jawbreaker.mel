@@ -1,0 +1,706 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: 3D Jawbreaker
+''    Author:  
+''    Last Updated: Sep 23, 2006
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/games/4292.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+global proc jawbreaker(){
+
+	global float $score;
+	$score=0;
+	scriptJob -ka;
+if (`window -q -ex jWindow` == true) deleteUI jWindow;
+	window -s false -w 200 -h 232 -t "JB" jWindow;
+	
+ 	rowColumnLayout -numberOfColumns 2 
+ 			-columnWidth 1 60 
+ 			-columnWidth 2 120;
+ 	    
+	text -l "height";
+	intField -minValue 5 -maxValue 30 -value 6 height;
+	text -l "width";
+	intField -minValue 5 -maxValue 30 -value 6 width;
+	text -l "depth";
+	intField -minValue 5 -maxValue 30 -value 6 depth;
+	text -l "colors";
+	intField -minValue 2 -maxValue 6 -value 6 colors;
+
+
+	
+	button -label "Create" -c "inter";
+	text -l "";
+	
+	
+	
+		
+
+	button -label "Close" -command ("jclose()");
+
+	
+	text -l "";
+	text -l "score";
+	intField -en 0 -w 30 -value $score scores;
+
+	
+	
+	
+ 	showWindow jWindow;
+	window -e -w 200 -h 232 jWindow;
+	
+
+	scriptJob  -p jWindow -e "SelectionChanged" "isam";
+ 
+	
+
+	
+
+	
+	
+	//scriptJob -ka;
+	
+	print ("Initialized !!!! \n");
+
+	
+	
+}
+
+global proc jclose()
+{
+	
+deleteUI jWindow;	
+string $lockings[] = `ls -tr "p*_*"`;
+	
+for ($lock in $lockings)
+	lockNode -l 0 $lock;
+
+delete $lockings;
+
+	MLdeleteUnused();
+	scriptJob -ka;
+	
+	
+}
+global proc isam()
+{
+	
+	string $sels[]=`ls -sl`;
+	if (size($sels)>0)
+	{
+	inters;
+	interp;
+	}
+	else
+	{
+		print ("za7leg\n");	
+	}
+}
+
+
+global proc inter()	
+{
+
+	
+	
+
+string $lockings[] = `ls -tr "p*_*"`;
+	
+for ($lock in $lockings)
+	lockNode -l 0 $lock;
+
+delete $lockings;
+
+	MLdeleteUnused();
+	
+	global float $score;
+	$score=0;
+	intField -e -value $score scores;
+	
+	
+	
+ 	int $height=	`intField -q -v height`;
+	int $width=	`intField -q -v width`;
+	int $depth =	`intField -q -v depth`;
+	int $colors=	`intField -q -v colors`;
+
+	creation ($height,$width,$depth,$colors);
+	
+	//locking
+
+string $lockings[] = `ls -tr "p*"`;
+	
+for ($lock in $lockings)
+	lockNode -l 1 $lock;
+
+
+
+//jawbreaker_test;
+
+	
+	global int $h;
+	global int $w;
+	global int $d;
+	
+	$h=$height;
+	$w=$width;
+	$d=$depth;
+		
+	
+
+}
+
+global proc inters()
+{
+
+
+
+	global int $h;
+	global int $w;
+	global int $d;
+	
+	
+	Selection ($h,$w,$d);
+	
+	
+
+
+	
+}
+
+
+global proc interp()
+{
+		
+	
+	global int $h;
+	global int $w;
+	global int $d;
+	
+	
+	post ($h,$w,$d);
+	
+
+	
+}
+
+
+
+global proc post(int $width,int $height,int $depth){
+
+
+
+	
+	
+	
+	
+	
+
+// move down after deletion
+string $dels[]=`ls -sl`;
+
+string $lockings[] = `ls -tr "p*"`;
+	
+for ($lock in $lockings)
+	lockNode -l 0 $lock;
+
+if (size($dels)>1){
+delete $dels;
+
+
+global float $score;
+int $iscore;
+
+$score=$score+exp((sqrt(size($dels))));
+$iscore=trunc($score);
+intField -e -value $iscore scores;
+
+
+
+int $x;
+int $y;
+int $z;
+int $newpos;
+for ($loopy=1;$loopy<=10;$loopy++){
+for ($x=1;$x<=$width;$x++){
+	
+	for ($y=1;$y<=$depth;$y++){
+	
+		for ($z=1;$z<=$height;$z++){
+		
+			
+			string $currentlocation = ("p"+$x+"_"+$y+"_"+$z);
+			if (!`objExists $currentlocation`)
+			
+				for ($l=$z;$l<=$height;$l++){
+					string $upperballs = ("p"+$x+"_"+$y+"_"+$l);
+					$newpos =$l-1;
+					if (`objExists $upperballs`){
+					move  (2*$x) (2*$newpos) (2*$y) $upperballs;
+					rename $upperballs ("p"+$x+"_"+$y+"_"+($l-1));
+				}}
+	}}}
+
+}
+
+
+
+//column depth
+	string $currentcolumn[]={};
+	
+for ($loopy=1;$loopy<=10;$loopy++){
+for ($x=1;$x<=$width;$x++){
+	
+	for ($y=1;$y<=$depth;$y++){
+		
+		$currentcolumn={};
+		for ($z=1;$z<=$height;$z++){
+			
+			if (`objExists ("p"+$x+"_"+$y+"_"+$z)`)
+				$currentcolumn[$z] = ("p"+$x+"_"+$y+"_"+$z);
+		}
+			
+			
+		if (size($currentcolumn)==0)
+		{
+		
+		
+			for ($yy=($y+1);$yy<=$depth;$yy++){
+				
+				print ("yloop\n");
+				for ($zz=1;$zz<=$height;$zz++){
+						if (`objExists ("p"+$x+"_"+$yy+"_"+$zz)`){
+							print ("kaka\n");
+							string $depthballs = ("p"+$x+"_"+$yy+"_"+$zz);
+							print $depthballs;
+							move -r -ws -wd 0 0 -2 $depthballs;
+							rename $depthballs ("p"+$x+"_"+($yy-1)+"_"+$zz);
+
+	
+			
+}}}}}}}
+	
+
+
+
+
+
+
+
+
+//column rows
+
+string $widthballs;
+string $currentcolumn[]={};
+for ($loopy=1;$loopy<=10;$loopy++){
+	for ($x=1;$x<=$width;$x++){
+	
+		for ($y=1;$y<=$depth;$y++){
+		
+			$currentcolumn={};
+			for ($z=1;$z<=$height;$z++){
+			
+				if (`objExists ("p"+$x+"_"+$y+"_"+$z)`)
+					$currentcolumn[$z] = ("p"+$x+"_"+$y+"_"+$z);
+			}
+			
+			
+			if (size($currentcolumn)==0)
+			{
+		
+		
+			for ($xx=($x+1);$xx<=$width;$xx++){
+				
+
+				
+					for ($zz=1;$zz<=$height;$zz++){
+						if (`objExists ("p"+$xx+"_"+$y+"_"+$zz)`){
+
+							$widthballs = ("p"+$xx+"_"+$y+"_"+$zz);
+							print $widthballs;
+							move -r -ws -wd -2 0 0 $widthballs;
+							rename $widthballs ("p"+($xx-1)+"_"+$y+"_"+$zz);
+
+	
+			
+}}}}}}}
+}
+else {select -cl;}
+
+
+
+string $lockings[] = `ls -tr "p*"`;
+	
+for ($lock in $lockings)
+	lockNode -l 1 $lock;
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+global proc Selection(int $width,int $height,int $depth){
+
+
+
+string $selectedballs[] = `ls -sl`;
+string $selectedball= $selectedballs[0];
+
+
+string $adj[]=adj($selectedball);
+string $final[]=$adj;
+
+global string $adk[]={};
+
+for ($fina in $final)
+{
+	
+	select $fina;
+	$adk=adj($fina);
+
+	for  ($ad in $adk)
+	{
+		int $flag=0;
+		for ($fin in $final)
+		{
+			if ($fin==$ad) $flag=1;	
+		}
+		
+		if ($flag==0)
+		{
+			
+			$final[size($final)]=$ad;	
+			
+		}
+	
+	
+	}
+	
+
+}
+
+select $final;
+
+/*
+for ($fian in $final)
+	lockNode -l 0 $fian;
+
+*/
+
+
+
+
+//scoring system! 
+	/*
+	int $scoreballs = `size($final)`;
+	float $currentscore = `exp($scoreballs)`;
+	
+	int $previousscore = `intField -q -v score`;
+	int $newscore = ($previousscore + $currentscore);
+	
+	intField -v ($newscore) scores;
+	
+	print $newscore;
+
+	
+	
+	
+	*/
+	
+//	jawbreaker_test;
+	
+}
+	
+
+
+
+
+
+
+
+
+
+
+
+global proc creation(int $width,int $height,int $depth,int $colors){
+
+
+
+
+	
+	
+	
+
+for ($x=1;$x<=$width;$x++){
+	
+	for ($y=1;$y<=$depth;$y++){
+	
+		for ($z=1;$z<=$height;$z++){
+		
+		polySphere -r 1 -sx 10 -sy 10 -ax 0 1 0 -tx 2 -ch 1 -n ("p"+$x+"_"+$y+"_"+$z);
+		
+		
+		
+		move -r (2*$x) (2*$z) (2*$y);
+
+		
+	
+	
+	}}}
+
+
+
+
+
+
+
+
+
+
+int $y;
+int $r;
+int $g;
+int $b;
+
+
+
+
+for ($y=1;$y<=$colors;$y++)
+{
+
+string $shader2=`shadingNode -asShader blinn`;
+
+ if ($y<=1) {
+	 $shader2=`rename $shader2 "red"`;
+	 $r=1;
+	 $g=0;
+	 $b=0;}
+	 
+   if ($y==2) {
+	 $shader2=`rename $shader2 "blue"`;
+
+	 $r=0;
+	 $g=0;
+	 $b=1;}
+	  
+
+	if ($y==3) {
+	  $shader2=`rename $shader2 "green"`;
+
+	 $r=0;
+	 $g=1;
+	 $b=0;}
+	 
+
+	 
+  if ($y==4) {
+	 $shader2=`rename $shader2 "yellow"`;
+
+	 $r=1;
+	 $g=1;
+	 $b=0;}
+	 
+  if ($y==5) {
+	 $shader2=`rename $shader2 "purple"`;
+
+	 $r=1;
+	 $g=0;
+	 $b=1;}
+	 
+  if ($y>=6) {
+	 $shader2=`rename $shader2 "black"`;
+
+	 $r=0;
+	 $g=0;
+	 $b=0;}
+	 
+ 
+ 
+setAttr ($shader2+".color") -type double3 $r $g $b ;
+}
+
+
+
+
+
+
+
+string $allballs[] = `ls -tr "p*"`;
+
+string $colorname;
+
+int $x;
+
+for ($x=0;$x<size($allballs);$x++){
+	
+	int $randcolor=ceil(rand ($colors));
+	
+	
+	
+	
+	 if ($randcolor<=1) {
+		 $colorname="red";}
+	
+	 
+ 	 if ($randcolor==2) {
+		 $colorname="blue";}
+
+	 
+ 	 if ($randcolor==3) {
+		 $colorname="green";}
+
+	 
+  	if ($randcolor==4) {
+		 $colorname="yellow";}
+
+	 
+ 	 if ($randcolor==5) {
+		 $colorname="purple";}
+
+
+	  if ($randcolor>=6) {
+		 $colorname="black";}
+		 
+	  
+ string $shapes[]=`listRelatives $allballs[$x]`;
+ 
+//continue color setting
+//defaultNavigation -source $colorname -destination $shapes[0] -connectToExisting;
+
+	
+select $shapes[0];
+ 
+hyperShade -assign $colorname ;
+
+select -cl;
+
+
+}
+
+
+print ("Created !!!! \n");
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global proc string[] adj(string $selectedball)
+{
+
+float $trx;
+float $try;
+
+
+
+
+//selected ball
+string $allballs[] = `ls -tr "p*"`;
+
+
+$SBtrx = `getAttr ($selectedball+".translateX")`;
+$SBtry = `getAttr ($selectedball+".translateY")`;
+$SBtrz = `getAttr ($selectedball+".translateZ")`;
+
+
+
+
+
+string $adjacent1[]={};
+int $i=0;
+
+for ($x=0;$x<size($allballs);$x++){
+	$trx= `getAttr ($allballs[$x]+".translateX")`;
+	$try= `getAttr ($allballs[$x]+".translateY")`;
+	$trz= `getAttr ($allballs[$x]+".translateZ")`;
+
+	float $six=	$SBtrx-$trx;
+	float $sx=abs ($six)	;
+
+	
+	float $siy=	$SBtry-$try;
+	float $sy=abs ($siy)	;
+
+
+		float $siz=	$SBtrz-$trz;
+	float $sz=abs ($siz)	;
+
+	
+
+
+
+		if (($sx+$sy+$sz)<2.1 )
+		{
+			$adjacent1[$i]=$allballs[$x];
+			$i++;
+		
+		}
+		
+			
+
+	}
+
+
+
+string $SBshapes[]=`listRelatives $selectedball `;
+string $SBballcolorarray[0] = `listConnections $SBshapes[0]`;
+string $SBballcolor = $SBballcolorarray[0];
+
+string $adjacentcolor[];
+
+//add color constraint
+int $i=0;
+
+	for ($x=0;$x<size($adjacent1);$x++){
+
+		string $shapes[] = `listRelatives $adjacent1[$x] `;
+		string $ballcolorarray[0] = `listConnections $shapes[0]`;
+		string $ballcolor = $ballcolorarray[0];
+		
+		if ($ballcolor==$SBballcolor){
+			
+			
+			$adjacentcolor[$i]= $adjacent1[$x];
+			$i++;
+		}
+
+}
+return 	$adjacentcolor;
+	
+}

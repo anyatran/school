@@ -1,0 +1,56 @@
+
+
+
+global proc AEoptGroundPlaneTemplate ( string $nodeName )
+{
+
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "Texture Attributes" -collapse false;
+
+			editorTemplate -addControl "textureName";
+			editorTemplate -addControl "worldSpace";
+			editorTemplate -addControl "textureScale";
+
+			editorTemplate -beginLayout "Texture Filtering" -collapse true;
+				editorTemplate -addControl "enableFiltering";
+				editorTemplate -addControl "filterDistance";
+//				editorTemplate -addControl "vFilterStart";
+			editorTemplate -endLayout;
+
+		editorTemplate -endLayout;
+
+		editorTemplate -addControl "displacmentMagnitude";
+
+		editorTemplate -addControl "yOffset";
+
+		editorTemplate -addControl "perturbOffset";
+
+		editorTemplate -addControl "pinEdges";
+
+//		editorTemplate -addControl "deformScale";
+		editorTemplate -beginLayout "Corner Pin Attributes" -collapse false;
+			editorTemplate -addControl "topLeft";
+			editorTemplate -addControl "topRight";
+			editorTemplate -addControl "bottomRight";
+			editorTemplate -addControl "bottomLeft";
+		editorTemplate -endLayout;
+
+
+		editorTemplate -addControl "frame";
+
+		editorTemplate -beginLayout "Camera Attributes" -collapse true;
+			editorTemplate -addControl "cameraFOV";
+			editorTemplate -addControl "camClipPlane";
+		editorTemplate -endLayout;
+
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+
+	editorTemplate -suppress "input";
+	editorTemplate -suppress "envelope";
+	editorTemplate -suppress "map64BitIndices";
+	editorTemplate -suppress "weightList";
+	editorTemplate -suppress "camWorldMatrix";
+}

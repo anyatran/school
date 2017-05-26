@@ -1,0 +1,479 @@
+//----------------------------------------------------------------------------------------------
+//
+//	icQuadrupedRiggerUI
+//
+//	SCRIPT:			icQuadrupedRiggerUI.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					
+//	DATE:			Jul 03, 2011
+//					created: Jun 15, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// main execution procedures
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRgetObject ( string $fieldName )
+{
+	string $selectedObject[];
+
+	$selectedObject = `ls -sl -type joint`;
+	if ($selectedObject[0] != "")
+	{
+		if ($fieldName == "QRspineJoint")
+		{
+			textFieldButtonGrp -e -tx $selectedObject[0] $fieldName;
+		}
+		else if ($fieldName == "QRneckJoint")
+		{
+			textFieldButtonGrp -e -tx $selectedObject[0] $fieldName;
+		}
+		else if ($fieldName == "QRtailJoint")
+		{
+			textFieldButtonGrp -e -tx $selectedObject[0] $fieldName;
+		}
+		else if ($fieldName == "QRleftFrontJoint")
+		{
+			textFieldButtonGrp -e -tx $selectedObject[0] $fieldName;
+		}
+		else if ($fieldName == "QRrightFrontJoint")
+		{
+			textFieldButtonGrp -e -tx $selectedObject[0] $fieldName;
+		}
+		else if ($fieldName == "QRleftBackJoint")
+		{
+			textFieldButtonGrp -e -tx $selectedObject[0] $fieldName;
+		}
+		else if ($fieldName == "QRrightBackJoint")
+		{
+			textFieldButtonGrp -e -tx $selectedObject[0] $fieldName;
+		}
+		else if ($fieldName == "QRleftEarJoint")
+		{
+			textFieldButtonGrp -e -tx $selectedObject[0] $fieldName;
+		}
+		else if ($fieldName == "QRrightEarJoint")
+		{
+			textFieldButtonGrp -e -tx $selectedObject[0] $fieldName;
+		}
+	}
+	else
+	{
+		error "Please select a joint.";
+	}
+}
+
+global proc icQRbuildPrepare ( string $part )
+{
+	global string $QRversion;
+
+	string $chainRootJoint;
+	if ($part != "QRfrontLegs" && $part != "QRbackLegs" && $part != "QRmain" && $part != "QRears")
+	{
+		$chainRootJoint = `textFieldGrp -q -tx ($part + "Joint")`;
+	}
+	string $charName = `textField -q -tx QRcharName`;
+
+	if ($part == "QRspine" && `textFieldGrp -q -tx ($part + "Joint")` != "")
+	{
+		icQRbuildSpine $charName $chainRootJoint;
+	}
+	else if ($part == "QRneck" && `textFieldGrp -q -tx ($part + "Joint")` != "")
+	{
+		icQRbuildNeck $charName $chainRootJoint;
+	}
+	else if ($part == "QRtail" && `textFieldGrp -q -tx ($part + "Joint")` != "")
+	{
+		icQRbuildTail $charName $chainRootJoint;
+	}
+	else if ($part == "QRfrontLegs" && `textFieldGrp -q -tx QRleftFrontJoint` != "") 
+	{
+		$chainRootJoint = `textFieldGrp -q -tx QRleftFrontJoint`;
+		icQRbuildFrontLegs $charName "L_" $chainRootJoint;
+		if (`textFieldGrp -q -tx QRrightFrontJoint` != "")
+		{
+			$chainRootJoint = `textFieldGrp -q -tx QRrightFrontJoint`;
+			icQRbuildFrontLegs $charName "R_" $chainRootJoint;
+		}
+	}
+	else if ($part == "QRbackLegs" && `textFieldGrp -q -tx QRleftBackJoint` != "") 
+	{
+		$chainRootJoint = `textFieldGrp -q -tx QRleftBackJoint`;
+		icQRbuildBackLegs $charName "L_" $chainRootJoint;
+	}
+	else if ($part == "QRears" && `textFieldGrp -q -tx QRleftEarJoint` != "" && `textFieldGrp -q -tx QRrightEarJoint` != "") 
+	{
+		icQRbuildEars $charName "L_";
+	}
+	else if ($part == "QRmain") icQRbuildMainControl $charName $QRversion;
+}
+
+global proc icQRactivateSelection ()
+{
+	button -e -en 1 QRbuildSkeletonButton;
+	button -e -en 1 QRorientJointsButton;
+	button -e -en 1 QRtoggleAxisButton;
+	button -e -en 1 QRloadPrebuildButton;
+	
+	textFieldButtonGrp -e -en 1 QRspineJoint;
+	textFieldButtonGrp -e -en 1 QRneckJoint;
+	textFieldButtonGrp -e -en 1 QRtailJoint;
+	textFieldButtonGrp -e -en 1 QRleftFrontJoint;
+	textFieldButtonGrp -e -en 1 QRrightFrontJoint;
+	textFieldButtonGrp -e -en 1 QRleftBackJoint;
+	textFieldButtonGrp -e -en 1 QRrightBackJoint;
+	textFieldButtonGrp -e -en 1 QRleftEarJoint;
+	textFieldButtonGrp -e -en 1 QRrightEarJoint;
+
+	button -e -en 1 QRbuildSpineButton;
+	button -e -en 1 QRbuildNeckButton;
+	button -e -en 1 QRbuildTailButton;
+	button -e -en 1 QRbuildFrontLegsButton;
+	button -e -en 1 QRbuildBackLegsButton;
+	button -e -en 1 QRbuildEarsButton;
+	button -e -en 1 QRbuildMainButton;
+	button -e -en 1 QRbuildRigButton;
+
+	frameLayout -e -cl 0 QRskeletonFrame;
+	icQRresizeUIexpand QRskeletonFrame;
+}
+
+global proc icQRresizeUIcollabse ( string $layout )
+{
+	string $win = "icQuadrupedRiggerUI";
+	int $winH = `window -q -h $win`;
+
+	if ($layout == "QRskeletonFrame")
+	{
+		int $reduce = 210;
+		if (($winH - $reduce) < 180) $reduce = 0;
+		window -e -h ($winH - $reduce) $win;
+		optionVar -iv "icQR_skeletonFrameResize" 0;
+	}
+	else if ($layout == "QRjointsFrame")
+	{
+		int $reduce = 584;
+		if (($winH - $reduce) < 180) $reduce = 0;
+		window -e -h ($winH - $reduce) $win;
+	}
+	else if ($layout == "QRfinishFrame")
+	{
+		int $reduce = 73;
+		if (($winH - $reduce) < 180) $reduce = 0;
+		window -e -h ($winH - $reduce) $win;
+		optionVar -iv "icQR_completionFrameResize" 0;
+	}
+}
+
+global proc icQRresizeUIexpand ( string $layout )
+{
+	string $win = "icQuadrupedRiggerUI";
+	int $winH = `window -q -h $win`;
+
+	if ($layout == "QRskeletonFrame")
+	{
+		if (`optionVar -ex "icQR_skeletonFrameResize"` && `optionVar -q "icQR_skeletonFrameResize"` == 0)
+		{
+			window -e -h ($winH + 210) $win;
+		}
+		optionVar -iv "icQR_skeletonFrameResize" 1;
+	}
+	else if ($layout == "QRjointsFrame")
+	{
+		window -e -h ($winH + 584) $win;
+	}
+	else if ($layout == "QRfinishFrame")
+	{
+		if (`optionVar -ex "icQR_completionFrameResize"` && `optionVar -q "icQR_completionFrameResize"` == 0)
+		{
+			window -e -h ($winH + 73) $win;
+		}
+		optionVar -iv "icQR_completionFrameResize" 1;
+	}
+}
+
+global proc icQRprogressWindow ( int $max, string $label )
+{
+    string $progressWin = "icQRProgressWindow";
+    if (`window -exists $progressWin`)
+	{
+		deleteUI $progressWin;
+	}
+
+    window -t "Processing" -s 0 -tb 0 $progressWin;
+
+    columnLayout;
+        rowColumnLayout -nc 3 -cw 1 10 -cw 2 300 -cw 3 10;
+            text -l "";
+            text -l $label icQRProgressLabel;
+            text -l "" -h 30;
+            text -l "";
+            string $progressBar = `progressBar -max $max -width 200 icQRProgress`;
+            text -l "";
+            text -l "";
+
+    showWindow $progressWin;
+}
+
+global proc icQRloadPrebuild ()
+{
+	string $charName = `textField -q -tx QRcharName`;
+
+	string $joints[] = `ls -type joint`;
+	for ($j in $joints)
+	{
+		string $attr[] = `listAttr -ud $j`;
+		for ($a in $attr)
+		{
+			if (`gmatch $a "*icQR*"`)
+			{
+				string $attrElements[];
+				tokenize $a "_" $attrElements;
+				textFieldButtonGrp -e -tx $j $attrElements[1];
+			}
+		}
+	}
+}
+
+//----------------------------------------------------------------------------------------------
+//
+// rig the entire character
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRbuildAll ()
+{
+	string $charName = `textField -q -tx QRcharName`;
+
+	//if the root of the character is not defined discontinue
+	if (`textFieldButtonGrp -q -tx QRspineJoint` == "")
+	{
+		error "Please select a spine root joint!";
+	}
+	else
+	{
+		//disable the auto keying because this leads to rigging errors
+		autoKeyframe -state false;
+
+		$startTime = `timerX`;
+			icQRprogressWindow 100 "Building the rig ...";
+		icQRbuildPrepare "QRspine";
+			progressBar -e -s 10 icQRProgress;
+		icQRbuildPrepare "QRneck";
+			progressBar -e -s 10 icQRProgress;
+		icQRbuildPrepare "QRtail";
+			progressBar -e -s 10 icQRProgress;
+		icQRbuildPrepare "QRfrontLegs";
+			progressBar -e -s 20 icQRProgress;
+		icQRbuildPrepare "QRbackLegs";
+			progressBar -e -s 20 icQRProgress;
+		icQRbuildPrepare "QRears";
+			progressBar -e -s 10 icQRProgress;
+		icQRbuildPrepare "QRmain";
+			progressBar -e -s 10 icQRProgress;
+		select -cl;
+			deleteUI icQRProgressWindow;
+		$completeTime = `timerX -st $startTime`;
+		print ("Rigging process completed after " + $completeTime + " seconds! Thank you.\n");
+	}
+}
+
+//----------------------------------------------------------------------------------------------
+//
+// window procedure
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQuadrupedRiggerUI ()
+{
+	global string $QRversion;
+	$QRversion = "1.0";
+
+	//declare a new window name
+	string $win = "icQuadrupedRiggerUI";
+
+	//is the window already open?
+	if (`window -exists $win`)
+	{
+		deleteUI $win;
+	}
+
+	window -t ("Quadruped Rigger v." + $QRversion) -w 430 -h 180 $win;
+	if (`windowPref -exists $win`)
+	{
+		windowPref -e -wh 430 180 $win;
+	}
+
+	//create the form
+	string $scrollLayout = `scrollLayout`;
+		string $form = `formLayout "parentForm"`;
+
+	//create the frames in the form
+		string $nameFrame = `frameLayout -l "Character" -w 400 -h 85 -li 3
+										-mw 3 -mh 3 -bs "etchedIn" QRcharacterFrame`;
+	setParent $form;
+		string $skeletonFrame = `frameLayout -l "Create Skeleton" -w 390 -li 3
+										-mw 3 -mh 3 -bs "etchedIn" -cll 1 -cl 1 
+										-cc ("icQRresizeUIcollabse QRskeletonFrame") 
+										-ec ("icQRresizeUIexpand QRskeletonFrame") 
+										QRskeletonFrame`;
+	setParent $form;
+		string $jointsFrame = `frameLayout -l "Define Character" -w 390 -li 3
+										-mw 3 -mh 3 -bs "etchedIn" -cll 1 -cl 1 
+										-cc ("icQRresizeUIcollabse QRjointsFrame") 
+										-ec ("icQRresizeUIexpand QRjointsFrame") 
+										QRjointsFrame`;
+	setParent $form;
+		string $finishFrame = `frameLayout -l "Complete Rigging" -w 390 -li 3
+										-mw 3 -mh 3 -bs "etchedIn" -cll 1 -cl 1 
+										-cc ("icQRresizeUIcollabse QRfinishFrame") 
+										-ec ("icQRresizeUIexpand QRfinishFrame") 
+										QRfinishFrame`;
+	setParent $form;
+
+	//position the elements
+	formLayout -e
+		-af $nameFrame "top" 3
+		-an $nameFrame "bottom"
+		-af $nameFrame "left" 3
+		-af $nameFrame "right" 3
+
+		-ac $skeletonFrame "top" 5 $nameFrame
+		-an $skeletonFrame "bottom"
+		-af $skeletonFrame "left" 3
+		-af $skeletonFrame "right" 3
+
+		-ac $jointsFrame "top" 5 $skeletonFrame
+		-an $jointsFrame "bottom"
+		-af $jointsFrame "left" 3
+		-af $jointsFrame "right" 3
+
+		-ac $finishFrame "top" 5 $jointsFrame
+		-an $finishFrame "bottom"
+		-af $finishFrame "left" 3
+		-af $finishFrame "right" 3
+
+		$form;
+
+	//create the elements for the uiFrame section
+	setParent $nameFrame;
+	
+
+	columnLayout -co "both" 10;
+		rowColumnLayout -nc 2 -cw 1 120 -cw 2 100;
+			text -al "left" -l "Rig Name (4 max)";
+			textField -cc icQRactivateSelection QRcharName;
+			text -h 5 -l "";
+			text -h 5 -l "";
+			text -al "left" -l "Shoulder Height";
+			intField -v 150 QRheight;
+			text -h 15 -l "";
+
+	setParent $skeletonFrame;
+
+	columnLayout -co "both" 10 QRskeletonColumn;
+		intFieldGrp -l "Spine Joints" -cal 1 "left" -cw 1 119 -v1 7 QRspineJoints;
+		intFieldGrp -l "Neck Joints" -cal 1 "left" -cw 1 119 -v1 5 QRneckJoints;
+		intFieldGrp -l "Tail Joints" -cal 1 "left" -cw 1 119 -v1 5 QRtailJoints;
+		intFieldGrp -l "Ear Joints" -cal 1 "left" -cw 1 119 -v1 4 QRearJoints;
+		text -l "" -h 10;
+		button -al "center" -l "Create Skeleton" -w 370 -c icQRbuildTemplateSkeleton -en 0 QRbuildSkeletonButton;
+		text -l "" -h 10;
+		rowColumnLayout -nc 2 -cw 1 180 -co 2 "left" 10;
+			button -l "Finalize Skeleton" -w 180 -h 25 -c icQRBTorientTemplateJoints -en 0 QRorientJointsButton;
+			button -l "Show/Hide Axes" -w 179 -h 25 -c icQRBTtoggleAxis -en 0 QRtoggleAxisButton;
+		setParent ..;
+		text -h 10 -l "";
+		checkBox -l "Reverse Leg Axis Orientation" -v 0 QRreverseLegAxis;
+		text -h 5 -l "";
+
+	setParent $jointsFrame;
+
+	columnLayout -co "both" 10 QRjointsColumn;
+		button -l "Load Pre-Build Skeleton" -w 370 -c icQRloadPrebuild -en 0 QRloadPrebuildButton;
+		text -h 15 -l "";
+
+		textFieldButtonGrp -l "Spine Root Joint" -bl "Select" -cl3 "left" "left" "left"
+					-cw3 108 214 40 -ct3 "left" "both" "left" -co3 0 10 0
+					-bc ("icQRgetObject QRspineJoint") -en 0 QRspineJoint;
+		text -h 5 -l "";
+		button -l "Build Spine" -w 370 -c ("icQRbuildPrepare QRspine") -en 0 QRbuildSpineButton;
+		text -h 10 -l "";
+
+		textFieldButtonGrp -l "Neck Root Joint" -bl "Select" -cl3 "left" "left" "left"
+					-cw3 108 214 40 -ct3 "left" "both" "left" -co3 0 10 0
+					-bc ("icQRgetObject QRneckJoint") -en 0 QRneckJoint;
+		text -h 5 -l "";
+		button -l "Build Neck" -w 370 -c ("icQRbuildPrepare QRneck") -en 0 QRbuildNeckButton;
+		text -h 10 -l "";
+
+		textFieldButtonGrp -l "Tail Root Joint" -bl "Select" -cl3 "left" "left" "left"
+					-cw3 108 214 40 -ct3 "left" "both" "left" -co3 0 10 0
+					-bc ("icQRgetObject QRtailJoint") -en 0 QRtailJoint;
+		text -h 5 -l "";
+		button -l "Build Tail" -w 370 -c ("icQRbuildPrepare QRtail") -en 0 QRbuildTailButton;
+		text -h 10 -l "";
+
+		textFieldButtonGrp -l "Left Front Leg" -bl "Select" -cl3 "left" "left" "left"
+					-cw3 108 214 40 -ct3 "left" "both" "left" -co3 0 10 0
+					-bc ("icQRgetObject QRleftFrontJoint") -en 0 QRleftFrontJoint;
+		text -h 5 -l "";
+		textFieldButtonGrp -l "Right Front Leg" -bl "Select" -cl3 "left" "left" "left"
+					-cw3 108 214 40 -ct3 "left" "both" "left" -co3 0 10 0
+					-bc ("icQRgetObject QRrightFrontJoint") -en 0 QRrightFrontJoint;
+		text -h 5 -l "";
+		button -l "Build Front Legs" -w 370 -c ("icQRbuildPrepare QRfrontLegs") -en 0 QRbuildFrontLegsButton;
+		text -h 10 -l "";
+
+		textFieldButtonGrp -l "Left Back Leg" -bl "Select" -cl3 "left" "left" "left"
+					-cw3 108 214 40 -ct3 "left" "both" "left" -co3 0 10 0
+					-bc ("icQRgetObject QRleftBackJoint") -en 0 QRleftBackJoint;
+		text -h 5 -l "";
+		textFieldButtonGrp -l "Right Back Leg" -bl "Select" -cl3 "left" "left" "left"
+					-cw3 108 214 40 -ct3 "left" "both" "left" -co3 0 10 0
+					-bc ("icQRgetObject QRrightBackJoint") -en 0 QRrightBackJoint;
+		text -h 5 -l "";
+		button -l "Build Back Legs" -w 370 -c ("icQRbuildPrepare QRbackLegs") -en 0 QRbuildBackLegsButton;
+		text -h 10 -l "";
+
+		textFieldButtonGrp -l "Left Ear" -bl "Select" -cl3 "left" "left" "left"
+					-cw3 108 214 40 -ct3 "left" "both" "left" -co3 0 10 0
+					-bc ("icQRgetObject QRleftEarJoint") -en 0 QRleftEarJoint;
+		text -h 5 -l "";
+		textFieldButtonGrp -l "Right Ear" -bl "Select" -cl3 "left" "left" "left"
+					-cw3 108 214 40 -ct3 "left" "both" "left" -co3 0 10 0
+					-bc ("icQRgetObject QRrightEarJoint") -en 0 QRrightEarJoint;
+		text -h 5 -l "";
+		button -l "Build Ears" -w 370 -c ("icQRbuildPrepare QRears") -en 0 QRbuildEarsButton;
+		text -h 15 -l "";
+		button -l "Build Main Control" -w 370 -c ("icQRbuildPrepare QRmain") -en 0 QRbuildMainButton;
+		text -h 5 -l "";
+
+	setParent $finishFrame;
+
+	columnLayout -co "both" 10 QRfinishColumn;
+		text -h 10 -l "";
+		button -l "Finish Rig" -w 370 -h 40 -c icQRbuildAll -en 0 QRbuildRigButton;
+		text -h 10 -l "";
+	setParent ..;
+
+	//make the window visible
+	showWindow $win;
+
+	optionVar -iv "icQR_skeletonFrameResize" 0;
+	optionVar -iv "icQR_completionFrameResize" 0;
+
+	//set the display layer current option to off
+	editDisplayLayerGlobals -useCurrent 0;
+}

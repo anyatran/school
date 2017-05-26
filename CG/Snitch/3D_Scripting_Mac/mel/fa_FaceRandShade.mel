@@ -1,0 +1,87 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Face Poly Random Shader
+''    Author: rferl 
+''    Last Updated: Sep 30, 2007
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/rendering/renderman/1677.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+global proc fa_FaceRandShade()
+{
+	if (`window -exists MainWind`)
+		deleteUI MainWind;
+	window -w 650 -t "Poly Face Random Shading" MainWind;
+	frameLayout -lv 0 -bs "etchedIn" ;
+	columnLayout -adj 1 -bgc .75 .75 .75 -rs 2 ;
+	separator;
+	frameLayout -lv 0 -bs "in" ;
+	rowLayout -nc 3 -ct3 left left left -co3 20 30 10 -bgc .8 .8 .8;
+	text -l "   Select Treshold:" -bgc .8 .8 .8;
+	intField -v 20 RandSlider ;
+	colorSliderGrp -label "Color" -rgb .6 .6 .6 -bgc .8 .8 .8 colorVal;
+	
+	setParent..;
+	setParent..;
+	frameLayout -lv 0 -bs "in" ;
+	rowLayout -nc 2 -ct2 left left -bgc .8 .8 .8 -co2 30 30;
+	text -l "Color Trashold" -bgc .8 .8 .8;
+	floatField -v .25  -w 80 colorTrsh ;
+	setParent..;	
+	setParent..;
+	button -l "Go for It!!" -c "fa_FaceRandShadeFunc" -bgc .7 .7 .7;
+	separator;
+	progressBar -h 10 prgBar;
+	showWindow MainWind;
+}
+fa_FaceRandShade();
+
+
+global proc fa_FaceRandShadeFunc()
+{
+	
+	string $Mainselection[] = `ls -sl`;
+	ConvertSelectionToFaces;
+	string $selection[] = `ls -sl`;
+	string $unPureNum = `endString $selection[0] 4` ;
+	if ( `substring $unPureNum 1 1` == ":")
+		$unPureNum = `endString $selection[0] 3` ;
+	int $Num = `substring $unPureNum 1 3`;
+	int $i = 0;
+	int $randVal = `intField -q -v RandSlider`;
+	progressBar -e -max ($Num/$randVal) prgBar;
+	for ($i = 0;$i < ($Num + 1) ; $i+=int(rand ($randVal )) )
+	{
+		string $facename =   ( $Mainselection[0] + ".f[" +$i + "]" );
+		createAndAssignShader lambert $facename;
+		progressBar -e -step 1 prgBar;		
+	}
+	
+	select -r $Mainselection;
+	hyperShade -smn "";
+	string $selection[] = `ls -typ lambert -sl`;
+	int $numOfShaders = size($selection);
+	progressBar -e -pr 0 prgBar;
+	float $color[] = `colorSliderGrp -q -rgb  colorVal`;
+	float $colorT = `floatField -q -v colorTrsh`;
+	for ($each in $selection)
+	{
+		float $ran = rand(-$colorT,$colorT);
+		setAttr ( $each + ".color") -type double3 ($color[0]+$ran) ($color[1]+$ran) ($color[2]+$ran);
+	}
+	
+	progressBar -e -pr 0 prgBar;
+	
+	for ($i = 0;$i < ($Num + 1) ; $i++ )
+	{
+		string $facename =   ( $Mainselection[0] + ".f[" +$i + "]" );
+		select $facename ;
+		hyperShade -assign $selection[int(rand($numOfShaders))];
+	}
+}
+// hyperShade -assign lambert5;

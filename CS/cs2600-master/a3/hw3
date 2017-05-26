@@ -1,0 +1,110 @@
+		Due:  Tuesday, Oct. 16
+
+For each problem below, write three solutions to the program.
+The first solution should use arrays.  The second solution should
+use array-style pointers.  The third solution should use pointers natively.
+
+This time, you only need to submit it online.  For online, submissions, log onto
+a Linux machine.  (For example:  ssh login.ccs.neu.edu )  Then type:
+  /course/cs2600gc/submit-cs2600gc-hw3  myhw3.c
+Alternatively, if you have many files in a directory, hw3, then do:
+  tar cvf hw3.tar ./hw3
+  gzip hw3.tar
+  /course/cs2600gc/submit-cs2600gc-hw3  hw3.tar.gz
+If you have never used UNIX/Linux, then look in the help directory
+for help (accessible from the course web page, or from
+the course directory:  /course/cs2600gc/help .
+
+If you wrote it on Windows, and transferred it to UNIX, you may need
+to edit out the extra DOS characters.  (DOS adds ^M to end of each line.)
+At CCIS on Linux machines, we have a local command to do so:
+  dos2unix myhw3.c myhw3.c
+A version for any UNIX/Linux machine (a shell script) is provided
+  at:  /coruse/cs2600gc/dos2unix
+
+EXAMPLE (done for you):
+    Recall that in C/C++, a string is stored as an array of characters,
+and its type is "char *".  Recall further, that the end of a string
+must be the null character (denoted '\0' in C/C++).  Note that the
+characters "%d" inside a format string of printf mean:  replace %d with
+the next printf argument, in decimal integer format.  Write a program
+to copy a string from the array, x1, to the array x2.  Assume that
+the string x1 is already initialized as "Hello, world." .
+Also, print out the length of the string.
+
+Solution A (arrays):
+
+#include <stdio.h>
+int main(int argc, char *argv[]) {
+  char x1[100] = "Hello, world.";
+  char x2[100];  /* can hold up to 100 characters, including '\0' */
+  int i = 0;
+  while (x1[i] != '\0') {
+    x2[i] = x1[i];
+    i++;
+  }
+  x2[i] = x1[i];
+  printf( "The length of the string is %d (not incl. null char).\n", i );
+}
+
+
+Solution B (array-style pointers):
+
+#include <stdio.h>
+int main(int argc, char *argv[]) {
+  char x1[100] = "Hello, world.";
+  char x2[100];  /* can hold up to 100 characters, including '\0' */
+  int i = 0;
+  char *x1ptr = x1, *x2ptr = x2;
+  while (*(x1ptr + i) != '\0') {
+    *(x2ptr + i) = *(x1ptr + i);
+    i++;
+  }
+  *(x2ptr + i) = *(x1ptr + i);
+  printf( "The length of the string is %d (not incl. null char).\n", i );
+}
+
+
+Solution C (native pointers):
+
+#include <stdio.h>
+int main(int argc, char *argv[]) {
+  char x1[100] = "Hello, world.";
+  char x2[100];  /* can hold up to 100 characters, including '\0' */
+  char *x1ptr = x1, *x2ptr = x2;
+  while (*x1ptr != '\0') {
+    *x2ptr++ = *x1ptr++;
+    /* Recall that ++ after the variable does post-increment.
+       It uses the variable first, and then it increments. */
+  }
+  *x2ptr = *x1ptr;
+   printf( "The length of the string is %d (not incl. null char).\n",
+           x2ptr - x2 );
+}
+
+======================================================================
+NOW IT'S YOUR TURN.
+
+1.  Chapter 1.5.4 of our optional text on C has a program to count lines, words
+and characters in a string.  (There is a copy of it in the course directory
+as hw3-example-program1.c )  That program assumes that we read from standard
+input using getchar().  To simplify, you will instead use the initialized
+string array:
+  char x1[100] = "The quick brown fox jumped over the lazy dog.";
+(Of course this example has only one line.  Also, you must modify
+the logic to recognize '\0' instead of EOF.  EOF stands for end-of-file.)
+Write the three solutions for this program.
+
+
+2.  Chapter 1.6 of our optional text on C has a program to count the number of
+occurrences of each digit, of white space characters, and of all other
+characters.  (There is a copy of it in the course directory
+as hw3-example-program2.c. ) That program assumes that we read from standard
+input using getchar().  To simplify, you will instead use the initialized
+string array:
+ char x1[100]
+   = "The 25 quick brown foxes jumped over the 27 lazy dogs 17 times.";
+(Of course this example has only one line.  Also, you must modify
+the logic to recognize '\0' instead of EOF.  EOF stands for end-of-file.)
+Write the three solutions for this program.  Note that the array, ndigit,
+of that program will also have to be converted to pointers.

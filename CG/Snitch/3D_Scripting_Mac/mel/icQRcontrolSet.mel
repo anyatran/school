@@ -1,0 +1,62 @@
+//----------------------------------------------------------------------------------------------
+//
+//	icQRcontrolSet
+//
+//	SCRIPT:			icQRcontrolSet.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//					
+//	DATE:			Jun 14, 2011
+//					created: Jun 14, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// adds the selected objects to a new or existing set
+//
+//----------------------------------------------------------------------------------------------
+
+
+global proc icQRcontrolSet ( string $charName, string $setName, string $nodes[],
+							int $dis, int $vis, int $clr )
+{
+	//check if the set exists
+	if (!`objExists $setName`)
+	{
+		//clear any selection so that an empty set is created
+		select -cl;
+		sets -n $setName;
+	}
+
+	//add the selected nodes to the set
+	for ($item in $nodes)
+	{
+		sets -e -fe $setName $item;
+
+		//and set the display attributes
+		setAttr ($item + ".overrideEnabled") 1;
+		setAttr ($item + ".overrideDisplayType") $dis;
+		setAttr ($item + ".overrideVisibility") $vis;
+		setAttr ($item + ".overrideColor") $clr;		
+	}
+
+	//create a master set if it doesn't exist
+	if (!`objExists ("controlSets_" + $charName)`)
+	{
+		//clear any selection so that an empty set is created
+		select -cl;
+		sets -n ("controlSets_" + $charName);
+	}
+	//add the new control set to the master set
+	sets -e -fe ("controlSets_" + $charName) $setName;
+}

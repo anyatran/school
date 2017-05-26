@@ -1,0 +1,95 @@
+//////////////////////////////////////////////////////////////
+// Source and Run Script Tool
+// v.01
+//
+// By Leonardo Covarrubias
+//
+// This opens a window and you can source a script in your maya scripts
+// path and run it at the same time if you choose
+//
+//////////////////////////////////////////////////////////////
+
+global string $lcSS_version = "2.0";
+global string $lcSS_date = "April 2, 2010";
+
+//main proc and UI setup//
+global proc lcSourceScript()
+{
+  
+  global string $lcSS_version;
+  global string $lcSS_date;
+  int $w = 315;
+    
+  //test to see if the window already exists
+  if (`window -q -ex lcSS_Win`) deleteUI lcSS_Win;
+
+  //checkbox variable
+  global string $ssRun;
+
+  //UI Setup//
+  window -title "Source and Run a Script"
+         -rtf 1
+         -mxb 0
+         -w $w
+         lcSS_Win;
+    
+  columnLayout -cw $w 
+               mainCol;  
+    
+  rowColumnLayout -nc 4
+                  -cw 1 125
+                  -cw 2 5
+                  -cw 3 150
+                  -cw 4 35;
+
+  text "  Mel Script Name: ";
+  text " ";
+  textField -text "ScriptName" scriptName;
+  text -fn "boldLabelFont" ".mel";
+
+  button -label "Source Me" -c ("sourceThisMel");
+  text " ";
+  $ssRun= `checkBox -v 1 -label "Run Script After Source"`;
+
+  setParent ..;  
+  separator -style "in" 
+            -h 10 
+            -w $w;
+  text -label ("Leonardo Covarrubias - " + $lcSS_date + " ")
+       -al "right"
+       -w $w;
+         
+  showWindow lcSS_Win;
+
+}
+
+//source the mel script from the text field
+global proc sourceThisMel ()
+{
+  global string $ssRun;
+  string $scriptToSource = `textField -query -text scriptName`;
+
+  if ($scriptToSource == "ScriptName" || $scriptToSource == ""){
+    print "\n*** ERROR - Please enter a Filename ***\n";
+  }else{
+
+    print ("\n*** Sourcing: " + $scriptToSource + "  - Please Wait ***\n");
+  
+    //the actual sourcing
+    rehash;
+    eval ( "source " + $scriptToSource);
+    rehash;
+  
+    print ("\n*** Sourced:  " + $scriptToSource + "  - OK !!! ***\n");
+
+    //runs the script too if checkbox is enabled
+    if (`checkBox -q -v $ssRun`){
+      print ("\n*** Running Command:  " + $scriptToSource + "; ***\n");
+      eval ($scriptToSource);
+    }else print "\n";
+ }
+
+}
+
+//EOC
+//////////////////

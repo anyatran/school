@@ -1,0 +1,36 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRdisplayOverride.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jan 27, 2009
+//					created: Jan 27, 2009
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+//	sets display ovverides with given arguments
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRdisplayOverride ( string $nodes[], int $dis, int $vis, int $clr )
+{
+	for ($item in $nodes)
+	{
+		setAttr ($item + ".overrideEnabled") 1;
+		setAttr ($item + ".overrideDisplayType") $dis;
+		setAttr ($item + ".overrideVisibility") $vis;
+		setAttr ($item + ".overrideColor") $clr;		
+	}
+}

@@ -1,0 +1,96 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRcreateCharSet.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Nov 20, 2009
+//					created: Jan 02, 2005
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+//  creates a character set from the given elements
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRcreateCharSet ( string $charName, string $setName,
+										int $prime , string $objList[] )
+{
+	string $keyableAttr[];
+	string $nodeTypeString;
+
+	select -cl;
+
+	//
+	//prepare for creating the subcharacter set
+	//
+
+	//check if the main character set exists
+	if (!`objExists ("main_cs" + $charName)`)
+	{
+		//if it doesn't create an empty set
+		character -n ("main_cs" + $charName) -em;
+	}
+	//check if the secondary character set exists
+	if ($prime == 0 && !`objExists ("secondary_cs" + $charName)`)
+	{
+		//if it doesn't create an empty set
+		character -n ("secondary_cs" + $charName) -em;
+	}
+
+	if ($prime == 1)
+	{
+		//set it as the active character set
+		setCurrentCharacters ( {"main_cs" + $charName} );
+	}
+	else
+	{
+		//set it as the active character set
+		setCurrentCharacters ( {"secondary_cs" + $charName} );
+	}
+
+	//
+	//prepare for adding attributes to the subcharacter set
+	//
+
+	//check if the sub character set exists
+	if (!`objExists ($setName + $charName)`)
+	{
+		//if it doesn't create an empty set
+		doCreateSubcharacterArgList 2 { ($setName + $charName),"0","1","1","1","1","0" };
+	}
+	
+	for ($obj in $objList)
+	{
+		//get all keyable attributes and put them into the subcharacter set
+		//the listAttr command needs to be different for the constraint which comes
+		//from the space switching of the hand/foot controls
+		$nodeTypeString = `nodeType $obj`;
+		if (!`gmatch $nodeTypeString "*Constraint*"`)
+		{
+			$keyableAttr = `listAttr -k -u $obj`;
+		}
+		else
+		{
+			$keyableAttr = `listAttr -o -hd -ud $obj`;
+		}
+		for ($attr in $keyableAttr)
+		{
+			character -add ($setName + $charName) ($obj + "." + $attr);
+		}
+	}
+
+	//set the active character set to none
+	setCurrentCharacters ( {} );
+}

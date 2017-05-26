@@ -1,0 +1,12 @@
+//This will add expressions to the second, minute, and hour bars, for them to be animated
+
+//Seconds
+expression -s "$seconds = frame/24;\nsecond_hand.rotateY = -$seconds * 6;"  -o second_hand -n "seconds" -ae 1 -uc all ;
+
+
+//Minutes
+expression -s "$minutes = frame/1440;\nminute_hand.rotateY = -$minutes * 6;"  -o minute_hand -n "minutes" -ae 1 -uc all ;
+
+
+//Hours
+expression -s "$hours = frame/86400;\nhour_hand.rotateY = -$hours * 30;"  -o hour_hand -n "hours" -ae 1 -uc all ;

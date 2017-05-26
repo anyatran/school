@@ -1,0 +1,23 @@
+select -r polySurface1 ;
+currentTime 1 ;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"polySurface1"};
+currentTime 13 ;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"polySurface1"};
+
+move -r 2.011411 0 0 ;
+//autoKeyframe;//
+
+rotate -r -os 0 88.904263 0 ;
+//autoKeyframe;//
+
+scale -r 1.133532 1.133532 1.133532 ;
+//autoKeyframe;//
+
+select -r camera1 ;
+currentTime 1 ;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"camera1"};
+currentTime 13 ;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"camera1"};
+
+move -r 14.190843 0 0 ;
+//autoKeyframe;//

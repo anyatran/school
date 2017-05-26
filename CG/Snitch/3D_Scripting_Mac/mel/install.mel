@@ -1,0 +1,372 @@
+//
+//  Mel by Lalo
+//
+//  Plugin installer Mel Script
+//
+//  Used to place several plugin files to specific Maya paths
+//
+
+proc string itemFromPath ( string $pathVariable, int $itemIndex )
+{
+    string $path[];
+    $path[0] = `getenv $pathVariable`;
+    tokenize $path[0] ";" $path;
+    if ( size ( $path ) > 0 )
+    {
+	int $elemIndex = size ( $path ) - $itemIndex;
+	if ( $elemIndex < 0 )
+	    $elemIndex = 0;
+	return $path[$elemIndex];
+    }
+    else
+	return "";
+}
+
+proc string melProcedurePath ( string $melProcedure )
+{
+    string $melPaths[];
+    $melPaths[0] = `whatIs $melProcedure`;
+    if ( substring ( $melPaths[0], 1, 23 ) == "Mel procedure found in:" )
+    {
+	tokenize $melPaths[0] " " $melPaths;
+	string $melPath[];
+	int $id;
+	for ( $id = 4; $id < size ( $melPaths ); $id++ )
+	{
+	    $melPath[0] = ($melPath[0]+" "+$melPaths[$id]);
+	}
+	$melPath[0] = substring ( $melPath[0], 2, size($melPath[0]) );
+	return dirname ( $melPath[0] );
+    }
+    else
+	return "";
+}
+
+global proc instalBrowse ( string $textControl, int $lauchBrowser, string $path, string $type )
+{
+    if ( $lauchBrowser == true )
+    {
+	string $oldDir = `workspace -q -dir`;
+	string $newDir = `textFieldGrp -query -text $textControl`;
+	workspace -dir $newDir;
+	fileBrowser ("instalBrowse "+$textControl+" false") "Select Location" $newDir 4;
+	workspace -dir $oldDir;
+    }
+    else
+    {
+	textFieldGrp -edit -text $path $textControl;
+    }
+}
+
+proc string deleteFile ( string $file, string $title, string $message, string $lastConfirmation )
+{
+    string $confirmation;
+    if ( $lastConfirmation != "Yes to all" )
+    {
+	$confirmation = `confirmDialog
+		-title $title
+		-message $message
+		-button "Yes"
+		-button "Yes to all"
+		-button "No"
+		-defaultButton "No"
+		-cancelButton "No"
+		-dismissString "No"`;
+    }
+    else
+	$confirmation = $lastConfirmation;
+
+    if ( ( $confirmation == "Yes" ) || ( $confirmation == "Yes to all" ) )
+    {
+	int $result = `sysFile -delete (toNativePath ($file))`;
+	if ( $result == true )
+	    print ("// File "+$file+" was deleted.\n");
+	else
+	{
+	    $continue = `confirmDialog
+			-title "Unable to delete file"
+			-message ("Unable to delete file \""+$file+"\". Continue?")
+			-button "Yes"
+			-button "No"
+			-defaultButton "No"
+			-cancelButton "No"
+			-dismissString "No"`;
+	    if ( $continue == "Yes" )
+		warning ("Unable to delete file "+$file);
+	    else
+		error ("Unable to delete file "+$file);
+	}
+    }
+
+    return $confirmation;
+}
+
+proc string deleteFiles ( string $fileList[], string $dir, string $lastConfirmation )
+{
+    for ( $file in $fileList )
+	if ( `filetest -f (toNativePath ($dir+"/"+$file))` )
+	    $lastConfirmation = deleteFile ( ($dir+"/"+$file), "Confirm file deleting", ("Delete file "+$dir+"/"+$file+"?"), $lastConfirmation );
+
+    return $lastConfirmation;
+}
+
+proc string moveFiles ( string $oldFileNames[], string $newFileNames[], string $fromDir, string $toDir, string $lastConfirmation )
+{
+    int $numFiles = size ( $oldFileNames );
+    if ( size ( $newFileNames ) == $numFiles )
+    {
+	int $fileNumber;
+	for ( $fileNumber = 0; $fileNumber < $numFiles; $fileNumber++ )
+	{
+	    string $fromFile = $fromDir+"/"+$oldFileNames[$fileNumber];
+	    if ( ! `filetest -d (toNativePath ($toDir))` )
+	    {
+		$createDir = `confirmDialog
+			    -title "Create directory"
+			    -message ("Destination directoty \""+$toDir+"\" does not exist. Create?")
+			    -button "Yes"
+			    -button "No"
+			    -defaultButton "No"
+			    -cancelButton "No"
+			    -dismissString "No"`;
+		if ( $createDir == "Yes" )
+		    sysFile -makeDir (toNativePath ($toDir));
+		    
+	    }
+	    string $toFile = $toDir+"/"+$newFileNames[$fileNumber];
+	    if ( ( `filetest -f (toNativePath ($toFile))` ) && ( `filetest -f (toNativePath ($toFile))` ) )
+		$lastConfirmation = deleteFile ( $toFile, "Confirm file overwriting", ($toFile+" already exists. Overwrite?"), $lastConfirmation );
+
+	    int $result = `sysFile -rename (toNativePath ($toFile)) (toNativePath ($fromFile))`;
+	    if ( $result == true )
+		print ("// Moved "+$fromFile+" to "+$toFile+"\n");
+	    else
+	    {
+		$continue = `confirmDialog
+			    -title "Unable to move file"
+			    -message ("Unable to move file \""+$fromFile+"\" to \""+$toFile+"\". Continue?")
+			    -button "Yes"
+			    -button "No"
+			    -defaultButton "No"
+			    -cancelButton "No"
+			    -dismissString "No"`;
+		if ( $continue == "Yes" )
+		    warning ("Unable to move file "+$fromFile+" to "+$toFile);
+		else
+		    error ("Unable to move file "+$fromFile+" to "+$toFile);
+	    }
+	}
+    }
+
+    return $lastConfirmation;
+}
+
+global proc performInstall ( string $windowName, string $fromTextField, string $pluginTextField,
+			string $scriptTextField, string $userIconTextField, string $mayaIconTextField,
+			string $userDocTextField, string $mayaDocTextField, string $deleteZipChechBox )
+{
+    string $fromPath = `textFieldGrp -query -text $fromTextField`;
+    string $pluginPath = `textFieldGrp -query -text $pluginTextField`;
+    string $scriptPath = `textFieldGrp -query -text $scriptTextField`;
+    string $userIconPath = `textFieldGrp -query -text $userIconTextField`;
+    string $mayaIconPath = `textFieldGrp -query -text $mayaIconTextField`;
+    string $userDocPath = `textFieldGrp -query -text $userDocTextField`;
+    string $mayaDocPath = `textFieldGrp -query -text $mayaDocTextField`;
+    int $deleteZipFile = `checkBox -query -value $deleteZipChechBox`;
+
+    string $fileDeletionList[];
+    int $fileDeletionIndex = 0;
+
+    print "// Intercollision field installation beginning...\n";
+    string $lastConfirmation;
+
+    // Old files
+    //    
+    $lastConfirmation = deleteFiles ( {"DynCreateFieldsMenu.mel"}, $scriptPath, $lastConfirmation );
+
+    // New/replaced files
+    //
+    string $mayaVersion = `about -version`;
+    string $pluginSuffix;
+    if ( `about -nt` )
+	$pluginSuffix = ".mll";
+    else
+	$pluginSuffix = ".so";
+    $lastConfirmation = moveFiles ( {"intercollisionField"+$mayaVersion+$pluginSuffix}, {"intercollisionField"+$pluginSuffix}, $fromPath, $pluginPath, $lastConfirmation );
+    $lastConfirmation = moveFiles ( {"AEintercollisionFieldTemplate.mel", "intercollisionFieldCreateUI.mel", "performIntercollisionField.mel"},
+				    {"AEintercollisionFieldTemplate.mel", "intercollisionFieldCreateUI.mel", "performIntercollisionField.mel"}, $fromPath, $scriptPath, $lastConfirmation );
+    $lastConfirmation = moveFiles ( {"intercollisionField.xpm", "out_intercollisionField.xpm"}, 
+				    {"intercollisionField.xpm", "out_intercollisionField.xpm"}, $fromPath, $userIconPath, $lastConfirmation );
+    $lastConfirmation = moveFiles ( {"intercollisionField.fti"}, {"intercollisionField.fti"}, $fromPath, $mayaIconPath, $lastConfirmation );
+    $lastConfirmation = moveFiles ( {"intercollisionField_ReadMe.txt"}, {"intercollisionField_ReadMe.txt"}, $fromPath, $userDocPath, $lastConfirmation );
+
+    // IntercollisionField node documentation not supported for Maya 5.0
+    //
+    if ( ( $mayaVersion == "4.0" ) || ( $mayaVersion == "4.5" ) )
+	$lastConfirmation = moveFiles ( {"intercollisionField.html"}, {"intercollisionField.html"}, $fromPath, $mayaDocPath, $lastConfirmation );
+    else
+	$fileDeletionList[$fileDeletionIndex++] = "intercollisionField.html";
+
+    // Instalation script, different plugin versions and zip files
+    //
+    for ( $otherVersion in {"4.0", "4.5", "5.0"} )
+	for ( $otherSuffix in {".mll", ".so"} )
+	    if ( ( $mayaVersion != $otherVersion ) || ( $pluginSuffix != $otherSuffix ) )
+	    	$fileDeletionList[$fileDeletionIndex++] = ("intercollisionField"+$otherVersion+$otherSuffix);
+
+    $fileDeletionList[$fileDeletionIndex++] = "install.mel";
+    if ( $deleteZipFile )
+	$fileDeletionList[$fileDeletionIndex++] = "intercollisionField.zip";
+
+    $lastConfirmation = deleteFiles ( $fileDeletionList, $fromPath, $lastConfirmation );
+
+    // Load plugin
+    //
+    loadPlugin "intercollisionField";
+
+    print "// Intercollision field installation finished.\n";
+
+    deleteUI -window $windowName;
+}
+
+global proc install ()
+{
+    // Find if plugin is compatible
+    //
+    string $mayaVersion = `about -version`;
+    if ( ( ( $mayaVersion == "4.5" ) && ( ( `about -nt` ) || ( `about -linux` ) ) ) || ( ( ( $mayaVersion == "4.0" ) || ( $mayaVersion == "5.0" ) ) && ( `about -nt` ) ) )
+    {
+	// Test if plugin is loaded (must be unloaded to be overwritten)
+	//
+	if (`pluginInfo -query -loaded "intercollisionField"`)
+	{
+	    // Create a window to bring Maya to front
+	    //
+	    $toFrontWindow = `window`;
+	    showWindow $toFrontWindow;
+	    deleteUI $toFrontWindow;
+	    windowPref -remove $toFrontWindow;
+
+	    $force = `confirmDialog
+			    -title "Warning"
+			    -message "Plugin is loaded. Force unload (can damage current scene)?"
+			    -button "Yes"
+			    -button "No"
+			    -defaultButton "No"
+			    -cancelButton "No"
+			    -dismissString "No"`;
+	    if ( $force == "Yes" )
+		unloadPlugin -force "intercollisionField";
+	    else
+		error ( "Plugin is loaded. Please unload it to install a new version" );
+	}
+
+	// Find default installation paths
+	//
+	string $fromPath = melProcedurePath ( "install" );
+	string $pluginPath = itemFromPath ( "MAYA_PLUG_IN_PATH", 3 );
+	string $scriptPath = itemFromPath ( "MAYA_SCRIPT_PATH", 12 );
+	string $userIconPath = itemFromPath ( "XBMLANGPATH", 8 );
+	string $mayaIconPath = itemFromPath ( "XBMLANGPATH", 6 );
+	string $userDocPath = itemFromPath ( "MAYA_SCRIPT_PATH", 12 );
+	string $mayaDocPath = itemFromPath ( "MAYA_HELP_URL", 1 );
+	if ( $mayaDocPath == "" )
+	{
+	    $mayaDocPath = `getenv "MAYA_LOCATION"` + "/docs/en_US/html";
+	}
+	$mayaDocPath = $mayaDocPath + "/Nodes";
+    
+	// Create intallation window
+	//
+	string $windowName = "installWindow";
+	if (`window -ex $windowName`)
+	    deleteUI -window $windowName;
+	if (`windowPref -ex $windowName`)
+	    windowPref -remove $windowName;
+	string $callback = "";
+	window -iconName "Install" -title "Intercollision Field Install" -widthHeight 480 280 -sizeable off $windowName;
+	    $mainLayout = `formLayout`;
+		$infoForm = `formLayout`;
+		    columnLayout;
+			frameLayout -label "Source" -collapsable true;
+			    columnLayout;
+				rowLayout -numberOfColumns 2 -columnWidth2 410 50 -columnAttach2 left left;
+				    $fromTextField = `textFieldGrp -columnWidth2 160 250 -label "From Directory" -text $fromPath`;
+				    button -label "Browse.." -command ("instalBrowse "+$fromTextField+" true \"\" \"\"");
+				    setParent ..;
+				setParent ..;
+			    setParent ..;
+			frameLayout -label "Destination" -collapsable true;
+			    columnLayout;
+				rowLayout -numberOfColumns 2 -columnWidth2 410 50 -columnAttach2 left left;
+				    $pluginTextField = `textFieldGrp -columnWidth2 160 250 -label "Plugins Directory" -text $pluginPath`;
+				    button -label "Browse.." -command ("instalBrowse "+$pluginTextField+" true \"\" \"\"");
+				    setParent ..;
+				rowLayout -numberOfColumns 2 -columnWidth2 410 50 -columnAttach2 left left;
+				    $scriptTextField = `textFieldGrp -columnWidth2 160 250 -label "Scripts Directory" -text $scriptPath`;
+				    button -label "Browse.." -command ("instalBrowse "+$scriptTextField+" true \"\" \"\"");
+				    setParent ..;
+				rowLayout -numberOfColumns 2 -columnWidth2 410 50 -columnAttach2 left left;
+				    $userIconTextField = `textFieldGrp -columnWidth2 160 250 -label "User Icons Directory" -text $userIconPath`;
+				    button -label "Browse.." -command ("instalBrowse "+$userIconTextField+" true \"\" \"\"");
+				    setParent ..;
+				rowLayout -numberOfColumns 2 -columnWidth2 410 50 -columnAttach2 left left;
+				    $mayaIconTextField = `textFieldGrp -columnWidth2 160 250 -label "Maya Icons Directory" -text $mayaIconPath`;
+				    button -label "Browse.." -command ("instalBrowse "+$mayaIconTextField+" true \"\" \"\"");
+				    setParent ..;
+				rowLayout -numberOfColumns 2 -columnWidth2 410 50 -columnAttach2 left left;
+				    $userDocTextField = `textFieldGrp -columnWidth2 160 250 -label "User Documentation Directory" -text $userDocPath`;
+				    button -label "Browse.." -command ("instalBrowse "+$userDocTextField+" true \"\" \"\"");
+				    setParent ..;
+				rowLayout -numberOfColumns 2 -columnWidth2 410 50 -columnAttach2 left left;
+				    $mayaDocTextField = `textFieldGrp -columnWidth2 160 250 -label "Maya Documentation Directory" -text $mayaDocPath`;
+				    button -label "Browse.." -command ("instalBrowse "+$mayaDocTextField+" true \"\" \"\"");
+				    setParent ..;
+				rowLayout -numberOfColumns 2 -columnWidth2 160 300 -columnAttach2 left left;
+				    separator -visible false;
+				    $deleteZipChechBox = `checkBox -label "Delete zip file" -value false`;
+				    setParent ..;
+				setParent ..;
+			    setParent ..;
+			setParent ..;
+		    setParent ..;
+    
+		$buttonsLayout = `formLayout`;
+		    $installButton = `button -label "Install" -width 110
+			-command ("performInstall "+$windowName+" "+$fromTextField+" "+$pluginTextField+" "+$scriptTextField+" "+$userIconTextField+" "+
+				    $mayaIconTextField+" "+$userDocTextField+" "+$mayaDocTextField+" "+$deleteZipChechBox)`;
+		    $cancelButton = `button -label "Cancel" -width 110 -command ("deleteUI -window "+$windowName)`;
+    
+		    formLayout -e 
+			-af $installButton "left" 5
+			-af $installButton "bottom" 5
+			-an $installButton "top"
+			-af $cancelButton "bottom" 5
+			-af $cancelButton "right" 5
+			-an $cancelButton "top"
+			-ap $installButton "right" 3 50
+			-ac $cancelButton "left" 5 $installButton
+			$buttonsLayout;
+    
+		    setParent ..;
+    
+		formLayout -e
+		    -af $infoForm top 0
+		    -af $infoForm left 5
+		    -af $infoForm right 0
+		    -ac $infoForm bottom 5 $buttonsLayout
+		    -af $buttonsLayout left 0 -af $buttonsLayout right 0
+		    -af $buttonsLayout bottom 0
+		    -an $buttonsLayout top
+		    $mainLayout;
+    
+    
+	showWindow $windowName;
+    }
+    else
+    {
+	confirmDialog -title "Error" -message "Plugin is not compatible with this OS or Maya version!";
+    }
+}
+
+install;

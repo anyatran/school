@@ -1,0 +1,70 @@
+tran, anh
+anhtran9
+stephanie nguyen
+snguyen
+
+DESIGN DOC
+
+1) NODE class: represents a single node in the maze game, that has a 
+   unique name, x and y positions, a representative, where it come from
+   while doing searching algorithms, and a list of neigbors that it connected. 
+   -- It has 3 different drawing methods for 3 different types of nodes: the node that has been visited(drawNode), the current node taht has been used to search, and the node on the back track. 
+   -- distance() method that calculates the distance between 2 nodes;      
+   -- neighbors() which checks if 2 nodes can be connected neighbors if they have a certain distance between them; the overrided method 
+   -- equals() that checks if 2 nodes are equal; 
+   -- unions(): checks if 2 nodes are unions
+   -- rightNeighbor(), leftNeighbor(), bottomNeighbor(), topNeighbor():checks if the node has connected neighbors on the left/right/top/bottom
+   -- getRight()/getleft()/ getTop()/ getBottom(): if the node has a connected neighbor that its asking for - get that node
+   -- drawWalls(): draw the lines around the node in order to create a maze
+
+2) EDGE class: represents a single edge. It has a from and to Nodes that 
+   it connects. 
+   -- hasNode(): checks if the edge is build of the given node
+   -- drawEdge(): draws a single edge
+   -- sameEdge(): checks if 2 edges are the same, no matter of from and to Nodes.
+
+3) TREE class: represents a minimum spanning tree that the maze is build of. It has an list of nodes and edges that if builds of
+   -- generateNodes(): generate all the nodes in the canvas based on its width and height
+   -- possibleEdges(): generates all possible edges in the canvas
+   -- randomIndex(): generates a random number so you could pull out a random edge from the list of all possible edges
+   -- getEdge() : pulls out a random edge
+   buildTree(): builds a minimum spanning tree by taking 1 edge at a time from a list of all possible edges and place it into a tree. If an edge is creating a cycle in a tree, then you shouldnt add it. Whenever the edge is added to the tree, the from-node's representative is becoming to-node's representative
+   -- contains(): checks if the tree contains this edge
+
+4) MAZE class: represents a maze which is build of the Tree. 
+   -- drawTree(): draws the minimum spanning tree (path)
+   -- drawMaze(): draws a maze based on the tree
+
+5) SEARCHING class: represents the searching algorithm. It has a hashmap 
+   of nodes that it has visited, an arraylist of nodes that it has to visit, another arraylist that will build a backtrack at the end, a minimum spanning tree (path), booleans d and b which are false at the momend, but they will become true when the player presses "d" of "k" keys to choose which algorithm to run (d is for DPS; b is for BFS); 
+   booleans done and finished that are false at the momend, and the node current which represents the node that is searching at the moment.
+
+   -- doDfs(): as DFS store its to-do list as a stack, it will add and pull out the last node in the arraylist todo. To start, it adds the  starting node to the todo list, and sets the curent node as a last item from todo. If the current node has reached the final node, it will add the current node to the visited list, change finished into true, adds this node as the first node in the backtrack list, and returns true because it has finished. If the current node is not the final one, if will run continuesly untill in reaches the end by operating such way: firstly, it will remove the first item from the stack and checks if has neighbors that has been visited alreay; secondly, it will assign the "from" field for each of its unvisited nodes as itself and add those neighbors to the todo list; lastly, it will add itself to the visited list and return false as it hasnt finished searching yet.
+   -- doBFS(): unlike DFS, BFS stores its todo list as a queue, which means come first get out first. therefore, instead of pulling out the to do array list from the end, it takes the first node in todo arraylist. Other than that, it operates like DFS
+   -- drawVisited(): draws the nodes that has been visited already
+   -- drawCurrent(): draws the curent node that its at
+   -- addTrack(): adds nodes to the backtrack list so it could draw the backtrack later. When it's done with adding, it will turn the "done" filed into to "true".
+
+6) MAZEGAME class: represents the entire game. it has fields width and    
+   height of the canvas, the searching field that represents the type of searching, booleans algSwitch, aths, walls, nothing, everything, backtrack, flag, which are all false at the moment.
+
+   -- alg(): draws the first image when the game starts
+   -- drawWalls(): draws the game with walls (maze) only
+   -- drawBacktrack: draw an image of a highlighted backtrack and maze only
+   -- drawPath(): draws the path(tree) without walls 
+   -- drawBoth(): draws both tree and walls on the same screen
+   -- drawNothing(): an image without the maze
+   -- makeImage(): create an image for the game. If this.algSWitch is true, it show the first screen with instructions. then, depends on booleans this.walls/this.path/this.backtrack/this.everything/this.nothing which one is becoming true, it will draw that one.
+   -- onKeyEvent(): in charge of player's keyboard commands. If the searching algorithm is done its searching work, the player can renew the game by clicking "n" and it will create a new maze. In order to choose which algorithm to run, the player can hit "d" fod DFS of "b" for BFS, which will activate field this.alsSWitch into true and either this.a.b(for BFS) /this.a.d(for DFS) into true, depending on which key was pushed and run the searching. While running the searching, the player can choose 5 different ways to view the game: if he push key "1" - it will show the game with only path (without walls), key "2" for only walls(maze) without the path, key "3" for both path and walls,
+   key "4" for no maze and path, and key "5" for seeing the backtrack which will be drawn when the searching process is finished (but hasnt been done yet as it hasnd display the backtrack).
+   -- onTick(): running the searching algorithm on each tick
+   -- main(): run the entire game
+
+
+
+
+
+
+
+
+

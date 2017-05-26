@@ -1,0 +1,62 @@
+global proc string nurbsInfo ( int $arg )
+{
+// List last selected object
+string $selList[] = `ls -sl  -tail 1 -dag -shapes`;
+
+string $returnVal;
+
+if ( `nodeType $selList[0]` == "nurbsSurface" )
+	{ 
+		if ( $arg == 0 )
+			{
+			int $i = `getAttr ( $selList[0] + ".spansU" )`;
+			$returnVal = $i;
+			}
+		if ( $arg == 1 )
+			{
+			int $i = `getAttr ( $selList[0] + ".spansV" )`;
+			$returnVal = $i;
+			}
+		if ( $arg == 2 )
+			{
+			int $i = `getAttr ( $selList[0] + ".divisionsU" )`;
+			$returnVal = $i;
+			}
+		if ( $arg == 3 )
+			{
+			int $i = `getAttr ( $selList[0] + ".divisionsV" )`;
+			$returnVal = $i;
+			}
+	} 
+
+if ( `nodeType $selList[0]` == "nurbsCurve" )
+	{ 
+		if ( $arg == 0 )
+			{
+			int $i = `getAttr ( $selList[0] + ".spans" )`;
+			$returnVal = $i;
+			}
+		if ( $arg == 1 )
+			{
+			int $i = `getAttr ( $selList[0] + ".spansV" )`;
+			$returnVal = " ";
+			}
+		if ( $arg == 2 )
+			{
+			int $i = `getAttr ( $selList[0] + ".divisions" )`;
+			$returnVal = " ";
+			}
+		if ( $arg == 3 )
+			{
+			int $i = `getAttr ( $selList[0] + ".divisionsV" )`;
+			$returnVal = " ";
+			}
+	}
+
+
+if ( `size $selList` == 0 )
+		$returnVal = " ";
+
+return $returnVal;
+
+}

@@ -1,0 +1,35 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRcreateGroup.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jan 27, 2009
+//					created: Jan 02, 2005
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+//  creates a group for the character elements
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRcreateGroup ( string $charName, string $grpName, int $vis )
+{
+	if (!`objExists ($grpName + $charName)`)
+	{
+		rename (`CreateEmptyGroup`) ($grpName + $charName);
+		setAttr ($grpName + $charName + ".visibility") $vis;
+		icCRlockHideAttr ( ($grpName + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v");
+	}
+}

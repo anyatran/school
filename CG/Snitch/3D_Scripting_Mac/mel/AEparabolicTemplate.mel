@@ -1,0 +1,40 @@
+
+//
+//  Creation Date:	Oct 14, 2008
+//
+//  Procedure Name:
+//	AEparabolicTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the parabolic node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+//	Author:		Morteza Ramezanali (xDreamer)
+//				www.cgdna.com - moto@cgdna.com
+
+global proc AEparabolicTemplate ( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "Parabolic Attributes" -collapse 0;
+			editorTemplate -addControl "inputA";
+			editorTemplate -addControl "inputB";
+			editorTemplate -addControl "inputC";
+			editorTemplate -addControl "outRoot1";
+			editorTemplate -addControl "outRoot2";
+			editorTemplate -addControl "delta";
+			editorTemplate -addControl "vertex";
+		editorTemplate -endLayout;
+
+	// include/call base class/node attributes
+	AEdependNodeTemplate $nodeName;
+
+	editorTemplate -addExtraControls;
+	editorTemplate -endScrollLayout;
+}

@@ -1,0 +1,135 @@
+			Due Date:  See README file
+
+Your job is to fix the three bugs in the implementation of myshell.
+When you are done, do:
+  make dist    [ This will create a gzipped tar file, such as hw4.tar.gz .]
+Then submit it online:
+  /course/cs3650/submit-cs3650-hw4   hw4.tar.gz
+
+=========================================================================
+Linux Productivity Tools:
+  While I can't enforce this, I encourage all students to use this assignment
+to start learning Linux productivity tools.  A little investment of time now
+will help you do later homeworks faster, and it will also look good to any
+coop employer using Linux/Android as one part of their toolchain.  Hence,
+I include two small tutorials:
+
+1.  EDITOR:  vitutor.vi :  To start,
+	cp /course/cs3650/hw4/vitutor.vi ~/
+	cd ~
+	vi vitutor.vi
+    # In about an hour, you will learn all the basic vi commands, and practice
+    # them directly, as you read through vitutor.vi in 'vi' itself.
+    # If you prefer, emacs is another fine editor for Linux.  I demonstrate 'vi'
+    #   here, because it has a little more mindshare at this time.
+
+2.  DEBUGGER:  gdb : Text-oriented, but includes many powerful debugging
+      commands, including 'step', 'next', 'break' (breakpoints), 'continue'
+      Many of you found breakpoints to be useful in debugging the second
+      assembly assignment.  They're also very powerful for C and other languages.
+
+=========================================================================
+NOTE:
+  This assignment introduces Makefile.  They are there to make your life
+easier.  A Makefile is a list of "targets" with "dependencies" such as:
+TARGET: DEPENDENT_FILE1 DEPENDENT_FILE2
+<TAB> COMMAND1
+<TAB> COMMAND2
+
+Read Makefile for an example.  To use Makefile, pick a target (e.g. run,
+and do:
+  make run
+
+=========================================================================
+DETAILS:
+
+Fixing bug 1:
+  Modify getargs() to add the capability for comments.  The character '#'
+introduces a comment.  Any characters from '#' to the end of the line
+are ignore.
+
+Fixing bug 2:
+  When we execute:  ./myshell script.myshell
+we should replace the original stdin, and set this file to stdin.
+To fix this, we need to do two things:
+1.  In main(), check if argc > 1.  If so, and if you executed
+  './myshell script.myshell', then argv[1] will be the file script.myshell.
+2.  Next, we need to close stdin and reopen stdin, but bound to argv[1]:
+  freopen(argv[1], "r", stdin);
+3.  Note that it will then work to directly execute:
+     ./script.myshell
+  However, to do this, ./script.myshell must have execute permissions set:
+     chmod a+x ./script.myshell
+  If we want to directly execute under myshell the file:
+     ./script.myshell  
+  then also replace /bin/sh on the first line by the full pathname of myshell .
+
+Fixing bug 3:
+  When we type ^C (interrupt), the operating system passes a SIGINT
+signal (SIGINT means SIGNAL-INTERRUPT) to the currently running program.
+The currently running program will be "myshell".  Since "myshell" does not
+handle that signal, "myshell" will be killed.  So, we need to write a
+signal handler for "myshell".  We declare a signal handler with the command:
+  signal(SIGINT, interrupt_handler);
+interrupt_handler is a function of type:
+  void interrupt_handler(int signum);
+Just implementing the function interrupt_handler will prevent ^C from
+killing your "myshell".  But inside interrupt_handler, you should
+print information that the ^C was recognized, and then send a SIGINT
+to the child process, in order to kill the child process.  The UNIX command
+for this is kill():
+  kill(childpid, SIGINT);
+
+[ NOTE:  Under Linux, the SIGINT will automatically be passed on to all
+  child processes (in the same process group).  In some earlier dialects
+  of UNIX, this was not true.  Since Linux now has the dominant mindshare,
+  it's fine if you don't include the call to 'kill(childpid, SIGINT)'. ]
+
+To test your new "myshell", try running it and interrupting the sleep command:
+  make
+  % sleep 10
+  % ^C  # [control-C]
+[ The 'sleep 10' command simply pauses for 10 seconds.  See if you can
+  interrupt it before the end of the 10 seconds. ]
+
+WARNING:  As 'man 2 kill' states,
+     If pid is 0, sig will be sent  to  all  [of your] processes ....
+     DON'T call kill with "childpid == 0", unless you really want
+       to kill every one of your processes on the current machine.
+
+#=====================================================================
+DEBUGGING:
+
+For each system call, you can automatically print errors.  We illustrate
+with the call to "close()":
+ if (-1 == open(argv[1])) {
+     perror("open");
+     exit(1);
+ }
+
+You can also use gdb (debugger, line-oriented version of Eclipse, but
+	but much smaller and simpler).  If you use gdb on an executable
+        make sure first that the executable was compiled using "gcc -g -O0".
+        "-g" means to include extra debugging information in symbol table.
+        "-O0" means to do 0 optimizations, so that the assembly code
+	corresponds to the high level C code.
+gdb --args myshell
+(gdb) break main
+(gdb) run
+(gdb) # list at line 30
+(gdb) list 30
+(gdb) print argc
+(gdb) print argv[0]
+(gdb) # print type of variable
+(gdb) ptype argv(0)
+(gdb) ptype argv
+(gdb) # display C stack
+(gdb) where
+(gdb) # next line, step over, not into, functions
+(gdb) next
+(gdb) # set a breakpoint at a function, and continue until there
+(gdb) break getargs
+(gdb) continue
+(gdb) # if it's a function, step into it ('next' would go over it to next line.)
+(gdb) step
+(gdb) quit

@@ -1,0 +1,82 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Face Random Duplication Tool
+''    Author: rferl 
+''    Last Updated: Oct 01, 2007
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/polygon/1678.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+global proc fa_DupFace(int $input)
+{
+	switch($input)
+	{
+	case 1:
+		{
+			
+			if (`window -exists fa_DupFaceUI`)
+				deleteUI fa_DupFaceUI;
+			window -s 0 -w 392 -h 155 -t "Face Duplication Utility" 	fa_DupFaceUI;
+			columnLayout;
+			frameLayout -lv 1 -l"Enter The Group Name:"; 
+			columnLayout -adj 1 -bgc .1 .1 .1;
+			textField groupF;
+			separator;
+			floatSliderGrp -l "Shift Value" -field 1 -min -10 -max 10 -s .001 -v .5 -bgc .7 .7 .7   ZShiftSlider ;
+			intSliderGrp -l "Rate" -field 1 -min 1 -max 20 -v 1 -bgc .7 .7 .7   rateSlider ;
+			separator;
+			progressBar -h 10 prgBar;
+			separator;
+			button -l "Duplicate Seleccted Faces" -h 25 -c "fa_DupFace(2)" -bgc .75 .8 .75;
+			
+			print " by: Farsheed Ashouri. \n";
+			showWindow fa_DupFaceUI;
+			break;
+		}
+		
+	case 2:
+		{
+			string $grgName = `textField -q -tx groupF`;
+			
+			if ($grgName != "")
+			{
+				
+				float $shiftVal = `floatSliderGrp -q -v ZShiftSlider `;
+				int  $rateVal = `intSliderGrp -q -v rateSlider `;
+				
+				string $selectedFaces[] =`filterExpand -sm 34`;
+				progressBar -e -max (size($selectedFaces)/$rateVal) prgBar;
+				if ($selectedFaces[0] != "")
+				{
+					string $buffer[];
+					$numTokens = `tokenize $selectedFaces[0] "." $buffer`;	
+					int $count = 1;
+					for ($eachSelected in $selectedFaces)		
+					{
+						int $sam = $count % ($rateVal );
+						if ( $sam < 1 )
+							polyChipOff -kft 1 -ch 0  -n "mamad" -ltz $shiftVal $eachSelected;
+						//	seed $count;
+						$count += int( rand ($rateVal));
+						progressBar -e -step 1 prgBar;
+						print "\n\n\n\n\n\n\n\n\n\n";
+					}
+					select -cl;
+					polySeparate -ch 0 $buffer[0];
+					parent -w `ls -sl`;
+					group -n $grgName;
+					progressBar -e -pr 0 prgBar;					
+				}
+				else warning(" Please select Polygon Faces.");
+			}
+			else warning( "Please Enter A Group Name.");
+			break;
+		}
+	}
+}
+fa_DupFace(1);

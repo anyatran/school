@@ -1,0 +1,48 @@
+                                HOMEWORK 1
+		   	due Wednesday, Sept. 19
+		NOTE:  I am asking for both hardcopy and
+			to submit the assignment online.  (See below.)
+
+For homework 1, you must write a simple program in assembly.
+The program is the C program:  hw1-factorial.c
+in the course directory.
+You can test the C program via:  gcc hw1-factorial.c ; ./a.out
+
+Your program must print a prompt, read an integer, and then write the
+answer, as is done in hw1-factorial.c .
+Page B-44 of the text shows how to use system calls.  The system calls
+that you need are:  print_str, read_int, print_int, and exit
+
+Note also that hw1-example* gives you a simple C program, along with
+two translations to Assembly.  (The first translation is short, but
+also takes some shortcuts.  The second version is closer to what
+you need for your homework.)
+[ hw1-example* should appear soon. ]
+
+In addition, you must include each line of the C source code as
+a comment just before the corresponding assembly code.
+For example:
+ # x = y + z;
+ add $t4, $t2, $t1
+ # x -= 2;
+ sub $t4, $t4, 2
+
+You must both submit on-line and hand in hardcopy of your assembly source.
+To submit on-line, login to the UNIX system and do:
+    /course/cs2600gc/submit-cs2600gc-hw1  hw1.tar.gz
+(assuming that this contains your assembly program, hw1.s)
+
+The online version is due by the end of the due date (by midnight,
+or a few hours after midnight).  The hardcopy version can be printed
+later, and brought to the next class after the due date.
+
+======================================================================
+See the course home page for the Mars MIPS simulator.
+
+Note that page B-44 of Appendix B has a table of "system services"
+(system calls).  These allow you to do I/O.
+
+Further, the Mars simulator requires you to terminate your program
+by calling the "exit" system call.  It produces an error if your
+main() routine simply returns.  The text describes the Mars simulator
+under the older SPIM name (Appendix B.9).

@@ -1,0 +1,136 @@
+/*  This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Particle Random Rotation v0.0
+''    Author: Pramod Patel
+''    Last Updated: February 17, 2003
+''    Update/Change this file at:
+''    http://www.highend3d.com/maya/mel/?section=dynamics#2146
+''  
+''  History:
+''    Instancer Random Rotation v0.0 on February 14, 2003 by Pramod Patel
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+
+
+
+{\rtf1\ansi\ansicpg1252\deff0\deflang1033{\fonttbl{\f0\fnil\fcharset0 Courier New;}{\f1\fswiss\fcharset0 Arial;}{\f2\fswiss\fprq1\fcharset0 Courier New;}}
+\viewkind4\uc1\pard\f0\fs20\tab window -title "---------------Random Particle Motions Test--------------" -widthHeight 350 200 -maximizeButton false carl;\par
+\par
+    string $form = `formLayout -numberOfDivisions 100`;\par
+\par
+    string $button2 = `button -label "Create Temp Instancer"`;\par
+    string $button3 = `button -label "Assign Random Motion"`;\par
+\par
+\par
+\par
+    button -edit -command ("\f1 createinstancer\f0 ") $button2;\par
+\par
+    button -edit -command ("\f1 assigntoinstancer\f0 ") $button3;\par
+\par
+\par
+\par
+formLayout -edit\par
+\par
+\par
+\par
+\par
+\par
+-attachForm            $button2     "top"    75\par
+-attachForm            $button2     "left"   125\par
+\par
+\par
+-attachForm            $button3     "top"    100\par
+-attachForm            $button3     "left"   125\par
+\par
+\par
+\par
+$form;\par
+\par
+showWindow carl;\par
+\f1\par
+\par
+\par
+\par
+global proc AttrNow()\par
+\{\par
+addAttr -ln rotMax -at double  carlospartsShape;\par
+setAttr -e -keyable true carlospartsShape.rotMax;\par
+addAttr -ln axis0 -dt doubleArray  carlospartsShape;\par
+addAttr -ln axis -dt doubleArray  carlospartsShape;\par
+setAttr -e -keyable true carlospartsShape.axis;\par
+addAttr -ln rot0 -dt vectorArray  carlospartsShape;\par
+addAttr -ln rot -dt vectorArray  carlospartsShape;\par
+setAttr -e -keyable true carlospartsShape.rot;\par
+addAttr -ln rotMaxRand0 -dt doubleArray  carlospartsShape;\par
+addAttr -ln rotMaxRand -dt doubleArray  carlospartsShape;\par
+setAttr -e -keyable true carlospartsShape.rotMaxRand;\par
+\}\par
+\par
+global proc random()\par
+\{\par
+\par
+dynExpression -s "carlospartsShape.axis = floor(rand(3)); \\r\\ncarlospartsShape.rot = rand(<<360,360,360>>); \\r\\ncarlospartsShape.rotMaxRand = rand( 0 - carlospartsShape.rotMax, carlospartsShape.rotMax) / 1000;" -c carlospartsShape;\par
+\par
+dynExpression -s "if (carlospartsShape.axis == 0) \\r\\ncarlospartsShape.rot = carlospartsShape.rot + << carlospartsShape.rotMaxRand, 0, 0 >>; \\r\\nelse if (carlospartsShape.axis == 1) \\r\\ncarlospartsShape.rot = carlospartsShape.rot + << 0, carlospartsShape.rotMaxRand, 0 >>; \\r\\nelse \\r\\ncarlospartsShape.rot = carlospartsShape.rot + << 0, 0, carlospartsShape.rotMaxRand >>;" -r carlospartsShape;\par
+\par
+dynExpression -s "carlospartsShape.rotMax =  50;\\r\\ncarlospartsShape.axis = floor(rand(3)); \\r\\ncarlospartsShape.rot = rand(<<360,360,360>>); \\r\\ncarlospartsShape.rotMaxRand = rand( 0 - carlospartsShape.rotMax, carlospartsShape.rotMax) / 1000;\\r\\n\\r" -c carlospartsShape;\par
+\par
+select -r carlosparts ;\par
+\par
+dynExpression -s "carlospartsShape.rotMax =  5;\\r\\ncarlospartsShape.axis = floor(rand(3)); \\r\\ncarlospartsShape.rot = rand(<<360,360,360>>); \\r\\ncarlospartsShape.rotMaxRand = rand( 0 - carlospartsShape.rotMax, carlospartsShape.rotMax) / 1000;\\r\\n\\r" -c carlospartsShape;\par
+\par
+\}\par
+\par
+global proc emitter()\par
+\{\par
+\f2\fs17 emitter -pos 0 0 0 -type omni -r 10 -sro 0 -nuv 0 -cye none -cyi 1 -spd 1 -srn 0 -nsp 1 -tsp 0 -mxd 0 -mnd 0 -dx 1 -dy 0 -dz 0 -sp 0 ;\par
+particle;\par
+\par
+connectDynamic -em emitter1 particle1;\par
+\par
+select particle1;\par
+rename carlosparts;\par
+\}\par
+\f1\fs20\par
+\par
+\f2\fs17\par
+\f1\fs20\par
+global proc assigntoinstancer()\par
+\{\par
+\par
+rename carlosparts;\par
+\par
+\f0 confirmDialog -title "            READ THIS OR DONT BLAME ME --- CARLOS :)" -message "Warning!\\nUSE THE LAST BUTTON ONLY AFTER...\\ncurrent MAKING SURE THAT THE PARTICLE\\nOR\\nIS INSTANCED\\n AND THAT THE INSTANCER NAME IS INSTANCER1\\n THE PARTICLE WILL ROTATE WITH A DEFAULT VALUE OF 5 \\n IF U WISH TO MAKE THEM SLOW OR FAST SEE THE CREATION EXPRESSION AND CHANGE THE VALUE OF ROTMAX\\n SORRY HAVENT GOT TIME TO PROVIDE A GOOD INTERFACE :(...\\n" -ma center -button "OK";\par
+\par
+confirmDialog -title "                                                CARLOS :)" -message ":):):):)\\nOH AND SORRY FOR RENAMING YOUR PARTICLE AS CARLOSPARTS :)" -ma center -button "OK";\par
+\f1 AttrNow();\par
+random();\par
+\par
+\f2\fs17 particleInstancer -e -name instancer1 -rotation rot carlospartsShape;\par
+\}\par
+\f1\fs20\par
+\par
+\par
+\par
+global proc createinstancer()\par
+\{\par
+rename carlosparts;\par
+\f2\fs17 polyCube -w 1 -h 1 -d 1 -sx 1 -sy 1 -sz 1 -ax 0 1 0 -tx 1 -ch 1;\par
+\par
+scale -r 0.4 0.4 0.4;\par
+move -r -ls -wd 0 0 11.518404 ;\par
+select -tgl carlosparts ;\par
+particleInstancer  -addObject -object pCube1 -cycle Sequential -cycleStep 1 -cycleStepUnits Frames -levelOfDetail Geometry -rotationUnits Degrees -rotationOrder XYZ -position worldPosition -aimDirection velocity -age age carlospartsShape;\par
+select pCube1;\par
+HideSelectedObjects;\par
+\}\par
+\par
+\par
+\f1\fs20\par
+\par
+}

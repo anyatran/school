@@ -1,0 +1,111 @@
+/*  This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Fish Swim v0.0
+''    Author: Dev Jana
+''    Last Updated: June 6, 2005
+''    Update/Change this file at:
+''    http://www.highend3d.com/maya/mel/?section=animation#3605
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+
+/*****************************************************************
+fishSwim.mel
+Ver 2.1
+Developed for Thesis Work at Digital Media Arts College Fall 2004 - Spring 2005
+author: Dev Jana
+This script is provided free of charge as "creditware." That is, you can use this in any of your animations as long as the line "Scripting by Dev Jana" appears at the start, end, or both of the final animation/film/episode/short/etc...
+all material copright 2005. All rights reserved.
+
+www.devjana.com - tutorials, music, animations, email list, more...
+****************************************************************/
+
+global proc fishSwim()
+{
+window -t fishSwim;
+columnLayout;
+button -w 200 -l "devjana.com" -c"web()";
+gridLayout -numberOfColumns 4 -cellWidthHeight 50 20;
+text "minMove";
+textField minMove;
+text "maxMove";
+textField maxMove;
+
+text "minRot";
+textField minRot;
+text "maxRot";
+textField maxRot;
+
+text "minStep";
+textField minStep;
+text "maxStep";
+textField maxStep;
+
+text "numSteps";
+textField numSteps;
+text "Do it?";
+button -w 40 -l "Yes" -c"doFishSwim()";
+showWindow;
+}//end proc
+
+global proc web()
+{
+window;
+columnLayout;
+webBrowser -width 600 -height 400 -url "www.devjana.com";
+showWindow;
+} // end proc
+
+global proc doFishSwim()
+{
+string $selected[] = `ls -sl`;
+string $object = $selected[0];
+
+
+float $minMove = `textField -q -text minMove`;
+float $maxMove = `textField -q -text maxMove`;
+float $minRot = `textField -q -text minRot`;
+float $maxRot = `textField -q -text maxRot`;
+float $minStep = `textField -q -text minStep`;
+float $maxStep = `textField -q -text maxStep`;
+float $numSteps = `textField -q -text numSteps`;
+
+float $frame = `currentTime -q`;
+int $loop = 1;
+
+while($loop < $numSteps)
+{
+float $rx = rand ($minRot, $maxRot);
+float $ry = rand ($minRot, $maxRot);
+float $rz = rand ($minRot, $maxRot);
+
+rotate -r -os $rx $ry $rz;
+
+float $ty = rand ($minMove, $maxMove);
+move -r -os -wd 0 $ty 0 ;
+
+string $att = $object + ".tx";
+setKeyframe $att;
+string $att = $object + ".ty";
+setKeyframe $att;
+string $att = $object + ".tz";
+setKeyframe $att;
+string $att = $object + ".rx";
+setKeyframe $att;
+string $att = $object + ".ry";
+setKeyframe $att;
+string $att = $object + ".rz";
+setKeyframe $att;
+
+$frame = $frame + rand($minStep, $maxStep);
+currentTime $frame;
+$loop++;
+} //end while
+
+}
+
+fishSwim;

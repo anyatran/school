@@ -1,0 +1,2 @@
+//Adds selected objects to Hypershade graph
+hyperShadePanelGraphCommand("hyperShadePanel1", "addSelected");

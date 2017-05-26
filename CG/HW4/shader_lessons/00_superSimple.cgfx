@@ -1,0 +1,135 @@
+/***********************************************************
+	
+	Eat 3D - Shader Production DVD 
+	
+	00_superSimple.cgfx 
+	
+	This shader is one of the most basic shader we can write. 
+	It takes the bare minimum inputs and only outputs a color. 
+	
+	This is going to be our starting point on the DVD, I'll 
+	go through every step of the shader with you and tell you 
+	what everything means. 
+	
+	This is heavily commented to help you get your feet wet, 
+	the other shaders will have some of the comments cleaned up
+	a bit in order to reduce the visual noise. 
+	
+	- Luiz 
+
+**************************************************************/
+
+//////////////////////////////////////////////////////////////
+// CGFX Matrices Section 
+/*
+ This section contains the different Matrices that the engine will give us, 
+
+ Think of matrices as decoder rings. They can take a value and turn it into something useful, 
+ in practice, you can take a world position and turn it into a screen position. Those are usually 
+ refered to as "spaces", object space, world space, screen space. All that means is "This value is in relation to the world" or 
+ this value is in relation to the screen. 
+ 
+ If I give you a position of X=0, Y=10, Z=0, it can mean different things if it's in world Space (the object is just above the origin of the world), 
+ or Object Space, this point is just above the pivot of the object. The Matrices help us convert from one space to the next
+ 
+ You don't have to worry about them that much, just know that they exist and that you'll use it every now and again. 
+ */ 
+
+float4x4 WorldViewProjection     : WorldViewProjection   < string UIWidget = "None"; >;
+
+
+// Maya's CGFX Shader has a little area where you can write a description for your shader, 
+// This variable is where it reads it from, try changing it ! 
+string description = "A Super Simple Shader";
+
+//////////////////////////////////////////////////////////////
+// Parameters section 
+/* 
+	Parameters are values that you'd like to control, things like colors, textures and values. Anything that you want the user to control will be placed over here. 
+	For now, we only have a single color. 
+	
+*/
+
+// Here's a helpful breakdown on what the following means 
+
+// float3 - this is a value composed of 3 floating precision numbers, RGB 
+// shaderColor - this is the name of our variable, this is what we'll refer to in the main shader body
+// Diffuse - this is called the semantic, it is mainly used in other places, but Maya reads the semantics of the shader to determine 
+// 			  what kind of UI widget to give the variable, the Diffuse semantic will give you a color picker
+
+// All of the variables inside the <> are properties of the variable, there are a ton of different things you can customize here, but 
+// for now, let's just set the UI Name for the variable, the one that will show up in the attribute editor 
+
+// The final values are the default values for this variable, 1,1,1 is white. So in a newly created shader, this color will be white.  
+
+float3 shaderColor : Diffuse
+<
+	string UIName = "Shader Color";
+> = {1.0f, 1.0f, 1.0f};
+
+
+
+//////////////////////////////////////////////////////////////
+// Structs section 
+/*
+	Structs are a block of variables bundled together. They are mainly used to pass data from the application (game engine or Maya) to the vertex shaders
+	and from the vertex shaders to the pixel shaders. 
+	
+*/
+
+// input from application into the vertex shader
+struct a2v {
+	float4 position  : POSITION; // In this simple shader, all we really need passed is the position
+};
+
+
+// output to pixel (also called fragment) shader
+struct v2f {
+        float4 position        : POSITION; // In this simple shader, all we really need passed is the position
+};
+
+
+//////////////////////////////////////////////////////////////
+// Vertex Shader 
+v2f vShader(a2v In)
+{
+	// Create a new outgoing struct
+    v2f Out;
+	
+	// set the position value to the struct to the result of this multiplication that puts the position into screen space 
+    Out.position = mul(WorldViewProjection, In.position);
+    
+	// return (or end the function) 
+	return Out;
+}
+
+//////////////////////////////////////////////////////////////
+// Pixel Shader 
+float4 pShader(v2f In) : COLOR
+{
+
+	// the pixel shader returns a float4, or a color + an alpha channel
+	
+	// since this is a simple shader, we just want to return our custom shaderColor, and then a solid alpha
+	float4 outColor = float4(shaderColor,1);
+	return outColor;
+}
+
+//////////////////////////////////////////////////////////////
+// Techniques
+
+/*************************************************************
+ Techniques are what bring everything together, they are what actually get called
+ and dictate what pixel shader to use with what vertex shader, as well as 
+ what blend mode to use (Opaque, 1-bit alpha, full transparency) 
+ 
+ This time we're going to stick with plain opaque shaders. 
+*************************************************************/
+technique Opaque
+{
+    pass one
+    {
+		VertexShader = compile vp30 vShader();
+		PixelShader = compile fp30 pShader();
+    }
+}

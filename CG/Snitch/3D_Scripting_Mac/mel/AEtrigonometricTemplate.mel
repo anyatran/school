@@ -1,0 +1,55 @@
+
+//
+//  Creation Date:	Oct 20, 2008
+//
+//  Procedure Name:
+//	AEtrigonometricTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the trigonometric node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+//	Author:		Morteza Ramezanali (xDreamer)
+//				www.cgdna.com - moto@cgdna.com
+
+
+global proc trigonometricTypeChanged (string $nodeName)
+{
+	string $nodeAttr = $nodeName + ".operation";
+	int $value = `getAttr $nodeAttr`;
+	
+	if( $value == 10 )	
+	{
+		editorTemplate -dimControl $nodeName "inputY" false;
+	}
+	else
+	{
+		editorTemplate -dimControl $nodeName "inputY" true;
+	}
+}
+
+
+
+global proc AEtrigonometricTemplate ( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "Trigonometric Attributes" -collapse 0;
+			editorTemplate -addControl "operation" "trigonometricTypeChanged";
+			editorTemplate -addControl "inputX";
+			editorTemplate -addControl "inputY";
+			editorTemplate -addControl "output";
+		editorTemplate -endLayout;
+
+	// include/call base class/node attributes
+	AEdependNodeTemplate $nodeName;
+
+	editorTemplate -addExtraControls;
+	editorTemplate -endScrollLayout;
+}

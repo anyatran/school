@@ -1,0 +1,36 @@
+
+//
+//  Creation Date:	Dec 27, 2006
+//
+//  Procedure Name:
+//	AElimitTemplate
+//
+//  Description:
+//	Creates the attribute editor controls for the limit node
+//
+//  Input Value:
+//	nodeName
+//
+//  Output Value:
+//	None
+//
+//	Author:		Morteza Ramezanali (xDreamer)
+//				www.cgdna.com - moto@cgdna.com
+
+global proc AElimitTemplate ( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+
+		editorTemplate -beginLayout "Limit Attributes" -collapse 0;
+			editorTemplate -addControl "operation";
+			editorTemplate -addControl "input";
+			editorTemplate -addControl "output";
+		editorTemplate -endLayout;
+
+	// include/call base class/node attributes
+	AEdependNodeTemplate $nodeName;
+
+	editorTemplate -addExtraControls;
+	editorTemplate -endScrollLayout;
+}

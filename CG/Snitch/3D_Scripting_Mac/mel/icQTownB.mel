@@ -1,0 +1,199 @@
+
+global proc icQTexecute ()
+{
+
+	string $sel[] = `ls -sl`;
+	string $polyNameArray[];
+	string $polyName;
+	string $compList;
+	string $faceNum[];
+	float $dropout;
+	float $lengthValue;
+
+	if (`nodeType $sel[0]` != "mesh")
+	{
+		error "Please select some polygons!";
+	}
+
+	clear $faceNum;
+	//get the numbers of the selected polygons
+	$compList = `icQTgetSelectionNumbers`;
+	tokenize $compList ":" $faceNum;
+	tokenize $sel[0] "." $polyNameArray;
+
+	//create the shaders if necessary
+	if (`checkBox -q -v applyColor`)
+	{
+		icTQcreateColors;
+	}
+
+	progressWindow
+         	-title "Constructing"
+			-progress 0 -max (size($faceNum))
+			-isInterruptable true;
+
+	//go through each selected polygon and extrude it
+	for ($i = 0; $i < size($faceNum); $i ++)
+	{
+		progressWindow -e -pr $i -st ("Face " + $i + " of " + (size($faceNum)) + " in Progress");
+
+		$dropout = rand(1,10);
+		if ($dropout > (`floatFieldGrp -q -v1 dropout`) / 10 + 1)
+		{
+			//select the current polygon
+			$polyName = $polyNameArray[0] + ".f[" + $faceNum[$i] + "]";
+			select -r $polyName;
+			$lengthValue = icQTinnerExtrude ($polyName, $polyNameArray[0], "first");
+			icQTfirstLevelExtrude ( $polyName, $lengthValue, $polyNameArray[0] );
+		}
+
+		// Check if the dialog has been cancelled
+        if ( `progressWindow -q -ic` ) break;
+	}
+
+	//if any geometry for the top surfaces have been created combine them with the source
+	//geometry
+	if (`objExists topCubes`)
+	{
+		select -r $polyNameArray[0];
+		string $topCubes[] = `listRelatives -c topCubes`;
+		for ($cubes in $topCubes)
+		{
+			select -add $cubes;
+		}
+		polyUnite -ch 0;
+	}
+
+	progressWindow -endProgress;
+	select -cl;
+
+}
+
+
+
+global proc icQTown ()
+{
+	//declare a new window name
+	string $win = "icQtown";
+
+	//is the window already open?
+	if (`window -exists $win`)
+	{
+		deleteUI $win;
+	}
+
+	window -t "QTown v1.3" -w 380 -h 530 $win;
+	if (`windowPref -exists $win`)
+	{
+		windowPref -e -wh 380 530 $win;
+	}
+
+	//create the form
+	string $form = `formLayout "parentForm"`;
+
+	//create the frames in the form
+	string $generalFrame = `frameLayout -l "General"
+										-w 380 -h 190 -li 3
+										-mw 3 -mh 3 -bs "etchedIn" generalFrame`;
+	setParent $form;
+	//create the frames in the form
+	string $additionalFrame = `frameLayout -l "Additional"
+										-w 380 -h 190 -li 3
+										-mw 3 -mh 3 -bs "etchedIn" additionalFrame`;
+	setParent $form;
+
+	//create the buttons
+	string $bExecute = `button -l "Build QTown" -h 30 -en 1 -c "icQTexecute" executeButton`;
+
+	//position the elements
+	formLayout -e
+		-af $generalFrame "top" 3
+		-an $generalFrame "bottom"
+		-af $generalFrame "left" 3
+		-af $generalFrame "right" 3
+
+		-ac $additionalFrame "top" 3 $generalFrame
+		-ac $additionalFrame "bottom" 3 $bExecute
+		-af $additionalFrame "left" 3
+		-af $additionalFrame "right" 3
+
+		-an $bExecute "top"
+		-af $bExecute "bottom" 3
+		-af $bExecute "left" 3
+		-af $bExecute "right" 3
+
+		$form;
+
+	//create the elements for the uiFrame section
+	setParent $generalFrame;
+
+	columnLayout;
+		floatFieldGrp -l "Dropout %" -w 180 -cw2 120 60
+					-ct2 "left" "left" -co2 0 0 -cl2 "left" "left"
+					-pre 0 -v1 10 dropout;
+		floatFieldGrp -l "Height Range" -w 280 -nf 2 -cw3 120 80 80
+					-ct3 "left" "left" "left" -co3 0 0 0 -cl3 "left" "left" "left"
+					-pre 2 -v1 0.2 -v2 3 heightRange;
+		floatFieldGrp -l "Min Scale" -w 180 -cw2 120 60
+					-ct2 "left" "left" -co2 0 0 -cl2 "left" "left"
+					-v1 0.5 minScale;
+		checkBox -l "Planar Surface" -v 1 planarCheck;
+		text -l "" -h 10;
+		checkBox -l "Curved Surface" -v 0 -cc icQTcurvedStateChange curvedCheck;
+		text -l "" -h 10;
+		checkBox -l "Colorize" -v 0 applyColor;
+		text -l "" -h 10;
+	setParent $additionalFrame;
+
+	columnLayout;
+	rowColumnLayout -nc 2 -cw 1 100 -cw 2 280;
+		checkBox -l "Stairs" -v 1 stairs;
+		radioButtonGrp -nrb 4 -l "Max Level Steps" -h 20 -cl5 "left" "left" "left" "left" "left"
+				-cw5 120 35 35 35 35 -ct5 "left" "both" "both" "both" "both"
+				-la4 "2" "3" "4" "5" -sl 2 maxLevelSteps;
+
+		text -l "" -h 10;text -l "" -h 10;
+
+		checkBox -l "Stacks" -v 0 stacksCheck;
+		text -l "" -h 20;
+
+		text -l "" -h 10;text -l "" -h 10;
+
+		checkBox -l "Wells" -v 1 wellsCheck;
+		floatFieldGrp -l "Well Occurrence" -w 180 -cw2 120 60
+					-ct2 "left" "left" -co2 0 0 -cl2 "left" "left"
+					-pre 0 -v1 1 wellsOccur;
+		text -l "" -h 10;text -l "" -h 10;
+
+		checkBox -l "Shrink" -v 0 shrinkCheck;
+		text -l "" -h 10;
+
+		text -l "" -h 14;text -l "" -h 14;
+
+		checkBox -l "Roof Cube" -v 1 roofCube;
+		floatFieldGrp -l "Size Range" -w 280 -nf 2 -cw3 120 80 80
+					-ct3 "left" "left" "left" -co3 0 0 0 -cl3 "left" "left" "left"
+					-pre 2 -v1 0.25 -v2 0.4 sizeRange;
+
+		text -l "" -h 10;text -l "" -h 10;
+
+		checkBox -l "Top Detail" -v 1 topDetail;
+		radioButtonGrp -nrb 3 -l "Detail Complexity" -h 20 -cl4 "left" "left" "left" "left"
+				-cw4 120 35 35 35 -ct4 "left" "both" "both" "both"
+				-la3 "1" "2" "3" -sl 1 complexity;
+		text -l "" -h 5;text -l "" -h 5;
+		text -l "" -h 20;
+		floatFieldGrp -l "Detail Height" -w 180 -cw2 120 60
+					-ct2 "left" "left" -co2 0 0 -cl2 "left" "left"
+					-v1 0.5 detailHeight;
+
+		text -l "" -h 10;text -l "" -h 10;
+
+		checkBox -l "Antenna" -v 1 antenna;
+	setParent $form;
+
+	//make the window visible
+	showWindow $win;
+}
+
+ icQTown();

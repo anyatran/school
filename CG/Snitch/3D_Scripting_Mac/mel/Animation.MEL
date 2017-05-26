@@ -1,0 +1,219 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Animation Tools
+''    Author: danmoreno 
+''    Last Updated: Sep 26, 2006
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/animation/796.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+//  Animation Tools 1.0
+//
+//  A script that I find useful and does some neat things. I´ve put an interface
+//  for the makeroll script, a quicker FPS setup without going thru the preferences
+//  menu, an expression blocker (try this if you got a lot of expressions on your
+//  scene and it won´t slow down the playback. There is also the randmoize selected
+//  channels witch will randomize the selected attributes on the channelbox.
+//
+// If you need help please visit: http://www.danmoreno.com/help/animation.jpg
+
+  if (`window -ex anim` == 1){
+  	deleteUI anim;
+  	} 
+
+  window -t "Animation Tools" -resizeToFitChildren 1 -s 0 -menuBar true -widthHeight 100 100 anim;
+  
+columnLayout -adjustableColumn true -rowSpacing 5;
+
+menu -label "Help" -helpMenu true;
+		string $website = "system(\"start explorer http://www.danmoreno.com/help/animation.jpg\")";
+ 		menuItem -c $website -label "About this script...";
+
+  
+frameLayout -cll 1 -label "Make Roll" -w 150 -borderStyle "in";
+	columnLayout -rowSpacing 10;
+		rowLayout -columnWidth4 60 80 80 80 -numberOfColumns 4;
+			text -label " Ground:" -fn "boldLabelFont" -w 60 -annotation "Ground Height" groundtx;
+			textField -tx "0" -w 90 -annotation "Ground Height" yfield ;
+			text -label "      Diameter:" -fn "boldLabelFont" -w 80 -annotation "Diameter" diameter;
+			textField -tx "1" -w 90 -annotation "Diameter" diamfield ;
+		setParent ..;
+			rowLayout -columnWidth3 5 135 170 -numberOfColumns 3;
+			text -label "" -fn "boldLabelFont" espaco;
+			checkBox -label "Use Bounding Box" -annotation "Use Bounding Box?" -w 135 bounding_check;
+			button -l "            Make Object Roll !" -w 170 -c make_obj_roll -annotation "Make Selected Object Roll!" RollButton;
+		setParent ..;
+	setParent ..;
+setParent ..;
+	frameLayout -cll 1 -label "Playback Time FPS" -w 300 -borderStyle "in";
+		columnLayout -rowSpacing 5;
+			rowLayout -columnWidth2 5 250 -numberOfColumns 2;
+			text -label "" -fn "boldLabelFont" espaco;
+			checkBox -label "Scale Keyframes to new FPS" -annotation "Scale Keyframes to new FPS?" -w 250 keep_check;
+			setParent ..;
+			rowLayout -columnWidth4 80 80 80 80 -numberOfColumns 4;
+				button -l "Game 15" -w 75 -c game -annotation "Changes Frame Rate to 15 (Game)" gameButton;
+				button -l "film 24" -w 75 -c film -annotation "Changes Frame Rate to 24 (Film)" filmButton;
+				button -l "pal 25" -w 75 -c pal -annotation "Changes Frame Rate to 25 (Pal)" palButton;
+				button -l "ntsc 30" -w 75 -c ntsc -annotation "Changes Frame Rate to 30 (NTSC)" ntscButton;
+			setParent ..;
+		setParent ..;
+	setParent ..;
+	frameLayout -cll 1 -label "Expressions" -w 300 -borderStyle "in";
+		columnLayout -rowSpacing 5;
+			rowLayout -columnWidth4 80 80 80 80 -numberOfColumns 4;
+				button -l "Block" -w 75 -c block -annotation "Block All Expressions" blockButton;
+				button -l "UnBlock" -w 75 -c unblock -annotation "Unblock All Expressions" unblockButton;
+			
+			setParent ..;
+		setParent ..;
+	setParent ..;
+		frameLayout -cll 1 -label "Randomize Selected Channels" -w 300 -borderStyle "in";
+		columnLayout -rowSpacing 5;
+			rowLayout -columnWidth5 120 55 40 60 40 -numberOfColumns 5;
+				button -l "Randomize channel" -w 115 -c randchannel -annotation "randomize selected channels" randButton;
+				text -label "Minimum" -fn "boldLabelFont" -w 50;
+				floatField -w 35 -v 0 -pre 0 min;
+				text -label "Maximum" -fn "boldLabelFont" -w 55;
+				floatField -w 35 -v 5 -pre 0 max;
+							
+			setParent ..;
+		setParent ..;
+	setParent ..;
+setParent ..;
+$progressCTRL = `progressBar -maxValue 100000 -width 300 -h 10 animprogress`;
+
+textField -text "Script by Daniel Moreno --=-- www.danmoreno.com " -fn "boldLabelFont" -editable false -width 300 StatusLine;
+ 
+showWindow anim;
+
+global proc block(){
+	
+	string $exp[] = `ls -type expression`;
+	
+	int $ponto = size($exp);
+	$ponto = 100000 / $ponto;
+  
+	for ($i in $exp) {
+		setAttr ($i + ".nodeState") 2; 
+		progressBar -edit -step $ponto animprogress;
+		}
+	
+	progressBar -edit -step (-100000) animprogress;
+	print ("All Expressions Blocked \n");
+}
+
+global proc unblock(){
+	
+	string $exp[] = `ls -type expression`;
+	
+	int $ponto = size($exp);
+	$ponto = 100000 / $ponto;
+  
+	for ($i in $exp) {
+		setAttr ($i + ".nodeState") 0;
+		progressBar -edit -step $ponto animprogress;
+		}
+	progressBar -edit -step (-100000) animprogress;
+	print ("All Expressions Unblocked \n");
+}	
+
+global proc motion_trail(){
+	  
+	string $motion_obj[] = `ls -selection`;
+	int $motion_start =  `textField  -query -text  startfield`;
+	int $motion_end =  `textField  -query -text  endfield`;
+	int $motion_increment =  `textField  -query -text  incfield`;
+	snapshot -constructionHistory on -startTime $motion_start -endTime $motion_end -increment $motion_increment -mt 1 $motion_obj[0];
+	print ("Created Motion trail for " + $motion_obj[0] + "\n");
+	}
+  
+global proc make_obj_roll(){
+	  
+	string $roll_obj[] = `ls -selection`;
+	int $ground_plane =  `textField  -query -text  yfield`;
+	int $bbox =  `checkBox  -q -value bounding_check`;
+	int $diam =  `textField  -query -text  diamfield`;
+	makeRoll $roll_obj[0] $ground_plane $bbox $diam; 
+	print ("Make Object " + $roll_obj[0] + " ROLL \n");
+	}
+	
+global proc game(){
+	int $k =  `checkBox  -q -value keep_check`;
+	currentUnit -ua $k -t "game";
+	print ("Changed FPS to GAME (15) \n");
+	}
+	
+global proc film(){
+	int $k =  `checkBox  -q -value keep_check`;
+	currentUnit -ua $k -t "film";
+	print ("Changed FPS to FILM (24) \n");
+	}
+	
+global proc pal(){
+	int $k =  `checkBox  -q -value keep_check`;
+	currentUnit -ua $k -t "pal";
+	print ("Changed FPS to PAL (25) \n");
+	}
+	
+global proc ntsc(){
+	int $k =  `checkBox  -q -value keep_check`;
+	currentUnit -ua $k -t "ntsc";
+	print ("Changed FPS to NTCS (30) \n");
+	}
+  
+global proc randchannel(){
+	string $sma[] = `channelBox -q -selectedMainAttributes mainChannelBox`;
+	string $ssa[] = `channelBox -q -selectedShapeAttributes mainChannelBox`;
+	string $sha[] = `channelBox -q -selectedHistoryAttributes mainChannelBox`;
+	string $soa[] = `channelBox -q -selectedOutputAttributes mainChannelBox`;
+	
+	float $min = `floatField -q -v min`;
+	float $max = `floatField -q -v max`;
+	
+	string $obj[] = `ls -selection`;
+	$size = size($obj);
+	
+	float $rand;
+	int $n = 0;
+	
+	while ($n < $size){
+		
+	for ($i in $sma){
+	$rand = `rand $min $max`;
+	
+	setAttr ($obj[$n] + "." + $i) $rand;
+	}
+	
+	for ($i in $ssa){
+	$rand = `rand $min $max`;
+	
+	setAttr ($obj[$n] + "." + $i) $rand;
+	}
+	
+	for ($i in $sha){
+	$rand = `rand $min $max`;
+	
+	setAttr ($obj[$n] + "." + $i) $rand;
+	}
+	
+	for ($i in $soa){
+	$rand = `rand $min $max`;
+	
+	setAttr ($obj[$n] + "." + $i) $rand;
+	}
+	
+	
+
+	$n = $n + 1;
+	}
+	
+	
+	
+	}
+  

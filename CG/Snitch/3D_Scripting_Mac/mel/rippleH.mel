@@ -1,0 +1,1049 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: rippleH
+''    Author:  
+''    Last Updated: Aug 05, 2008
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/dynamics/3808.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+//Description:Create rain ripple effect on selected plane
+//            "rippleH.mel" can create ripple effect on selected plane.The plane is one types of below:
+//                 a) plane 
+//                 b) plane which had been made collided with the particle
+//                 c) ocean or pond
+//                 d) ocean or pond which create ripple from where collide with particle
+//  
+//Version:1.0
+//Author:honglou  ( hongloull@hotmail.com )
+//Create:2004.06.29
+//Update:2008.08.05
+//
+//How to use:1) select something like below:  
+//                 a) one plane 
+//                 b) one particle and one plane which had been made collided with the particle
+//                    Note: if plane not collide with particle mel will make this   
+//                 c) one ocean(pond) or plane assigned with ocean shader
+//                    Note: ocean or pond can create by menu: Fluid Effects-->Ocean-->Create Ocean
+//                                                            Fluid Effects-->Pond-->Create Pond
+//                 d) one ocean(pond) and one particle (ripple create from where ocean collide with particle)
+//                    Note: ocean (pond) not need to make collide with particle
+//
+//           2) type and execute "rippleH" in the command line or Script Editor 
+//           3) an ui window will appear 
+//           4) select which type of ripple you want to create 
+//           5) click "OK" button
+
+//PROC create ripple on selected plane by texture(offsetUV or bump)
+//
+//--------------------------ripGeoTxteH--------------------------
+global proc ripGeoTxteH(){//1
+//declare var
+string $geoShape[],$geoTransform[1],$geoShaderSG[1],$geoShader[1],$place2dTexture[1] ;
+int $byOffsetUV = 1 ;
+int $byBump = 1 ;
+
+//get ripple plane
+$geoShape = `ls -sl -long -dag -lf -type nurbsSurface -type mesh -type subdiv` ;
+
+if(size($geoShape)!=1){
+	error("please select one plane(for create ripple effect) first.") ;
+}
+else{//2
+        $geoTransform = `listRelatives -f -p $geoShape[0]` ;
+        //get ripple plane's shader 
+        $geoShaderSG = `listConnections -destination on ($geoShape[0]+".instObjGroups[0]")` ;
+        if(size($geoShaderSG)!=1){
+	        error("selected plane must had been assigned some shader.");
+        }
+        else{//3
+                $geoShader = `listConnections -destination on ($geoShaderSG[0]+".surfaceShader")` ;
+                if(size($geoShader)!=1){
+	                error("selected plane must had been assigned some shader.");
+                }
+                else{//4
+                
+                        //check color map connection
+                        int $isColor = `attributeExists "color" $geoShader[0]` ;
+                        //no color map
+                        if($isColor==0){
+                        	$byOffsetUV = 0 ;                        	
+                        }
+                        //color map
+                        else{
+                             string $colorMap[] = `listConnections -destination on ($geoShader[0]+".color")` ;
+                             if(size($colorMap)==0){
+                             	$byOffsetUV = 0 ;
+                             }
+                             else{
+                                //check texture placement is "2d" or "3d"
+                                int $is3dTexture = `attributeExists "placementMatrix" $colorMap[0]` ;
+                                if($is3dTexture == 0){	
+                                        $place2dTexture = `listConnections -destination on ($colorMap[0]+".uvCoord")` ;
+                                        if(size($place2dTexture[0])==0){
+                                        	//create 2dTexturePlacement
+                                        	$ripplePlace2dTexture[0] = `createNode -n "ripplePlace2dTexture" place2dTexture` ;
+                                        	connectAttr -f ($ripplePlace2dTexture[0]+".outUV") ($colorMap[0]+".uvCoord") ; 
+                                                connectAttr -f ($ripplePlace2dTexture[0]+".outUvFilterSize") ($colorMap[0]+".uvFilterSize") ;
+                                                 
+                                                //For file texture 
+                                                string $isFile[] = `ls -showType $colorMap[0]` ;
+                                                if($isFile[1]=="file"){
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".coverage") ($colorMap[0]+".coverage") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".translateFrame") ($colorMap[0]+".translateFrame") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".rotateFrame") ($colorMap[0]+".rotateFrame") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".mirrorU") ($colorMap[0]+".mirrorU") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".mirrorV") ($colorMap[0]+".mirrorV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".stagger") ($colorMap[0]+".stagger") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".wrapU") ($colorMap[0]+".wrapU") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".wrapV") ($colorMap[0]+".wrapV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".repeatUV") ($colorMap[0]+".repeatUV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexUvOne") ($colorMap[0]+".vertexUvOne") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexUvTwo") ($colorMap[0]+".vertexUvTwo") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexUvThree") ($colorMap[0]+".vertexUvThree") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexCameraOne") ($colorMap[0]+".vertexCameraOne") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".noiseUV") ($colorMap[0]+".noiseUV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".offset") ($colorMap[0]+".offset") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".rotateUV") ($colorMap[0]+".rotateUV") ;
+                                                }
+                                                
+                                                $place2dTexture[0] = $ripplePlace2dTexture[0] ;
+                                                
+                                        } 
+                                        string $offsetU[] = `listConnections -destination on ($place2dTexture[0]+".offsetU")` ;
+                                        string $offsetV[] = `listConnections -destination on ($place2dTexture[0]+".offsetV")` ;
+                                        if(size($offsetU[0])!=0||size($offsetV[0])!=0){
+                                        	 $byOffsetUV = 0 ;
+                                        }                                        
+        
+                                }
+                                else{
+                                        $byOffsetUV = 0 ;
+                                }
+                             }
+                                
+                        }
+                        
+                        //check bump map connection
+                        int $isNormalCam = `attributeExists "normalCamera" $geoShader[0]` ;
+                        //no normal camera
+                        if($isNormalCam==0){                        	
+                        	$byBump = 0 ;                        	
+                        }
+                        //have normal camera
+                        else{
+                                string $bumpMap[] = `listConnections -destination on ($geoShader[0]+".normalCamera")` ;
+                                //have bump map
+                                if(size($bumpMap[0])!=0){
+                        	        $byBump = 0 ;
+                        	}
+                        }
+                                
+                }
+                    
+                //Create shading nodes
+                //
+                //create luminance node
+                string $luminanceRip = `createNode -n luminanceRip luminance` ;
+                //add attr for control the expressions of water texture
+                string $attr,$attrs[] = {"minU","maxU","minV","maxV","ripTimeMin","ripTimeMax","rndTime"} ;
+                for($attr in $attrs){
+                addAttr -ln $attr -at double $luminanceRip ;
+                setAttr -e -keyable true ($luminanceRip + "." + $attr) ;
+                }
+                setAttr ($luminanceRip + ".minU") 0 ;
+                setAttr ($luminanceRip + ".maxU") 1 ;
+                setAttr ($luminanceRip + ".minV") 0 ;
+                setAttr ($luminanceRip + ".maxV") 1 ;
+                setAttr ($luminanceRip + ".ripTimeMin") 18 ;
+                setAttr ($luminanceRip + ".ripTimeMax") 50 ;
+                setAttr ($luminanceRip + ".rndTime") 10 ;                
+                                               
+                //create water node
+                string $water[] ;
+                int $i,$dropNum = 20 ;                           
+
+                for($i=0;$i<$dropNum;$i++){
+                		                		
+                        $water[$i] = `createNode -n waterRip water` ;
+
+                        setAttr ($water[$i] + ".numberOfWaves") 0;
+                        setAttr ($water[$i] + ".rippleAmplitude") 0.3;
+
+                        setAttr ($water[$i] + ".rippleOriginU") (rand(1));
+                        setAttr ($water[$i] + ".rippleOriginV") (rand(1));
+
+                        string $expTime = "//expression for ripple time and OriginUV\n" ;
+                        $expTime += "//define ripple start frame  \n" ;
+                        $expTime += "float $rippleStartFrame = 1 ;  \n" ;                        
+                        $expTime += "float $rippleTime ; \n" ;
+                        $expTime += "float $rippleOriginU,$rippleOriginV ; \n" ;
+                        $expTime += "//get value from luminacneRip node\n" ;
+                        $expTime += "float $minU = " + $luminanceRip + ".minU ;\n" ;
+                        $expTime += "float $maxU = " + $luminanceRip + ".maxU ;\n" ;
+                        $expTime += "float $minV = " + $luminanceRip + ".minV ;\n" ;
+                        $expTime += "float $maxV = " + $luminanceRip + ".maxV ;\n" ;
+                        $expTime += "int $ripTimeMin = " + $luminanceRip + ".ripTimeMin ;\n" ;
+                        $expTime += "int $ripTimeMax = " + $luminanceRip + ".ripTimeMax ;\n" ;
+                        $expTime += "int $rndTime = " + $luminanceRip + ".rndTime ;\n" ;
+                        $expTime += "int $rndTime = trunc(rand(0,$rndTime)) ;\n" ;
+                        $expTime += "float $ripplePeriod = trunc(rand($ripTimeMin,$ripTimeMax)) ;\n" ;                        
+                        $expTime += "\n" ;
+                        $expTime += "if(frame==$rippleStartFrame){\n" ;
+                        $expTime += "        $rippleOriginU = rand($minU,$maxU) ; \n" ;
+                        $expTime += "        $rippleOriginV = rand($minV,$maxV) ; \n" ;
+                        $expTime += "}\n" ;
+                        $expTime += "\n" ;
+                        $expTime += "if(frame%$ripplePeriod==$rndTime){ \n" ;
+                        $expTime += "        $rippleTime = 0 ; \n" ;
+                        $expTime += "        $rippleOriginU = rand($minU,$maxU) ; \n" ;
+                        $expTime += "        $rippleOriginV = rand($minV,$maxV) ; \n" ;
+                        $expTime += "} \n" ;
+                        $expTime += "\n" ;
+                        $expTime += "$rippleTime += ( 1.0/$ripplePeriod );  \n" ;
+                        $expTime += "$rippleTime = fmod($rippleTime,1.0);  \n" ;
+                        $expTime += $water[$i] + ".rippleTime = $rippleTime ; \n" ;
+                        $expTime += "\n" ;
+                        $expTime += $water[$i] + ".rippleOriginU = $rippleOriginU ; \n" ;
+                        $expTime += $water[$i] + ".rippleOriginV = $rippleOriginV ; \n" ;
+
+                        expression -s $expTime -o $water[$i] -ae 1 -uc all ;
+
+                        //connect water node
+                        if($i>=1){
+                                connectAttr -force ($water[$i] + ".outColor") ($water[$i-1] + ".colorOffset") ;
+                        }
+                }
+
+                //connect water texture to luminance node
+                connectAttr -force ($water[0] + ".outColor") ($luminanceRip + ".value") ;
+                
+                //For create ripples by offsetUV
+                //
+                if($byOffsetUV == 1){
+                	connectAttr -f ($luminanceRip+".outValue") ($place2dTexture[0] + ".offsetU") ;
+                	connectAttr -f ($luminanceRip+".outValue") ($place2dTexture[0] + ".offsetV") ;
+                	print("Ripple texture had been connected to " + $place2dTexture[0] + ".offsetUV!" + "\n") ;
+                }
+                
+                //For create ripples by bump
+                //
+                if($byBump == 1){
+                	string $bump2d = `createNode -n "rippleBump2d" bump2d` ;
+                        connectAttr -f ($bump2d+".outNormal") ($geoShader[0]+".normalCamera") ; 
+                        connectAttr -f ($luminanceRip+".outValue") ($bump2d+".bumpValue");
+                        print("Ripple texture had been connected to " + $bump2d + ".bumpValue!" + "\n") ;
+                }
+                
+                //For can not connect ripple texture to offsetUV or bump
+                //                                               
+                if($byOffsetUV != 1 && $byBump != 1){
+                        print("Ripple texture " + $luminanceRip + " had been created!" + "\n") ;
+                }
+                
+}//3
+}//2	
+//clear array
+clear $geoShape ;
+clear $geoTransform ;
+clear $geoShaderSG ;
+clear $geoShader ;
+clear $place2dTexture ;
+}//1
+//end proc 
+//--------------------------ripGeoTxteH--------------------------
+
+
+
+//PROC Create rain ripple on selected plane by expression(offsetUV or bump)
+//
+//-----------ripGeoExpH--------------
+global proc ripGeoExpH(){//1
+//declare var
+string $geoShape[],$geoTransform[1],$geoShaderSG[1],$geoShader[1],$place2dTexture[1] ;
+int $byOffsetUV = 1 ;
+int $byBump = 1 ;
+
+//get plane 
+$geoShape = `ls -sl -long -dag -lf -type nurbsSurface -type mesh -type subdiv` ;
+
+if(size($geoShape)!=1){
+	error("please select one plane first.") ;
+}
+else{//2
+         
+        $geoTransform = `listRelatives -f -p $geoShape[0]` ;
+        //get nurbs plane's shader 
+        $geoShaderSG = `listConnections -destination on ($geoShape[0]+".instObjGroups[0]")` ;
+        if(size($geoShaderSG)!=1){
+	        error("selected plane must had been assigned some shader.");
+        }
+        else{//3
+                $geoShader = `listConnections -destination on ($geoShaderSG[0]+".surfaceShader")` ;
+                if(size($geoShader)!=1){
+	                error("selected plane must had been assigned some shader.");
+                }
+                else{//4
+                
+                        //check color map connection
+                        int $isColor = `attributeExists "color" $geoShader[0]` ;
+                        //no color map
+                        if($isColor==0){
+                        	$byOffsetUV = 0 ;                        	
+                        }
+                        //color map
+                        else{
+                             string $colorMap[] = `listConnections -destination on ($geoShader[0]+".color")` ;
+                             if(size($colorMap)==0){
+                             	$byOffsetUV = 0 ;
+                             }
+                             else{
+                                //check texture placement is "2d" or "3d"
+                                int $is3dTexture = `attributeExists "placementMatrix" $colorMap[0]` ;
+                                if($is3dTexture == 0){	
+                                        $place2dTexture = `listConnections -destination on ($colorMap[0]+".uvCoord")` ;
+                                        if(size($place2dTexture[0])==0){
+                                        	//create 2dTexturePlacement
+                                        	$ripplePlace2dTexture[0] = `createNode -n "ripplePlace2dTexture" place2dTexture` ;
+                                        	connectAttr -f ($ripplePlace2dTexture[0]+".outUV") ($colorMap[0]+".uvCoord") ; 
+                                                connectAttr -f ($ripplePlace2dTexture[0]+".outUvFilterSize") ($colorMap[0]+".uvFilterSize") ;
+                                                 
+                                                //For file texture 
+                                                string $isFile[] = `ls -showType $colorMap[0]` ;
+                                                if($isFile[1]=="file"){
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".coverage") ($colorMap[0]+".coverage") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".translateFrame") ($colorMap[0]+".translateFrame") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".rotateFrame") ($colorMap[0]+".rotateFrame") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".mirrorU") ($colorMap[0]+".mirrorU") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".mirrorV") ($colorMap[0]+".mirrorV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".stagger") ($colorMap[0]+".stagger") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".wrapU") ($colorMap[0]+".wrapU") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".wrapV") ($colorMap[0]+".wrapV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".repeatUV") ($colorMap[0]+".repeatUV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexUvOne") ($colorMap[0]+".vertexUvOne") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexUvTwo") ($colorMap[0]+".vertexUvTwo") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexUvThree") ($colorMap[0]+".vertexUvThree") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexCameraOne") ($colorMap[0]+".vertexCameraOne") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".noiseUV") ($colorMap[0]+".noiseUV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".offset") ($colorMap[0]+".offset") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".rotateUV") ($colorMap[0]+".rotateUV") ;
+                                                }
+                                                
+                                                $place2dTexture[0] = $ripplePlace2dTexture[0] ;
+                                                
+                                        } 
+                                        string $offsetU[] = `listConnections -destination on ($place2dTexture[0]+".offsetU")` ;
+                                        string $offsetV[] = `listConnections -destination on ($place2dTexture[0]+".offsetV")` ;
+                                        if(size($offsetU[0])!=0||size($offsetV[0])!=0){
+                                        	 $byOffsetUV = 0 ;
+                                        }                                        
+        
+                                }
+                                else{
+                                        $byOffsetUV = 0 ;
+                                }
+                             }                                
+                        }
+                        
+                        //check bump map connection
+                        int $isNormalCam = `attributeExists "normalCamera" $geoShader[0]` ;
+                        //no normal camera
+                        if($isNormalCam==0){                        	
+                        	$byBump = 0 ;                        	
+                        }
+                        //have normal camera
+                        else{
+                                string $bumpMap[] = `listConnections -destination on ($geoShader[0]+".normalCamera")` ;
+                                //have bump map
+                                if(size($bumpMap[0])!=0){
+                        	        $byBump = 0 ;
+                        	}
+                        }
+                                
+                }
+                    
+                //Create shading nodes
+                //
+                //Create ripple smplerInfo
+                string $rippleSamplerInfo = `createNode -n rippleSamplerInfo samplerInfo` ;
+                
+                //Create ripple ramp
+                string $rippleRamp = `createNode -n rippleRamp ramp` ;
+                removeMultiInstance -break true ($rippleRamp+".colorEntryList[1]") ;
+                setAttr ($rippleRamp+".colorEntryList[0].color") -type double3 0 0 0 ;
+                setAttr ($rippleRamp+".colorEntryList[2].position") 1;
+                setAttr ($rippleRamp+".colorEntryList[2].color") -type double3 1 1 1 ;
+                             
+                //Exp for ripple ramp
+                string $expRippleRamp = "vector $collisionData[] ;" + "\n" ;
+                $expRippleRamp += "if (frame<2) clear $collisionData;" + "\n" ;
+                $expRippleRamp += "" + "\n" ;
+                $expRippleRamp += "//-----------parameter-------------" + "\n" ;
+                $expRippleRamp += "int $timeRnd = trunc(rand(3,6)) ;" + "\n" ;
+                $expRippleRamp += "float $dropMax = 3 ;" + "\n" ;
+                $expRippleRamp += "$dropMax += 18 ;" + "\n" ;
+                $expRippleRamp += "int $frameRnd = trunc(rand(0,100)) ;" + "\n" ;                
+                $expRippleRamp += "" + "\n" ;
+                $expRippleRamp += "float $frequency = 55 ;" + "\n" ;
+                $expRippleRamp += "float $decay = 8 ;" + "\n" ;
+                $expRippleRamp += "float $timeDecay=.12 ;" + "\n" ;
+                $expRippleRamp += "float $ampMult = .5 ;" + "\n" ;
+                $expRippleRamp += "float $speed = .5 ;" + "\n" ;
+                $expRippleRamp += "" + "\n" ;                
+                $expRippleRamp += "float $minU = 0 ;" + "\n" ;
+                $expRippleRamp += "float $maxU = 1 ;" + "\n" ;
+                $expRippleRamp += "float $minV = 0 ;" + "\n" ;
+                $expRippleRamp += "float $maxV = 1 ;" + "\n" ;                                 
+                $expRippleRamp += "//-----------parameter-------------" + "\n" ;                
+                $expRippleRamp += "" + "\n" ;
+                $expRippleRamp += "if(frame%$timeRnd==0&&size($collisionData)<=$dropMax){ " + "\n" ;
+                $expRippleRamp += "$collisionData[size($collisionData)] = <<rand($minU,$maxU),rand($minV,$maxV),$frameRnd>> ;" + "\n" ;
+                $expRippleRamp += "}" + "\n" ;                
+                $expRippleRamp += "" + "\n" ;
+                $expRippleRamp += "float $amplitude; " + "\n" ;
+                $expRippleRamp += "float $totalAmplitude = 0; " + "\n" ;
+                $expRippleRamp += "int $i ;" + "\n" ;                                               
+                $expRippleRamp += "for ($i=0; $i< size($collisionData); $i++) {" + "\n" ;
+                $expRippleRamp += "" + "\n" ;
+                $expRippleRamp += "	vector $data = $collisionData[$i];" + "\n" ;
+                $expRippleRamp += "	float $tdist = (frame-($data.z))*$speed;" + "\n" ;
+                $expRippleRamp += "	float $dist = mag(<<" + $rippleSamplerInfo +".uCoord," + $rippleSamplerInfo + ".vCoord,0>> - <<($data.x),($data.y),0>>);" + "\n" ;
+                $expRippleRamp += "	float $x = ($dist*$frequency - $tdist);" + "\n" ;
+                $expRippleRamp += "	$amplitude= (1 - smoothstep(0,3,$x))*(1+cos($x))*exp(-$dist*$decay-$tdist*$timeDecay);" + "\n" ;
+                $expRippleRamp += "	$totalAmplitude += $amplitude;" + "\n" ;
+                $expRippleRamp += "" + "\n" ;
+                $expRippleRamp += "}" + "\n" ;
+                $expRippleRamp += $rippleRamp + ".vCoord = clamp(0,1,$totalAmplitude*$ampMult);" + "\n" ;
+                
+                string $rippleExp = `expression -s $expRippleRamp -o $rippleRamp -ae 1 -uc all -n rippleRampExp` ;
+                
+                //For create ripples by offsetUV
+                //
+                if($byOffsetUV == 1){
+                	connectAttr -f ($rippleRamp+".outAlpha") ($place2dTexture[0] + ".offsetU") ;
+                	connectAttr -f ($rippleRamp+".outAlpha") ($place2dTexture[0] + ".offsetV") ;
+                	print("Ripple texture had been connected to " + $place2dTexture[0] + ".offsetUV!" + "\n") ;
+                }
+                
+                //For create ripples by bump
+                //
+                if($byBump == 1){
+                	string $bump2d = `createNode -n "rippleBump2d" bump2d` ;
+                        connectAttr -f ($bump2d+".outNormal") ($geoShader[0]+".normalCamera") ; 
+                        connectAttr -f ($rippleRamp+".outAlpha") ($bump2d+".bumpValue") ;
+                        setAttr ($bump2d+".bumpDepth") 0.2 ;
+                        print("Ripple texture had been connected to " + $bump2d + ".bumpValue!" + "\n") ;
+                } 
+                
+                //For can not connect ripple texture to offsetUV or bump
+                //
+                if($byOffsetUV != 1 && $byBump != 1){                                              
+                        print("Ripple texture " + $rippleRamp + " had been created!" + "\n") ;
+                }
+
+}//3
+}//2	
+//clear array
+clear $geoShape ;
+clear $geoTransform ;
+clear $geoShaderSG ;
+clear $geoShader ;
+clear $place2dTexture ;
+}//1
+//end proc 
+//-----------ripGeoExpH------------
+
+
+
+//PROC Create ripple on selected plane(which collision with particle) by texture(offsetUV or bump)
+//
+//-----------ripGeoPExpH--------------
+global proc ripGeoPExpH(){//1
+//declare var
+string $particleShape[],$particleTransform[1],$geoShape[],$geoTransform[1],$geoShaderSG[1],$geoShader[1],$place2dTexture[1] ;
+int $byOffsetUV = 1 ;
+int $byBump = 1 ;
+
+//get particle and shape name
+$particleShape = `ls -sl -long -dag -lf -type particle` ;
+string $pS = $particleShape[0] ;
+//get nurbs plane
+$geoShape = `ls -sl -long -dag -lf -type nurbsSurface -type mesh -type subdiv` ;
+
+if(size($particleShape)!=1||size($geoShape)!=1){
+	error("please select one particle and one plane(collison with particle) first.") ;
+}
+else{//2
+        //make collision if not
+        int $isCollision = `collision -q $geoShape[0] $pS` ;
+        if(!$isCollision){
+                collision -r 0 -f 0 $geoShape[0] $pS ;
+        }
+         
+        $particleTransform = `listRelatives -f -p $pS` ;
+        $geoTransform = `listRelatives -f -p $geoShape[0]` ;
+        //get nurbs plane's shader 
+        $geoShaderSG = `listConnections -destination on ($geoShape[0]+".instObjGroups[0]")` ;
+        if(size($geoShaderSG)!=1){
+	        error("selected plane must had been assigned some shader.");
+        }
+        else{//3
+                $geoShader = `listConnections -destination on ($geoShaderSG[0]+".surfaceShader")` ;
+                if(size($geoShader)!=1){
+	                error("selected plane must had been assigned some shader.");
+                }
+                else{//4
+                
+                        //check color map connection
+                        int $isColor = `attributeExists "color" $geoShader[0]` ;
+                        //no color map
+                        if($isColor==0){
+                        	$byOffsetUV = 0 ;                        	
+                        }
+                        //color map
+                        else{
+                             string $colorMap[] = `listConnections -destination on ($geoShader[0]+".color")` ;
+                             if(size($colorMap)==0){
+                             	$byOffsetUV = 0 ;
+                             }
+                             else{
+                                //check texture placement is "2d" or "3d"
+                                int $is3dTexture = `attributeExists "placementMatrix" $colorMap[0]` ;
+                                if($is3dTexture == 0){	
+                                        $place2dTexture = `listConnections -destination on ($colorMap[0]+".uvCoord")` ;
+                                        if(size($place2dTexture[0])==0){
+                                        	//create 2dTexturePlacement
+                                        	$ripplePlace2dTexture[0] = `createNode -n "ripplePlace2dTexture" place2dTexture` ;
+                                        	connectAttr -f ($ripplePlace2dTexture[0]+".outUV") ($colorMap[0]+".uvCoord") ; 
+                                                connectAttr -f ($ripplePlace2dTexture[0]+".outUvFilterSize") ($colorMap[0]+".uvFilterSize") ;
+                                                 
+                                                //For file texture 
+                                                string $isFile[] = `ls -showType $colorMap[0]` ;
+                                                if($isFile[1]=="file"){
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".coverage") ($colorMap[0]+".coverage") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".translateFrame") ($colorMap[0]+".translateFrame") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".rotateFrame") ($colorMap[0]+".rotateFrame") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".mirrorU") ($colorMap[0]+".mirrorU") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".mirrorV") ($colorMap[0]+".mirrorV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".stagger") ($colorMap[0]+".stagger") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".wrapU") ($colorMap[0]+".wrapU") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".wrapV") ($colorMap[0]+".wrapV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".repeatUV") ($colorMap[0]+".repeatUV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexUvOne") ($colorMap[0]+".vertexUvOne") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexUvTwo") ($colorMap[0]+".vertexUvTwo") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexUvThree") ($colorMap[0]+".vertexUvThree") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".vertexCameraOne") ($colorMap[0]+".vertexCameraOne") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".noiseUV") ($colorMap[0]+".noiseUV") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".offset") ($colorMap[0]+".offset") ; 
+                                                        connectAttr -f ($ripplePlace2dTexture[0]+".rotateUV") ($colorMap[0]+".rotateUV") ;
+                                                }
+                                                
+                                                $place2dTexture[0] = $ripplePlace2dTexture[0] ;
+                                                
+                                        } 
+                                        string $offsetU[] = `listConnections -destination on ($place2dTexture[0]+".offsetU")` ;
+                                        string $offsetV[] = `listConnections -destination on ($place2dTexture[0]+".offsetV")` ;
+                                        if(size($offsetU[0])!=0||size($offsetV[0])!=0){
+                                        	 $byOffsetUV = 0 ;
+                                        }                                        
+        
+                                }
+                                else{
+                                        $byOffsetUV = 0 ;
+                                }
+                             }                                
+                        }
+                        
+                        //check bump map connection
+                        int $isNormalCam = `attributeExists "normalCamera" $geoShader[0]` ;
+                        //no normal camera
+                        if($isNormalCam==0){                        	
+                        	$byBump = 0 ;                        	
+                        }
+                        //have normal camera
+                        else{
+                                string $bumpMap[] = `listConnections -destination on ($geoShader[0]+".normalCamera")` ;
+                                //have bump map
+                                if(size($bumpMap[0])!=0){
+                        	        $byBump = 0 ;
+                        	}
+                        }
+                                
+                }
+
+                //Create shading nodes
+                //
+                //Create ripple smplerInfo
+                string $rippleSamplerInfo = `createNode -n rippleSamplerInfo samplerInfo` ;
+                
+                //Create ripple ramp
+                string $rippleRamp = `createNode -n rippleRamp ramp` ;
+                removeMultiInstance -break true ($rippleRamp+".colorEntryList[1]") ;
+                setAttr ($rippleRamp+".colorEntryList[0].color") -type double3 0 0 0 ;
+                setAttr ($rippleRamp+".colorEntryList[2].position") 1;
+                setAttr ($rippleRamp+".colorEntryList[2].color") -type double3 1 1 1 ;
+                             
+                //Exp for ripple ramp
+                string $expRippleRamp = "global vector $collisionData[];" + "\n" ;
+                $expRippleRamp += "if (frame<2) clear $collisionData;" + "\n" ;
+                $expRippleRamp += "" + "\n" ;
+                $expRippleRamp += "int $i;" + "\n" ;
+                $expRippleRamp += "//-----------parameter-------------" + "\n" ;
+                $expRippleRamp += "float $frequency = 100 ;" + "\n" ;
+                $expRippleRamp += "float $decay = 4 ;" + "\n" ;
+                $expRippleRamp += "float $timeDecay=.04 ;" + "\n" ;
+                $expRippleRamp += "float $ampMult = .2 ;" + "\n" ;
+                $expRippleRamp += "float $speed = .5 ;" + "\n" ;
+                $expRippleRamp += "//-----------parameter-------------" + "\n" ;
+                $expRippleRamp += "" + "\n" ;                
+                $expRippleRamp += "float $amplitude;" + "\n" ;
+                $expRippleRamp += "float $totalAmplitude = 0;" + "\n" ;                
+                $expRippleRamp += "" + "\n" ;
+                $expRippleRamp += "for ($i=0; $i< size($collisionData); $i++) {" + "\n" ;
+                $expRippleRamp += "" + "\n" ;
+                $expRippleRamp += "	vector $data = $collisionData[$i];" + "\n" ;
+                $expRippleRamp += "	float $tdist = (frame-($data.z))*$speed;" + "\n" ;
+                $expRippleRamp += "	float $dist = mag(<<" + $rippleSamplerInfo +".uCoord," + $rippleSamplerInfo + ".vCoord,0>> - <<($data.x),($data.y),0>>);" + "\n" ;
+                $expRippleRamp += "	float $x = ($dist*$frequency - $tdist);" + "\n" ;
+                $expRippleRamp += "	$amplitude= (1 - smoothstep(0,3,$x))*(1+cos($x))*exp(-$dist*$decay-$tdist*$timeDecay);" + "\n" ;
+                $expRippleRamp += "	$totalAmplitude += $amplitude;" + "\n" ;
+                $expRippleRamp += "" + "\n" ;
+                $expRippleRamp += "}" + "\n" ;
+                $expRippleRamp += $rippleRamp + ".vCoord = clamp(0,1,$totalAmplitude*$ampMult);" + "\n" ;
+                
+                string $rippleExp = `expression -s $expRippleRamp -o $rippleRamp -ae 1 -uc all -n rippleRampExp` ;
+                
+                //For create ripples by offsetUV
+                //
+                if($byOffsetUV == 1){
+                	connectAttr -f ($rippleRamp+".outAlpha") ($place2dTexture[0] + ".offsetU") ;
+                	connectAttr -f ($rippleRamp+".outAlpha") ($place2dTexture[0] + ".offsetV") ;
+                	print("Ripple texture had been connected to " + $place2dTexture[0] + ".offsetUV!" + "\n") ;
+                }
+                
+                //For create ripples by bump
+                //
+                if($byBump == 1){
+                	string $bump2d = `createNode -n "rippleBump2d" bump2d` ;
+                        connectAttr -f ($bump2d+".outNormal") ($geoShader[0]+".normalCamera") ; 
+                        connectAttr -f ($rippleRamp+".outAlpha") ($bump2d+".bumpValue") ;
+                        setAttr ($bump2d+".bumpDepth") 0.2 ;
+                        print("Ripple texture had been connected to " + $bump2d + ".bumpDepth!" + "\n") ;
+                }  
+                
+                //For can not connect ripple texture to offsetUV or bump
+                //
+                if($byOffsetUV != 1 && $byBump != 1){                                              
+                        print("Ripple texture " + $rippleRamp + " had been created!" + "\n") ;
+                }                                             
+
+//add collision pp attr
+string $attrPPList,$attrPPLists[] = {"collisionU","collisionV"} ;
+for($attrPPList in $attrPPLists){
+	if (!`attributeExists $attrPPList $pS`){
+		addAttr -ln $attrPPList -dt doubleArray $pS ;
+		setAttr -e -keyable true ($pS + "." + $attrPPList);
+	}			
+}
+//add collision pp0 attr
+string $attrPP0List,$attrPP0Lists[] = {"collisionU0","collisionV0"} ;
+for($attrPP0List in $attrPP0Lists){
+	if (!`attributeExists $attrPP0List $pS`){
+		addAttr -ln $attrPP0List -dt doubleArray $pS ;
+	}			
+}
+//set particle lifespan to lifespan only ;
+setAttr ($pS+".lifespanMode") 3;
+
+//Particle dyn expression 
+//get old expression
+string $oldRADExp=`dynExpression -q -s -rad $pS` ;		
+string $rainDropsExp = "\n//------------" + "\n" ;
+$rainDropsExp += "\n// RIPPLE" + "\n" ;
+$rainDropsExp += "\n" + "\n" ;
+$rainDropsExp += "\nint $skip = 2 ;" + "\n" ;
+$rainDropsExp += "\nglobal vector $collisionData[];" + "\n" ;
+$rainDropsExp += "\nif (" +$pS +".collisionU != -1) {" + "\n" ;
+$rainDropsExp += "\n// RIPPLE" + "\n" ;
+$rainDropsExp += "\n	if (" +$pS +".particleId % $skip == 0) $collisionData[size($collisionData)] = << " +$pS +".collisionU, " +$pS +".collisionV, frame >>;" + "\n" ;
+$rainDropsExp += "\n	" +$pS +".lifespanPP = 0;" + "\n" ;
+$rainDropsExp += "\n" + "\n" ;
+$rainDropsExp += "\n}"  ;
+	
+dynExpression -s ($oldRADExp+$rainDropsExp) -rad $pS ;
+
+}//3
+}//2	
+//clear array
+clear $particleShape ;
+clear $particleTransform ;
+clear $geoShape ;
+clear $geoTransform ;
+clear $geoShaderSG ;
+clear $geoShader ;
+clear $place2dTexture ;
+}//1
+//end proc 
+//-----------ripGeoPExpH------------
+
+
+
+//PROC Create rain ripple on ocean plane (affect by particle)
+//
+//--------------------------ripOceanPondPH--------------------------
+global proc ripOceanPondPH(){//1
+//declare var
+string $particleShape[],$oceanShape[],$pondShape[],$nurbsTransform[1],$oceanShaderSG[1],$oceanShader[1],
+       $oceanWakeTexture[] ;
+       
+//get particle shape name
+$particleShape = `ls -sl -long -dag -lf -type particle` ;
+//get ocean plane
+$oceanShape = `ls -sl -long -dag -lf -type nurbsSurface -type mesh -type subdiv` ;
+//get pond shape
+$pondShape = `ls -sl -dag -lf -long -type fluidShape` ;
+
+string $selType = "oceanShape" ; 
+if(size($particleShape)!=1){
+	error("please select one particle and one pond or ocean first!") ;
+}
+else if(size($oceanShape)!=1&&size($pondShape)!=1){
+        error("please select one particle and one pond or ocean first!") ;
+}
+else{	
+        if(size($oceanShape)!=1){
+                $selType = "fluidShape" ;
+        }
+
+        switch($selType){
+	
+	        //pond case
+	        case "fluidShape":
+	                $oceanWakeTexture = `listRelatives -p $pondShape[0]` ;    
+	        break ;	
+		
+	        //ocean case
+	        case "oceanShape":
+                        //get ocean shader 
+                        $oceanShaderSG = `listConnections -destination on ($oceanShape[0]+".instObjGroups[0]")` ;
+                        if(size($oceanShaderSG)!=1){	
+	                        error("selected plane must had been assigned some ocean shader.");
+                        }
+                        else{//3
+                                $oceanShader = `listConnections -destination on ($oceanShaderSG[0]+".surfaceShader")` ;
+                                if(size($oceanShader)!=1){
+	                                error("selected plane must had been assigned some ocean shader.");
+                                }
+                                else{//4
+                                        if(`attributeExists "waveHeightOffset" $oceanShader[0]`!=1){                                        		
+	                                        error("selected plane must had been assigned some ocean shader.");
+                                        }
+                                        else{//5
+                                                $oceanWakeTexture = `listConnections -destination on ($oceanShader[0]+".waveHeightOffset")` ;
+                                                if(size($oceanWakeTexture)!=1){
+                                                        select -r $oceanShape[0] ;
+                                                        performCreateOceanWake 0 ;
+                                                        delete;
+                                                        $oceanWakeTexture = `listConnections -destination on ($oceanShader[0]+".waveHeightOffset")` ;
+                                                }                                        
+                                        }//5
+                                 }//4
+                        }//3
+                break ;
+                
+                default:
+                break ;
+        }
+
+        //set particle lifespan to lifespan only ;
+        setAttr ($particleShape[0]+".lifespanMode") 3;
+
+        //dyn expression 
+        //get old expression
+        string $oldRBDExp = `dynExpression -q -s -rbd $particleShape[0]` ;		
+        string $rainDropsExp = "\n//expression to ripOceanPondPH    "+
+                               "\nvector $pPos = "+$particleShape[0]+".position;  "+
+                               "\nint $voxel[];                                   "+
+                               "\nfloat $dropSize = 0.1;                          "+
+                               "\nif($pPos.y < -0.05)                             "+
+                               "\n	{                                         "+
+                               "\n	"+$particleShape[0]+".lifespanPP = 0;     "+
+                               "\n	}                                         "+
+                               "\nelse if($pPos.y < 1)                            "+
+                               "\n	{                                         "+
+                               "\n	$voxel = `fluidVoxelInfo -cb -v ($pPos.x) ($pPos.y) ($pPos.z) "+$oceanWakeTexture[0]+"`; "+
+                               "\n	if (size($voxel) > 0)                                                                    "+
+                               "\n		{                                                                                "+
+                               "\n		setFluidAttr -ad -at \"density\" -fv $dropSize -xi ($voxel[0]) -yi ($voxel[1]) "+$oceanWakeTexture[0]+"; "+	
+                               "\n		}                                                                                                        "+
+                               "\n	}                                                                                                                "+                                                         
+                               "\n" ;	
+                       
+        dynExpression -s ($oldRBDExp+$rainDropsExp) -rbd $particleShape[0] ;
+
+        print("rain ripple had been created successfully! Please playBack to see.\n");
+}	
+}//1
+//--------------------------ripOceanPondPH--------------------------
+
+
+
+//PROC Create rain drops on pond or ocean
+//
+//-------------ripOceanPondH----------------
+//perform proc 	
+proc performRipOceanPondH(string $fluidTextureName){//1A		
+string $dropsExp = "\n//expression to generate random drops on a pond or ocean"+
+"\nint $maxX = "+$fluidTextureName+".resolutionW;"+
+"\nint $maxY = "+$fluidTextureName+".resolutionH;"+
+"\nfloat $dropFrequency = .4;"+
+"\nfloat $dropSize = 0.1;"+
+"\nfloat $randSeed = time * 32.21;"+
+"\nint $numDrops = (noise( $randSeed ) * .5 + 0.5) * ($dropFrequency + 1);"+
+"\nfor( $i = 0; $i < $numDrops; $i++){"+
+"\n$randSeed = ($randSeed + 0.2) * 1.23;"+
+"\nint $x = (noise( $randSeed ) * .5 + 0.5) * (float)$maxX;"+
+"\n$randSeed = ($randSeed -.1) * 1.67;"+
+"\nint $y = (noise( $randSeed ) * .5 + 0.5) * (float)$maxY;"+
+"\nif( $x >= $maxX ){"+
+"\n$x = $maxX -1;"+
+"\n} else if( $x < 0 ){"+
+"\n$x = 0;"+
+"\n}"+
+"\nif( $y >= $maxY ){"+
+"\n$y = $maxY -1;"+
+"\n} else if( $x < 0 ){"+
+"\n$y = 0;"+
+"\n}"+
+"\nsetFluidAttr -xi $x -yi $y -at density -ad -fv $dropSize "+$fluidTextureName+";"+
+"\n}";
+expression -s $dropsExp  -o "" -ae 1 -uc all ;
+print("rain ripple had been created successfully! Please playBack to see.\n");
+}//1A
+//end perform proc
+
+//createWaterSurfaceFluidTexture(from alias)
+proc string createWaterSurfaceFluidTexture( string $oceanShader, float $pondSize )
+{
+	// create a 3d fluid texture, make it a 2d simulation 
+	// and texture the waveHeightOffset
+	// of the ocean shader with it's outAlpha.
+	string $fluidShape = `shadingNode -asTexture fluidTexture3D -n "OceanWakeTexture#"`;
+	connectAttr time1.outTime ($fluidShape + ".currentTime");
+	string $tforms[] = `listTransforms $fluidShape`;
+	string $fluid = $tforms[0];
+	setAttr ($fluidShape + ".shadedDisplay") 0;
+	setAttr ($fluidShape + ".solver") 2;
+	setAttr ($fluidShape + ".is2d") 1;
+	setAttr ($fluidShape + ".velocityDamp") 0.02;
+	setAttr ($fluidShape + ".wireframeDisplay") 0;
+	setAttr ($fluidShape + ".resolution") 100 100 1;
+	setAttr ($fluidShape + ".dimensions") $pondSize $pondSize ($pondSize*0.4);
+	setAttr ($fluidShape + ".densityScale") 1.0;
+	setAttr ($fluidShape + ".boundaryDraw") 4;
+	setAttr ($fluidShape + ".dropoffShape") 2;
+	setAttr ($fluidShape + ".boundaryX") 0;
+	setAttr ($fluidShape + ".boundaryY") 0;
+	setAttr ($fluidShape + ".boundaryZ") 0;
+	setAttr ($fluidShape + ".renderInterpolator") 3;
+	setAttr ($fluidShape + ".alphaGain") 4.0;
+	setAttr ($fluid + ".rx") -90;
+	connectAttr -f ($fluidShape + ".outAlpha") ($oceanShader + ".waveHeightOffset");
+	return( $fluidShape );
+}
+
+//main proc 
+global proc ripOceanPondH(){//1B
+	
+string $selType = "oceanShape" ;
+
+//check selected number 
+string $oceanShape[] = `ls -sl -dag -lf -long -type nurbsSurface -type mesh -type subdiv` ;
+string $pondShape[] = `ls -sl -dag -lf -long -type fluidShape` ;
+
+if(size($oceanShape)!=1&&size($pondShape)!=1){
+        error("please select one ocean or pond first!") ;
+}
+else{
+        if(size($oceanShape)!=1){
+                $selType = "fluidShape" ;
+        }
+        switch($selType){//3
+        	
+	        //pond case
+	        case "fluidShape":
+	        string $fluidTextureNameArray[1] = `listRelatives -p $pondShape[0]` ;
+	        string $fluidTextureName = $fluidTextureNameArray[0] ;
+	        performRipOceanPondH($fluidTextureName);
+	        break;
+	        
+	        //ocean case
+	        case "oceanShape":
+	        string $shadersSG[] = `listConnections -source true -type shadingEngine $oceanShape[0]`;
+	        if(size($shadersSG)!=1){
+                        error("selected plane must had been assigned some ocean shader.");
+                        break;
+                }
+                string $shaders[] = `listConnections -d off ($shadersSG[0]+".surfaceShader")`;
+                //check selected object's shader
+                if(size($shaders)!=1){
+                        error("selected plane must had been assigned some ocean shader."); 
+                        break;
+                } 
+                if(`attributeExists "waveHeightOffset" $shaders[0]`!=1){
+                        error("selected plane must had been assigned some ocean shader."); 
+                        break;
+                }          
+	        string $wakeTextureTransform[] = `listConnections -d off ($shaders[0]+".waveHeightOffset")` ;
+	        string $wakeTexture[] ;
+                if(size($wakeTextureTransform)!=1){
+                       $wakeTexture[0] = createWaterSurfaceFluidTexture($shaders[0],20) ;
+                }
+                $wakeTextureTransform = `listConnections -d off ($shaders[0]+".waveHeightOffset")` ;
+                $wakeTexture = `listRelatives -shapes $wakeTextureTransform[0]` ;
+                string $fluidTextureName = $wakeTexture[0] ;   
+	        performRipOceanPondH($fluidTextureName) ;
+	        break;
+	        
+	        default:
+	        break;
+       }
+}
+}
+//-------------ripOceanPondH----------------
+
+
+
+//PROC MAIN
+//
+//--------rippleH----------
+global proc rippleH(){
+if(`window -exists  rippleH`){
+   deleteUI -window rippleH ;
+}
+
+window -w 313 -h 233 -s 0 -title " ripple effect"  rippleH ;
+columnLayout ;  
+
+    //style frameLayout
+    frameLayout -w 304 -h 190 -label "Style" -labelVisible 0 -cl 0 -cll 1 -borderStyle "etchedIn" ;
+        columnLayout -w 300 -h 188 -columnAlign center ;
+        
+            radioCollection typeRadioCollection ;
+            string $rb1, $rb2, $rb3;
+            radioButton -h 25 -w 285 -label "plane  ( by  texture )" nGRB ;
+            radioButton -h 25 -w 285 -label "plane  ( by  expression )" nGRBE ;
+            radioButton -h 25 -w 285 -label "plane  collide  with  particle"  gCWPRB;
+            radioButton -h 25 -w 285 -label "ocean  or  pond" oOPRB;
+            radioButton -h 25 -w 285 -label "ocean  or  pond  affect  by  paritcle" oOPABP;                            
+        
+        setParent ..;
+    setParent ..;        
+                          
+    //button of "ok" and "cancel" frameLayout                                     
+    frameLayout -labelVisible 0 -cl 0 -cll 1 -borderStyle "etchedIn";               
+        rowColumnLayout -nc 3 -cw 1 100 -cw 2 100 -cw 3 100 ;
+            button -l "Create   Ripple" -height 28 -c ("performRippleH() ; deleteUI -window  rippleH") ok ;
+            button -l "Cancel" -height 28 -c ("deleteUI -window  rippleH") cancel ;
+            button -l "Help" -height 28 -c ("performRippleHHelp()") help ;
+        setParent ..;
+    setParent ..;
+    
+    radioCollection -e -select nGRB typeRadioCollection ;
+             
+showWindow  rippleH ;
+}//
+//--------rippleH----------
+
+
+
+//PROC PERFORM
+//
+//--------performRippleH----------
+global proc performRippleH(){
+	
+//get type
+string $type = `radioCollection -q -select typeRadioCollection ` ;
+
+switch($type){
+	
+	//For plane texture
+	case "nGRB":
+	ripGeoTxteH ;
+	break ;
+	
+	//For plane expression
+	case "nGRBE":
+	ripGeoExpH ;
+	break ;
+
+	//For plane collide with particle
+	case "gCWPRB":
+	ripGeoPExpH ;
+	break ;
+		
+	//For ocean or pond
+	case "oOPRB":
+	ripOceanPondH ;
+	break ;
+	
+	//For ocean or pond affect by particle
+	case "oOPABP":
+	ripOceanPondPH ;
+	break ;
+	
+	default:
+	break ;	
+}
+}
+//--------performRippleH----------	
+
+
+
+//PROC FOR HELP
+//
+//--------performRippleHHelp----------
+global proc performRippleHHelp(){
+//create UI
+if(`window -exists rippleHHelp`){
+   deleteUI -window rippleHHelp;
+}
+
+window -w 812 -h 335 -s 0 -title "rippleH.mel Help" rippleHHelp;
+columnLayout;  
+                                
+    frameLayout -w 810 -labelVisible 0 -h 303 -borderStyle "etchedIn" 
+                -cll 0 -cl 0 -mh 5 -mw 5 ;                                                            
+    columnLayout ;
+    
+    string $helpstr = "//How to use:1) select something like below:\n" ;
+    $helpstr += " //                 a) one plane\n" ;
+    $helpstr += " //                 b) one particle and one plane which had been made collided with the particle\n" ;
+    $helpstr += " //                    Note: if plane not collide with particle mel will make this\n" ;
+    $helpstr += " //                 c) one ocean(pond) or plane assigned with ocean shader\n" ;
+    $helpstr += " //                    Note: ocean or pond can create by menu: Fluid Effects-->Ocean-->Create Ocean\n" ;
+    $helpstr += " //                                                            Fluid Effects-->Pond-->Create Pond\n" ;
+    $helpstr += " //                 d) one ocean(pond) and one particle (ripple create from where ocean collide with particle) \n" ;
+    $helpstr += " //                    Note: ocean (pond) not need to make collide with particle\n\n" ;    
+    $helpstr += " //           2) type and execute \"rippleH\" in the command line or Script Editor\n" ;
+    $helpstr += " //           3) an ui window will appear\n" ;
+    $helpstr += " //           4) select which type of ripple you want to create\n" ;
+    $helpstr += " //           5) click \"OK\" button\n\n" ;
+    $helpstr += "About:\n" ;
+    $helpstr += " Version\: 1.0\n" ;
+    $helpstr += " Author\: honglou\n" ;
+    $helpstr += " Mail\: hongloull\@hotmail.com" ;
+    
+    scrollField -en 0 -wordWrap 1 -editable false -w 790 -h 288 -text $helpstr ;
+    
+    setParent ..;
+    setParent ..; 
+    
+showWindow  rippleHHelp ;
+}
+//--------performRippleHHelp----------

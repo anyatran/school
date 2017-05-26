@@ -1,0 +1,259 @@
+//Creates a Template of a basic MotionBuilder Skeleton with all Roll joints and 5 fingers//
+//
+//Created by Grenal Spark
+//v 1.0
+//April 25th, 2004
+
+//Start of Script//
+
+select -d;
+joint -p 0 5.710019 -0.27974 ;
+joint -p 1.46343e-007 6.661578 -0.137695 ;
+joint -e -zso -oj xyz joint1;
+joint -p 1.46343e-007 7.663369 -0.137695 ;
+joint -e -zso -oj xyz joint2;
+joint -p 1.46343e-007 8.66516 -0.137695 ;
+joint -e -zso -oj xyz joint3;
+joint -p 1.46343e-007 9.395102 -0.137695 ;
+joint -e -zso -oj xyz joint4;
+joint -p -0.000209083 10.092688 -0.0334783 ;
+joint -e -zso -oj xyz joint5;
+joint -p -1.8745e-006 11.045963 0.108937 ;
+joint -e -zso -oj xyz joint6;
+select -d joint1 ;
+select -d;
+joint -p -0.302755 9.187062 -0.126005 ;
+joint -p -1.856497 9.009518 -0.237406 ;
+joint -e -zso -oj xyz joint8;
+joint -p -2.817491 8.994589 -0.265111 ;
+joint -e -zso -oj xyz joint9;
+joint -p -3.778484 8.979661 -0.292816 ;
+joint -e -zso -oj xyz joint10;
+joint -p -4.556307 8.967925 -0.281936 ;
+joint -e -zso -oj xyz joint11;
+joint -p -5.33413 8.956189 -0.271056 ;
+joint -e -zso -oj xyz joint12;
+joint -p -5.925233 8.93 -0.473121 ;
+joint -e -zso -oj xyz joint13;
+joint -p -6.131873 8.922422 -0.475608 ;
+joint -e -zso -oj xyz joint14;
+joint -p -6.265906 8.917505 -0.477222 ;
+joint -e -zso -oj xyz joint15;
+joint -p -6.37904 8.913356 -0.478584 ;
+joint -e -zso -oj xyz joint16;
+select -d joint8 ;
+select -r joint13;
+joint -p -5.935181 8.984714 -0.216105 ;
+joint -e -zso -oj xyz joint13;
+joint -p -6.265216 8.919671 -0.21399 ;
+joint -e -zso -oj xyz joint18;
+joint -p -6.452874 8.882687 -0.212787 ;
+joint -e -zso -oj xyz joint19;
+joint -p -6.588982 8.855859 -0.211914 ;
+joint -e -zso -oj xyz joint20;
+select -d joint13 ;
+select -r joint13;
+joint -p -5.932846 8.976725 -0.358317 ;
+joint -e -zso -oj xyz joint13;
+joint -p -6.240901 8.924036 -0.354499 ;
+joint -e -zso -oj xyz joint22;
+joint -p -6.397348 8.897276 -0.35256 ;
+joint -e -zso -oj xyz joint23;
+joint -p -6.527918 8.874943 -0.350942 ;
+joint -e -zso -oj xyz joint24;
+select -d joint13 ;
+select -r joint13;
+joint -p -5.944015 8.964044 -0.069618 ;
+joint -e -zso -oj xyz joint13;
+joint -p -6.23068 8.917004 -0.0692838 ;
+joint -e -zso -oj xyz joint26;
+joint -p -6.410756 8.88739 -0.0690738 ;
+joint -e -zso -oj xyz joint27;
+joint -p -6.54375 8.86519 -0.0689187 ;
+joint -e -zso -oj xyz joint28;
+select -d joint13 ;
+select -r joint13;
+joint -p -5.634128 8.901417 -0.0309539 ;
+joint -e -zso -oj xyz joint13;
+joint -p -5.81814 8.872178 0.114651 ;
+joint -e -zso -oj xyz joint30;
+joint -p -5.998903 8.85825 0.12907 ;
+joint -e -zso -oj xyz joint31;
+joint -p -6.187194 8.845525 0.128603 ;
+joint -e -zso -oj xyz joint32;
+select -d joint13 ;
+select -d;
+joint -p -1.23325 5.640256 -0.144526 ;
+joint -p -1.2364 4.348144 -0.0325067 ;
+joint -e -zso -oj xyz joint34;
+joint -p -1.23955 3.056031 0.0795128 ;
+joint -e -zso -oj xyz joint35;
+joint -p -1.242309 1.292853 0.0538824 ;
+joint -e -zso -oj xyz joint36;
+joint -p -1.243689 0.411264 0.0410671 ;
+joint -e -zso -oj xyz joint37;
+joint -p -1.274555 0.0214895 0.588758 ;
+joint -e -zso -oj xyz joint38;
+joint -p -1.277854 0.0214483 1.174618 ;
+joint -e -zso -oj xyz joint39;
+joint -p -1.28066 0.0171735 1.71854 ;
+joint -e -zso -oj xyz joint40;
+select -r joint1 ;
+rename "joint1" "temp_Hips";
+// Result: temp_Hips //
+pickWalk -d down;
+// Result: joint2 //
+rename "joint2" "temp_Spine";
+// Result: temp_Spine //
+pickWalk -d down;
+// Result: joint3 //
+rename "joint3" "temp_Spine1";
+// Result: temp_Spine1 //
+pickWalk -d down;
+// Result: joint4 //
+rename "joint4" "temp_Spine2";
+// Result: temp_Spine2 //
+pickWalk -d down;
+// Result: joint5 //
+rename "joint5" "temp_Neck";
+// Result: temp_Neck //
+pickWalk -d down;
+// Result: joint6 //
+rename "joint6" "temp_Head";
+// Result: temp_Head //
+pickWalk -d down;
+// Result: joint7 //
+rename "joint7" "temp_Head_End";
+// Result: temp_Head_End //;
+// Result: temp_Head_End //
+select -r joint34 ;
+rename "joint34" "temp_RightUpLeg";
+// Result: temp_RightUpLeg //
+pickWalk -d down;
+// Result: joint35 //
+rename "joint35" "temp_RightUpLegRoll";
+// Result: temp_RightUpLegRoll //
+pickWalk -d down;
+// Result: joint36 //
+rename "joint36" "temp_RightLeg";
+// Result: temp_RightLeg //
+pickWalk -d down;
+// Result: joint37 //
+rename "joint37" "temp_RightLegRoll";
+// Result: temp_RightLegRoll //
+pickWalk -d down;
+// Result: joint38 //
+rename "joint38" "temp_RightFoot";
+// Result: temp_RightFoot //
+pickWalk -d down;
+// Result: joint39 //
+rename "joint39" "temp_RightFootBase";
+// Result: temp_RightFootBase //
+pickWalk -d down;
+// Result: joint40 //
+rename "joint40" "temp_RightFootExtraFinger1";
+// Result: temp_RightFootExtraFinger1 //
+pickWalk -d down;
+// Result: joint41 //
+rename "joint41" "temp_RightFootExtraFinger2";
+// Result: temp_RightFootExtraFinger2 //
+select -r joint8 ;
+rename "joint8" "temp_RightShoulder";
+// Result: temp_RightShoulder //
+pickWalk -d down;
+// Result: joint9 //
+rename "joint9" "temp_RightArm";
+// Result: temp_RightArm //
+pickWalk -d down;
+// Result: joint10 //
+rename "joint10" "temp_RightArmRoll";
+// Result: temp_RightArmRoll //
+pickWalk -d down;
+// Result: joint11 //
+rename "joint11" "temp_RightForeArm";
+// Result: temp_RightForeArm //
+pickWalk -d down;
+// Result: joint12 //
+rename "joint12" "temp_RightForeArmRoll";
+// Result: temp_RightForeArmRoll //
+pickWalk -d down;
+// Result: joint13 //
+rename "joint13" "temp_RightHand";
+// Result: temp_RightHand //;
+// Result: temp_RightHand //
+select -r joint14 ;
+rename "joint14" "temp_RightHandPinky1";
+// Result: temp_RightHandPinky1 //
+pickWalk -d down;
+// Result: joint15 //
+rename "joint15" "temp_RightHandPinky2";
+// Result: temp_RightHandPinky2 //
+pickWalk -d down;
+// Result: joint16 //
+rename "joint16" "temp_RightHandPinky3";
+// Result: temp_RightHandPinky3 //
+pickWalk -d down;
+// Result: joint17 //
+rename "joint17" "temp_RightHandPinky4";
+// Result: temp_RightHandPinky4 //
+select -r joint22 ;
+rename "joint22" "temp_RightHandRing1";
+// Result: temp_RightHandRing1 //
+pickWalk -d down;
+// Result: joint23 //
+rename "joint23" "temp_RightHandRing2";
+// Result: temp_RightHandRing2 //
+pickWalk -d down;
+// Result: joint24 //
+rename "joint24" "temp_RightHandRing3";
+// Result: temp_RightHandRing3 //
+pickWalk -d down;
+// Result: joint25 //
+rename "joint25" "temp_RightHandRing4";
+// Result: temp_RightHandRing4 //
+select -r joint18 ;
+rename "joint18" "temp_RightHandMiddle1";
+// Result: temp_RightHandMiddle1 //
+pickWalk -d down;
+// Result: joint19 //
+rename "joint19" "temp_RightHandMiddle2";
+// Result: temp_RightHandMiddle2 //
+pickWalk -d down;
+// Result: joint20 //
+rename "joint20" "temp_RightHandMiddle3";
+// Result: temp_RightHandMiddle3 //
+pickWalk -d down;
+// Result: joint21 //
+rename "joint21" "temp_RightHandMiddle4";
+// Result: temp_RightHandMiddle4 //
+select -r joint26 ;
+rename "joint26" "temp_RightHandIndex1";
+// Result: temp_RightHandIndex1 //
+pickWalk -d down;
+// Result: joint27 //
+rename "joint27" "temp_RightHandIndex2";
+// Result: temp_RightHandIndex2 //
+pickWalk -d down;
+// Result: joint28 //
+rename "joint28" "temp_RightHandIndex3";
+// Result: temp_RightHandIndex3 //
+pickWalk -d down;
+// Result: joint29 //
+rename "joint29" "temp_RightHandIndex4";
+// Result: temp_RightHandIndex4 //
+select -r joint30 ;
+rename "joint30" "temp_RightHandThumb1";
+// Result: temp_RightHandThumb1 //
+pickWalk -d down;
+// Result: joint31 //
+rename "joint31" "temp_RightHandThumb2";
+// Result: temp_RightHandThumb2 //
+pickWalk -d down;
+// Result: joint32 //
+rename "joint32" "temp_RightHandThumb3";
+// Result: temp_RightHandThumb3 //
+pickWalk -d down;
+// Result: joint33 //
+rename "joint33" "temp_RightHandThumb4";
+// Result: temp_RightHandThumb4 //
+select -cl  ;

@@ -1,0 +1,422 @@
+//----------------------------------------------------------------------------------------------
+//
+//	icQRbuildNeck
+//
+//	SCRIPT:			icQRbuildNeck.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					
+//	DATE:			Jul 03, 2011
+//					created: Jun 14, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// builds a neck based on the given joint chain
+//
+//----------------------------------------------------------------------------------------------
+
+
+global proc icQRbuildNeck ( string $charName, string $root )
+{
+	global string $gSelect;
+	setToolTo $gSelect;
+
+	string $rootJoint = `rename $root ("neck_jnt1" + $charName)`;
+	string $joints[] = `listRelatives -c -ad $rootJoint`;
+
+	int $counter = size($joints);
+	for ($j = 1; $j < size($joints); $j ++)
+	{
+		$joints[$j] = `rename $joints[$j] ("neck_jnt" + $counter + $charName)`;
+		$counter --;
+	}
+	$joints[1] = `rename $joints[1] ("head_jnt" + $charName)`;
+	$joints[0] = `rename $joints[0] ("headEnd_jnt" + $charName)`;
+
+	float $pos[];
+
+	//duplicate the chain for the FK and IK chain
+	string $IKjoints[] = `duplicate -rc $rootJoint`;
+	for ($i = 0; $i < size($IKjoints); $i ++)
+	{
+		$IKjoints[$i] = `rename $IKjoints[$i] ("IK_neck_jnt" + ($i + 1) + $charName)`;
+	}
+	delete $IKjoints[size($IKjoints) - 1];
+	$IKjoints = stringArrayRemove ({$IKjoints[size($IKjoints) - 1]}, $IKjoints);
+	$IKjoints[size($IKjoints) - 1] = `rename $IKjoints[size($IKjoints) - 1] ("IK_head_jnt" + $charName)`;
+
+	string $FKjoints[] = `duplicate -rc $rootJoint`;
+	for ($i = 0; $i < size($FKjoints); $i ++)
+	{
+		$FKjoints[$i] = `rename $FKjoints[$i] ("FK_neck_jnt" + ($i + 1) + $charName)`;
+	}
+	delete $FKjoints[size($FKjoints) - 1];
+	$FKjoints = stringArrayRemove ({$FKjoints[size($FKjoints) - 1]}, $FKjoints);
+	$FKjoints[size($FKjoints) - 1] = `rename $FKjoints[size($FKjoints) - 1] ("FK_head_jnt" + $charName)`;
+
+	//create the spline ik bind joints
+	string $bindJoint1 = "neck_IK_bind_jnt1" + $charName;
+	string $bindJoint2 = "neck_IK_bind_jnt2" + $charName;
+	string $bindJoint3 = "neck_IK_bind_jnt3" + $charName;
+
+	select -cl;
+	joint -n $bindJoint1;
+	delete (`pointConstraint $rootJoint $bindJoint1`);
+	select -cl;
+	joint -n $bindJoint2;
+	delete (`pointConstraint $joints[1] $rootJoint $bindJoint2`);
+	select -cl;
+	joint -n $bindJoint3;
+	delete (`pointConstraint $joints[1] $bindJoint3`);
+
+	//create the spline ik
+	string $ikHandle = "neck_IKhandle" + $charName;
+	ikHandle -n $ikHandle -sol "ikSplineSolver"
+							-ccv 1 -scv 1 -roc 1 -tws "linear" -pcv 0 -ns 1
+							-sj $IKjoints[0] -ee $IKjoints[size($IKjoints) - 1];
+	rename "effector1" ("neck_IKeffector" + $charName);
+	string $neckCurve = `rename "curve1" ("neck_curve" + $charName)`;
+
+	//create the controls
+	int $userScale = `intField -q -v QRheight`;
+	string $neckCtrl = "neck_ctrl" + $charName;
+	string $headCtrl = "head_ctrl" + $charName;
+	string $headFKctrl = "FK_head_ctrl" + $charName;
+	circle -c 0 0 0 -nr 0 0 1 -sw 360 -r ($userScale / 7.5) -d 3 -ut 0 -tol 0.01 -s 12 -ch 0 -n $neckCtrl;
+	circle -c 0 0 0 -nr 0 0 1 -sw 360 -r ($userScale / 7.5) -d 3 -ut 0 -tol 0.01 -s 12 -ch 0 -n $headCtrl;
+	circle -c 0 0 0 -nr 1 0 0 -sw 360 -r ($userScale / 7.5) -d 3 -ut 0 -tol 0.01 -s 12 -ch 0 -n $headFKctrl;
+
+	string $FKctrls[];
+	for ($ctrl = 0; $ctrl < size($FKjoints) - 1; $ctrl ++)
+	{
+		string $circle[] = `circle -c 0 0 0 -nr 1 0 0 -sw 360 -r ($userScale / 9) -d 3 -ut 0 -tol 0.01 -s 12 -ch 0 -n ("FK_neck" + $ctrl + "_ctrl" + $charName)`;
+		$FKctrls[size($FKctrls)] = $circle[0];
+		setAttr ($FKctrls[$ctrl] + ".rotateOrder") 2;
+
+		delete (`pointConstraint $FKjoints[$ctrl] $FKctrls[$ctrl]`);
+		delete (`aimConstraint -aim 0 0 1 -u 0 1 0 $FKjoints[$ctrl + 1] $FKctrls[$ctrl]`);
+
+		parent -s -r ($FKctrls[$ctrl] + "Shape") $FKjoints[$ctrl];
+		delete $FKctrls[$ctrl];
+	}
+	setAttr ($headFKctrl + ".rotateOrder") 2;
+	setAttr ($neckCtrl + ".rotateOrder") 2;
+	setAttr ($headCtrl + ".rotateOrder") 2;
+
+	//position the head FK control
+	delete (`pointConstraint $FKjoints[size($FKjoints) - 1] $headFKctrl`);
+	delete (`aimConstraint -aim 0 0 -1 -u 0 1 0 $joints[2] $headFKctrl`);
+	parent -s -r ($headFKctrl + "Shape") $FKjoints[size($FKjoints) - 1];
+	delete $headFKctrl;
+
+	//position the neck control
+	delete (`pointConstraint $joints[1] $rootJoint $neckCtrl`);
+	delete (`aimConstraint -aim 0 0 1 -u 0 1 0 $joints[1] $neckCtrl`);
+	delete (`pointConstraint $joints[1] $headCtrl`);
+
+	//group each control to zero it and and make it constrainable
+	string $neckCtrlGrp = icQRgroupControl( $charName, "neck_ctrl");
+	string $headCtrlGrp = icQRgroupControl( $charName, "head_ctrl");
+
+	//create a group that serves as the orient space for the head joint during ik
+	string $headConstGrp = "headConst_grp" + $charName;
+	rename (`duplicate -rr $headCtrl`) $headConstGrp;
+	delete (`listRelatives -s $headConstGrp`);
+	delete (`orientConstraint $joints[1] $headConstGrp`);
+
+	//create the const groups for the neck2 follow constraint
+	string $headFollowConstGrp = "head_shoulderSpace_grp" + $charName;
+	string $headWorldConstGrp = "head_worldSpace_grp" + $charName;
+	rename (`duplicate -rr $headCtrl`) $headFollowConstGrp;
+	rename (`duplicate -rr $headCtrl`) $headWorldConstGrp;
+	delete (`listRelatives -s $headFollowConstGrp`);
+	delete (`listRelatives -s $headWorldConstGrp`);
+
+	//create two empty groups for making them the constraining driver for the neck control
+	string $neckConstGrp1 = "neck_constGrp1" + $charName;
+	string $neckConstGrp2 = "neck_constGrp2" + $charName;
+	createNode transform -n $neckConstGrp1;
+	createNode transform -n $neckConstGrp2;
+	delete (`pointConstraint $bindJoint2 $neckConstGrp1`);
+	delete (`pointConstraint $bindJoint2 $neckConstGrp2`);
+
+	//bind the spline curve to the bind joints
+	select -r $bindJoint1;
+	select -add $bindJoint2;
+	select -add $bindJoint3;
+	select -add $neckCurve;
+	newSkinCluster "-toSelectedBones -mi 2 -omi true -dr 4 -rui true";
+
+	string $conn[] = `listConnections -s 0 -d 1 $bindJoint1`;
+	$conn = stringArrayRemoveDuplicates ($conn);
+	for ($c in $conn)
+	{
+		if (`gmatch $c "*bindPose*"`) rename $c ("bindPose_neck" + $charName);
+		else if (`gmatch $c "*skinCluster*"`) rename $c ("skinCluster_neck" + $charName);
+	}
+	$conn = `listConnections -s 0 -d 1 ("skinCluster_neck" + $charName)`;
+	$conn = stringArrayRemoveDuplicates ($conn);
+	for ($c in $conn)
+	{
+		if (`gmatch $c "*skinCluster*"`) rename $c ("neck_skinClusterSet" + $charName);
+	}
+	rename "tweak1" ("tweak_neck" + $charName);
+
+	//build the stretchy spine
+	string $jointString = $IKjoints[0];
+	for ($j = 1; $j < size($IKjoints); $j ++)
+	{
+		$jointString = $jointString + ":" + $IKjoints[$j];
+	}
+	string $stretchVolNode[] = icCRbuildStretch ( "neck", $neckCurve, $jointString, $charName );
+	//create custom attributes to control the spine and root volume
+//	addAttr -ln "stretchVolume" -k 1 -at "enum" -en "-:" $headCtrl;
+//	setAttr -l 1 ($headCtrl + ".stretchVolume");
+//	addAttr -ln "neck" -at "float" -min 0 -max 1 -dv 1 -k 1 $headCtrl;
+//	//connect the attributes with the corresponding control nodes
+//	connectAttr ($headCtrl + ".neck") ($stretchVolNode[0] + ".ab");
+//	icCRlockHideAttr ( $stretchVolNode[0], "ab" );
+	setAttr -l 0 ("charScale_neckCurve_compensate_mult" + $charName + ".input2X");
+	connectAttr -f ("characterScale_grp" + $charName + ".rescale") ("charScale_neckCurve_compensate_mult" + $charName + ".input2X");
+	setAttr -l 1 ("charScale_neckCurve_compensate_mult" + $charName + ".input2X");
+	setAttr -l 0 ("charScale_neck_compensate_mult" + $charName + ".input2X");
+	connectAttr -f ("characterScale_grp" + $charName + ".rescale") ("charScale_neck_compensate_mult" + $charName + ".input2X");
+	setAttr -l 1 ("charScale_neck_compensate_mult" + $charName + ".input2X");
+
+	icQRshowStretch $neckCtrl ("neckStretchFactor_mult" + $charName);
+	icQRshowStretch $headCtrl ("neckStretchFactor_mult" + $charName);
+
+	//enable the advanced twist and make the connections to the controls
+	connectAttr ("shoulder_ctrl" + $charName + "Shape.worldMatrix[0]") ($ikHandle + ".dWorldUpMatrix");
+	connectAttr ($headCtrl + "Shape.worldMatrix[0]") ($ikHandle + ".dWorldUpMatrixEnd");
+	setAttr ($ikHandle + ".dTwistControlEnable") 1;
+	setAttr ($ikHandle + ".dWorldUpType") 4;
+
+	//group the ik controls and place the group at the shoulder control
+	string $neckConstGrp = "neck_const_grp" + $charName;
+	string $neckJointsGrp = "neckJoints_grp" + $charName;
+	string $ikNeckCtrlGrp = "ikNeck_grp" + $charName;
+	string $fkNeckCtrlGrp = "fkNeck_grp" + $charName;
+	createNode transform -n $neckConstGrp;
+	createNode transform -n $neckJointsGrp;
+	createNode transform -n $ikNeckCtrlGrp;
+	createNode transform -n $fkNeckCtrlGrp;
+	delete (`pointConstraint ("shoulder_ctrl" + $charName) $neckConstGrp`);
+	delete (`pointConstraint ("shoulder_ctrl" + $charName) $neckJointsGrp`);
+	makeIdentity -t 1 -r 1 -s 1 -a 1 $neckJointsGrp;
+	delete (`pointConstraint ("shoulder_ctrl" + $charName) $ikNeckCtrlGrp`);
+	parent $ikNeckCtrlGrp $neckConstGrp;
+	parent $fkNeckCtrlGrp $neckConstGrp;
+	parent $neckCtrlGrp $ikNeckCtrlGrp;
+	parent $headCtrlGrp $ikNeckCtrlGrp;
+
+	parent $bindJoint1 $ikNeckCtrlGrp;
+	parent $bindJoint2 $neckCtrl;
+	parent $bindJoint3 $headCtrl;
+	parent $headConstGrp $headCtrl;
+
+	parent $FKjoints[0] $fkNeckCtrlGrp;
+
+	parent $headFollowConstGrp ("shoulder_ctrl" + $charName);
+	parent $headWorldConstGrp ("dontTouch_grp" + $charName);
+
+	icCRcreateGroup ( $charName, "neck_worldSpace_grp", 0 );
+	parent ("neck_worldSpace_grp" + $charName) ("dontTouch_grp" + $charName);
+
+	//define the head/neck follow function
+	string $ikCtrlPointConst[] = `pointConstraint ("shoulder_ctrl" + $charName) $neckConstGrp`;
+	string $neckOrientConst1[] = `orientConstraint ("neck_worldSpace_grp" + $charName) ("shoulder_ctrl" + $charName) $ikNeckCtrlGrp`;
+	connectAttr -f ("shoulder_ctrl" + $charName + ".neckFollow") ($neckOrientConst1[0] + ".w1");
+	setDrivenKeyframe -v 0 -dv 1 -cd ("shoulder_ctrl" + $charName + ".neckFollow") ($neckOrientConst1[0] + ".w0");
+	setDrivenKeyframe -v 1 -dv 0 -cd ("shoulder_ctrl" + $charName + ".neckFollow") ($neckOrientConst1[0] + ".w0");
+
+	string $headCtrlOrientConst[] = `orientConstraint $headWorldConstGrp $headFollowConstGrp $headCtrlGrp`;
+	connectAttr -f ("shoulder_ctrl" + $charName + ".neckFollow") ($headCtrlOrientConst[0] + ".w1");
+	setDrivenKeyframe -v 0 -dv 1 -cd ("shoulder_ctrl" + $charName + ".neckFollow") ($headCtrlOrientConst[0] + ".w0");
+	setDrivenKeyframe -v 1 -dv 0 -cd ("shoulder_ctrl" + $charName + ".neckFollow") ($headCtrlOrientConst[0] + ".w0");
+
+	string $headJntPointConst[] = `pointConstraint $headCtrl $FKjoints[size($FKjoints) - 1] $joints[1]`;
+	connectAttr -f ("shoulder_ctrl" + $charName + ".neck_status") ($headJntPointConst[0] + ".w1");
+	setDrivenKeyframe -v 0 -dv 1 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($headJntPointConst[0] + ".w0");
+	setDrivenKeyframe -v 1 -dv 0 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($headJntPointConst[0] + ".w0");
+
+	string $headJntOrientConst[] = `orientConstraint $headConstGrp $FKjoints[size($FKjoints) - 1] $joints[1]`;
+	connectAttr -f ("shoulder_ctrl" + $charName + ".neck_status") ($headJntOrientConst[0] + ".w1");
+	setDrivenKeyframe -v 0 -dv 1 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($headJntOrientConst[0] + ".w0");
+	setDrivenKeyframe -v 1 -dv 0 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($headJntOrientConst[0] + ".w0");
+
+	string $fkJointConst[] = `parentConstraint -mo ("shoulder_ctrl" + $charName) $fkNeckCtrlGrp`;
+
+	//parent the neck const groups
+	parent $neckConstGrp1 ("shoulder_ctrl" + $charName);
+	parent $neckConstGrp2 $headCtrl;
+	string $constGrpConstraint[] = `pointConstraint -mo $neckConstGrp1 $neckConstGrp2 $neckCtrlGrp`;
+
+	//parenting and grouping
+	icCRcreateGroup ( $charName, "dontTouchJoints_grp", 1 );
+	icCRcreateGroup ( $charName, "ikNeckJoints_grp", 0 );
+	parent ("neckJoints_grp" + $charName) ("dontTouchJoints_grp" + $charName);
+	parent $rootJoint ("neckJoints_grp" + $charName);
+	parent ("ikNeckJoints_grp" + $charName) ("dontTouchJoints_grp" + $charName);
+	parent $IKjoints[0] ("ikNeckJoints_grp" + $charName);
+	icCRcreateGroup ( $charName, "dontTouch_grp", 0 );
+	parent $neckCurve ("dontTouch_grp" + $charName);
+	parent $ikHandle ("dontTouch_grp" + $charName);
+	parent $neckConstGrp ("animationControls_grp" + $charName);
+
+	//----------------------------------------------------------------------------------------
+	//
+	//make the blend connections for IK and FK
+	//
+	//----------------------------------------------------------------------------------------
+
+	string $tempBlend;
+	string $blendColorArray[];
+	string $driverAttrShort[] = {"Trans", "Rot"};
+	string $driverAttr[] = {"translate", "rotate"};
+	string $jName;
+
+	//go through each joint in the chain and connect them
+	for ($j = 1; $j < size($FKjoints) - 1; $j ++)
+	{
+		//build name for better renaming
+		$jName = `substring $FKjoints[$j] 1 (size($FKjoints[$j]) - (size($charName)))`;
+		for ($i = 0; $i < 2; $i ++)
+		{
+			//create a new blend color node for each joint
+			$tempBlend = `shadingNode -asUtility blendColors`;
+			$tempBlend = `rename $tempBlend ($jName + $driverAttrShort[$i] + "_IKFK_blend" + $charName)`;
+			$blendColorArray[size($blendColorArray)] = $tempBlend;
+			//connect the FK joint with the color 1
+			connectAttr -f 	($FKjoints[$j] + "." + $driverAttr[$i])
+							($tempBlend + ".color1");
+			//connect the IK joint with the color 2
+			connectAttr -f 	($IKjoints[$j] + "." + $driverAttr[$i])
+							($tempBlend + ".color2");
+			//connect the blend with the final joint
+			string $skinJoint = `substring $FKjoints[$j] 4 (size($FKjoints[$j]))`;
+			connectAttr -f 	($tempBlend + ".output")
+							($skinJoint + "." + $driverAttr[$i]);
+		}
+	}
+
+	//connect the IK FK attribute with all the blender nodes
+	for ($b = 0; $b < size($blendColorArray); $b ++)
+	{
+		connectAttr ("shoulder_ctrl" + $charName + ".neck_status") ($blendColorArray[$b] + ".blender");
+	}
+
+	string $neckPointConst[] = `pointConstraint $IKjoints[0] $FKjoints[0] $rootJoint`;
+	connectAttr -f ("shoulder_ctrl" + $charName + ".neck_status") ($neckPointConst[0] + ".w1");
+	setDrivenKeyframe -v 0 -dv 1 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($neckPointConst[0] + ".w0");
+	setDrivenKeyframe -v 1 -dv 0 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($neckPointConst[0] + ".w0");
+
+	string $neckOrientConst2[] = `orientConstraint $IKjoints[0] $FKjoints[0] $rootJoint`;
+	connectAttr -f ("shoulder_ctrl" + $charName + ".neck_status") ($neckOrientConst2[0] + ".w1");
+	setDrivenKeyframe -v 0 -dv 1 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($neckOrientConst2[0] + ".w0");
+	setDrivenKeyframe -v 1 -dv 0 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($neckOrientConst2[0] + ".w0");
+
+	//cleanup
+	setAttr ($neckCurve + ".v") 0;
+	setAttr ($ikHandle + ".v") 0;
+	setAttr ($bindJoint1 + ".v") 0;
+	setAttr ($bindJoint2 + ".v") 0;
+	setAttr ($bindJoint3 + ".v") 0;
+	setAttr ($headWorldConstGrp + ".v") 0;
+
+	icCRlockHideAttr ( $neckCurve, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $ikHandle, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v,pvx,pvy,pvz,off,rol,twi,ikb" );
+	icCRlockHideAttr ( $neckConstGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $ikNeckCtrlGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $fkNeckCtrlGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $neckCtrlGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $headCtrlGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $neckCtrl, "sx,sy,sz,v" );
+	icCRlockHideAttr ( $headCtrl, "sx,sy,sz,v" );
+	icCRlockHideAttr ( $bindJoint1, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $bindJoint2, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $bindJoint3, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $neckConstGrp1, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $neckConstGrp2, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $neckJointsGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $headConstGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $headFollowConstGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $headWorldConstGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( ("neck_IKeffector" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $ikCtrlPointConst[0], "nodeState,offsetX,offsetY,offsetZ,w0,w1" );
+	icCRlockHideAttr ( $neckOrientConst1[0], "nodeState,offsetX,offsetY,offsetZ,int,w0,w1" );
+	icCRlockHideAttr ( $constGrpConstraint[0], "nodeState,offsetX,offsetY,offsetZ,w0,w1" );
+	icCRlockHideAttr ( $neckOrientConst2[0], "nodeState,offsetX,offsetY,offsetZ,int,w0,w1" );
+
+	icCRlockHideAttr ( $headCtrlOrientConst[0], "nodeState,offsetX,offsetY,offsetZ,int,w0,w1" );
+	icCRlockHideAttr ( $headJntPointConst[0], "nodeState,offsetX,offsetY,offsetZ,w0,w1" );
+	icCRlockHideAttr ( $headJntOrientConst[0], "nodeState,offsetX,offsetY,offsetZ,int,w0,w1" );
+	icCRlockHideAttr ( $fkJointConst[0], "nodeState,int,w0" );
+	icCRlockHideAttr ( $neckPointConst[0], "nodeState,offsetX,offsetY,offsetZ,w0,w1" );
+
+	for ($fkJoint in $FKjoints)
+	{
+		icCRlockHideAttr ( $fkJoint, "tx,ty,tz,sx,sy,sz,v" );
+	}
+
+	string $objectsToLayer[] = {$headCtrl,$neckCtrl};
+	icQRcontrolSet ( $charName, ("controls_set_" + $charName), $objectsToLayer, 0, 1, 0 );
+	icCRdisplayOverride ( $objectsToLayer, 0, 1, 18 );
+	icCRcreateCharSet ( $charName, "neck_cs", 1 , $objectsToLayer );
+
+	clear $objectsToLayer;
+	for ($fkJoint in $FKjoints) $objectsToLayer[size($objectsToLayer)] = $fkJoint;
+	icQRcontrolSet ( $charName, ("controls_set_" + $charName), $objectsToLayer, 0, 1, 0 );
+	icCRdisplayOverride ( $objectsToLayer, 0, 1, 29 );
+	icCRcreateCharSet ( $charName, "neck_cs", 1 , $objectsToLayer );
+
+	//the joints
+	clear $objectsToLayer;
+	$objectsToLayer = {$bindJoint1,$bindJoint2,$bindJoint1};
+	icQRcontrolSet ( $charName, ("dontTouch_set_" + $charName), $objectsToLayer, 2, 1, 3 );
+	clear $objectsToLayer;
+	for ($ikJoint in $IKjoints) $objectsToLayer[size($objectsToLayer)] = $ikJoint;
+	icQRcontrolSet ( $charName, ("dontTouch_set_" + $charName), $objectsToLayer, 2, 1, 3 );
+
+	clear $objectsToLayer;
+	$objectsToLayer = $joints;
+	$objectsToLayer = stringArrayRemove ( {$joints[0]}, $objectsToLayer );
+	$objectsToLayer[size($objectsToLayer)] = $rootJoint;
+	$objectsToLayer = `icQRreverseArray $objectsToLayer`;
+	icQRcontrolSet ( $charName, ("neck_skinJoints_set_" + $charName), $objectsToLayer, 2, 1, 3 );
+
+	//add the pickwalking attributes for the controls
+	icCRpickWalkSetup ( $headCtrl + "," + $neckCtrl );
+	string $reverseFKjoints[];
+	for ($j = size($FKjoints) - 1; $j >= 0; $j --)
+	{
+		$reverseFKjoints[size($reverseFKjoints)] = $FKjoints[$j];
+		icCRaddDefaultAttr $FKjoints[$j];
+	}
+	string $FKjointString = stringArrayToString ($reverseFKjoints, ",");
+	icCRpickWalkSetup ( $FKjointString );
+
+	connectAttr -f ("shoulder_ctrl" + $charName + ".charRigPickWalkUp") ($neckCtrl + ".charRigPickWalkDown");
+	connectAttr -f ("fkBack3_ctrl" + $charName + ".charRigPickWalkUp") ($FKjoints[0] + ".charRigPickWalkDown");
+
+	//control the visibility for the ik/fk controls based on the status
+	connectAttr -f ("shoulder_ctrl" + $charName + ".neck_status") ($FKjoints[0] + ".overrideVisibility");
+
+	setDrivenKeyframe -v 1 -dv 0 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($neckCtrl + ".overrideVisibility");
+	setDrivenKeyframe -v 0 -dv 1 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($neckCtrl + ".overrideVisibility");
+	setDrivenKeyframe -v 1 -dv 0 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($headCtrl + ".overrideVisibility");
+	setDrivenKeyframe -v 0 -dv 1 -cd ("shoulder_ctrl" + $charName + ".neck_status") ($headCtrl + ".overrideVisibility");
+
+	icCRaddDefaultAttr $headCtrl;
+	icCRaddDefaultAttr $neckCtrl;
+
+}

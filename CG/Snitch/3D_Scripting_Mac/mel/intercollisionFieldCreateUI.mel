@@ -1,0 +1,105 @@
+//
+//  Mel by Lalo
+//
+//	Plugin interface setup
+//
+//	Used to add and remove menu items for the plugin
+//
+
+proc createIntercollisionFieldRunTimeCommands ()
+{
+	if ( ! `runTimeCommand -exists IntercollisionField` )
+		runTimeCommand -annotation "Intercollision: Create an intercollision field.  Select objects to be affected by the field"
+			-command "performIntercollisionField 1 0" IntercollisionField;
+	if ( ! `runTimeCommand -exists IntercollisionOptions` )
+		runTimeCommand -annotation "Intercollision Options"
+			-command "performIntercollisionField 1 1" IntercollisionOptions;
+}
+
+proc addIntercollisionItemToFieldsMenu ()
+{
+	global string $gMainFieldsMenu;
+
+	// Force creation of Fields menu, to enable addition of plugin menu item
+	//
+	int $numberOfItems = `menu -query -numberOfItems $gMainFieldsMenu`;
+	if ( $numberOfItems == 0 )
+	{
+		string $postMenuCommand = `menu -query -postMenuCommand $gMainFieldsMenu`;
+		eval ( $postMenuCommand );
+	}
+
+	$menuItemArray = `menu -query -itemArray $gMainFieldsMenu`;
+	int $arraySize = size ( $menuItemArray );
+	int $pluginMenuItemNotFound = true;
+	string $afterMenuItem;
+	int $item = 0;
+	while ( ( $item < $arraySize ) && ( $pluginMenuItemNotFound ) )
+	{
+		$menuItem = $menuItemArray[$item];
+		if ( `menuItem -query -divider $menuItem` == false )
+		{
+			string $menuItemLabel = `menuItem -query -label $menuItem`;
+			int $strcmp = strcmp ( $menuItemLabel, "Intercollision" );
+			if ( $strcmp == 0 )
+				$pluginMenuItemNotFound = false;
+			else if ( $strcmp < 0 )
+				$afterMenuItem = $menuItem;
+
+			$item++;
+		}
+		else
+			$item = $arraySize;
+	}
+
+	if ( $pluginMenuItemNotFound )
+	{
+		$intercollisionMenuItem = `menuItem -label "Intercollision"
+			-annotation "Intercollision: Create an intercollision field.  Select objects to be affected by the field"
+			-command "IntercollisionField"
+			-dragMenuCommand "performIntercollisionField 1 2"
+			-image "intercollisionField.xpm"
+			-parent $gMainFieldsMenu
+			-insertAfter $afterMenuItem
+			createIntercollisionItem`;
+			menuItem -optionBox true
+				-label "Intercollision Option Box"
+				-image "intercollisionField.xpm"
+				-annotation "Intercollision Option Box"
+				-command "IntercollisionOptions"
+				-parent $gMainFieldsMenu
+				-insertAfter $intercollisionMenuItem
+				createIntercollisionDialogItem;
+	}
+}
+
+proc deleteIntercollisionFieldRunTimeCommands ()
+{
+	if ( ! `runTimeCommand -exists IntercollisionField` )
+		runTimeCommand -delete IntercollisionField;
+	if ( ! `runTimeCommand -exists IntercollisionOptions` )
+		runTimeCommand -delete IntercollisionOptions;
+}
+
+proc removeIntercollisionItemFromFieldsMenu ()
+{
+	global string $gMainFieldsMenu;
+
+	// Remove all items from menu and recreates them
+	//
+	string $postMenuCommand = `menu -query -postMenuCommand $gMainFieldsMenu`;
+	menu -edit -deleteAllItems $gMainFieldsMenu;
+	eval ( $postMenuCommand );
+}
+
+global proc intercollisionFieldCreateUI ()
+{
+	createIntercollisionFieldRunTimeCommands;
+	addIntercollisionItemToFieldsMenu;
+}
+
+global proc intercollisionFieldDeleteUI ()
+{
+	deleteIntercollisionFieldRunTimeCommands;
+	removeIntercollisionItemFromFieldsMenu;
+}

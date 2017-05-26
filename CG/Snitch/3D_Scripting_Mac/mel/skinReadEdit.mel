@@ -1,0 +1,42 @@
+global proc skinReadEdit ( string $mesh, vector $vrt, string $influences[], float $weights[] )
+{
+	float $tolerance = 0.01;
+	
+	selwct -r $mesh;
+	
+	string $hisList[] = `listHistory $mesh` ;
+	string $sknClstr;
+
+	for ( $aNode in $hisList )
+		if ( `nodeType $aNode` == "skinCluster" )
+			$sknClstr = $aNode;
+	
+	int $numVerts[] = `polyEvaluate -vertex $mesh`;
+			
+	// the component information
+	
+	float $sourceX = ( $vrt.x );
+	float $sourceY = ( $vrt.y );
+	float $sourceZ = ( $vrt.z );
+	
+	int $vertex;
+    
+	for ( $n = 0; $n < $numVerts[0]; $n++ )
+		{
+			float $pos[] = `xform -query -translation -worldSpace ( $mesh + ".vtx[" + $n + "]" )`;
+			
+			if ( ( $pos[0] < ( $sourceX + $tolerance ) ) && ( $pos[0] > ( $sourceX - $tolerance ) ) )
+                if ( ( $pos[1] < ( $sourceY + $tolerance ) ) && ( $pos[1] > ( $sourceY - $tolerance ) ) )
+						if ( ( $pos[1] < ( $sourceY + $tolerance ) ) && ( $pos[1] > ( $sourceY - $tolerance ) ) )
+							$vertex = $n;
+		}
+	
+	string $command;
+	
+	for ( $n = 0; $n < `size $influences`; $n++ )
+		$command = ( $command + "-tv " + $influences[$n] + " " + $weights[$n] + " " );
+	
+	$command = ( "skinPercent " + $command + $sknClstr + " " + $mesh + ".vtx[" + $vertex + "]" );
+	evalEcho $command;
+	
+}

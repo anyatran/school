@@ -1,0 +1,28 @@
+//Author: Patrick Drewello 2010
+//Manchester School of Architecture
+//loop to test intersection of 2 types of species
+/////////////////////////////////////////////////
+//stage: alpha_release
+
+string $sphere []= `ls -tr "SH*"`;		// list all boxes in array
+string $box []= `ls -tr "PB*"`;		// list all boxes in array
+ 
+for ($i=0;$i<100;$i++) {	
+	for ($j=0;$j<100;$j++) {
+
+		float $inside = 1;
+		
+		
+		float $PD_coord1 = `getAttr ($sphere[$i] + ".center")`;	//position axes
+		float $PD_coord2 = `getAttr ($box[$j] + ".center")`;		//position axes
+
+			//test if intersect, true
+			if ((distanceDimension -sp $PD_coord1 -ep $PD_coord2) < 1.5) {		
+				move 1 2 1;
+				currentTime $j;
+			}
+
+			
+			
+	}
+}

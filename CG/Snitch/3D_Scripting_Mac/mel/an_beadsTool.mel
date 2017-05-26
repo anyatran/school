@@ -1,0 +1,89 @@
+   
+/*
+    Script:     an_beadsTool
+    Version:    2.1
+    Author:     Andrey Belyaev  
+    Website:    www.3drigging.com 
+
+    Descr:      The script creates a duplicate  (or instance)  of the specified object and places it  on the curve.";
+		 		To delete rig, select the curve and press "Delete rig";
+*/
+
+
+global proc an_beadsTool()
+{
+    $win = "an_beads_win";
+    if (`window -exists $win`)
+deleteUI $win;
+window -t "Beads rigging tools" -w 450 -h 260 $win;
+columnLayout -adj true -co "both" 10 ;
+separator -st "none" -h 6;
+ text -label "Replace objects on curve. Select object, then select curve" 
+      -align "left"; 
+separator -st "none" -h 6;
+	 intSliderGrp -f 1 -min 0 -max 500 -v 0 -l "Objects quantity :" ISG_quantity;
+separator -st "none" -h 6;
+	 radioButtonGrp -l " " -nrb 2 -la2 "Duplicate" "Instance" -sl 1 RBG_tape;
+separator -st "none" -h 6;	
+			rowColumnLayout -nc 3   -cw 1 140 -cw 2 140 -cw 3 140 ;	
+			 button   -l  "Help" -c "an_BeadsRigHelp()";
+			 button   -l "Delete beads rig" -c "an_deleteBeadsRig()"; 
+			 button   -l "Make beads rig" -c "an_doBeads()";
+			setParent ..;
+showWindow $win;	
+}
+
+global proc an_deleteBeadsRig()
+{
+string $sel[] = `ls -sl`;
+delete ($sel[0]+"_Beads_rig");
+}
+
+global proc an_doBeads()
+ {
+string $sel[] = `ls -sl`;
+int $quantity = `intSliderGrp -q -v ISG_quantity`;
+int $tape = `radioButtonGrp -q -select RBG_tape`;
+string $curveName = $sel[1] ;
+string $souceSphereName = $sel[0] ;
+string $SphereName[];
+string $rigGrp = `group -empty -n ($curveName+"_Beads_rig")`;
+
+		 
+string $animCurveName[] =` rebuildCurve -ch 1 -rpo 0 -rt 0 -end 1 -kr 2 -kcp 0 
+-kep 1 -kt 1 -s $quantity -d 3 -tol 0.01 $curveName`;
+string $animCurveShape[] =  `listRelatives -s $animCurveName[0]`; 
+
+ parent $animCurveName[0] $rigGrp;
+
+string $curveInfo = `createNode "curveInfo"`;
+connectAttr ($animCurveShape[0]+".worldSpace[0]") ($curveInfo+".inputCurve");
+
+int $i;
+for ( $i=0; $i<($quantity+3);$i=$i+1)
+		{
+				if ($tape ==2 )
+					{$SphereName =` duplicate -rr -ilf  $souceSphereName`;}
+				else {$SphereName =` duplicate -rr  $souceSphereName`;}
+		connectAttr -f ($curveInfo+".controlPoints["+$i+"]") ($SphereName[0]+".translate");
+		parent $SphereName $rigGrp;
+		 if ($i== 1 || $i==($quantity+1)) delete $SphereName;
+		}
+setAttr ($animCurveName[0]+".v") 0;
+select $curveName;
+}
+
+global proc an_BeadsRigHelp() 
+{
+ $win = "an_Beads_Help";
+    if (`window -exists $win`)
+deleteUI $win;
+	window -t "Beads rigging Help" -w 250 -h 230 $win;
+	   columnLayout -adj true -co "both" 10 ; 
+		 text -al "left" "The script creates a duplicate  (or instance)\n of the specified object and places it\n on the curve.";
+		 text -al "left" "To delete  select the curve and press \n \"Delete rig\" ";
+		  separator -h 10 ;
+		 text -al "center" "© Andrey Belyaev \n www.3drigging.com ";
+		  button   -l "Close" -c ("deleteUI \""+$win+"\"") ;
+showWindow $win;
+}

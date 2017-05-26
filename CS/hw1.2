@@ -1,0 +1,62 @@
+
+.data
+    posint: .ascii "Positive integer: "
+    result: .ascii "The value of 'factorial("
+    result2: .ascii ")' is:  \n"
+.text
+
+    main:
+        li $v0, 4           # specify Print String service
+        la $a0, posint        # load address of the print heading string
+    	syscall               # print the heading string
+    	
+    	li $v0, 5 #read_int
+	syscall
+	move $t0, $v0 #???
+    	#add $a0, $zero, $t0
+
+  	#move $ra, $t0
+  	add $a0, $zero, $t0
+	jal factorial
+  	#move $t0, $ra
+
+      	li $v0, 4           # specify Print String service
+  	la $a0, result        # load address of the print heading string
+    	syscall   
+    	
+    	move $a0, $t0 #print the int result
+    	li $v0, 1
+    	syscall
+    	
+    	li $v0, 4           # specify Print String service
+    	la $a0, result2        # load address of the print heading string
+    	syscall 
+    	
+    	li $v0, 0
+    	
+  	li  $v0, 10
+  	syscall
+    
+  	jr $ra
+  
+    factorial:
+  	move $t0, $a0 #x is a0
+  	beq $t0, $zero, myreturn1 #if x = 0, got to 1
+  	
+  	subi $a0, $t0, 1
+  	subi $sp, $sp, 20
+  	sw $a0, 4($sp)
+  	sw $ra, 0($sp)
+  	jal factorial
+  	lw $ra, 0($sp)
+  	lw $a0, 4($sp) # return from jal: restore argument n
+  	addi $sp, $sp, 20 # adjust stack pointer to pop 2 items
+	mul $v0, $a0, $v0 # return n * fact (n ? 1)
+	
+      myreturn1:
+        addi $a0,$zero,1 # return 1 if x
+        li $v0, 1
+        syscall
+	#addi $sp,$sp, 20 # pop 2 items off stackv0
+	jr $ra # return to caller
+    	

@@ -1,0 +1,515 @@
+/* usage: nRB_createUI()
+
+   nRB_createUI.mel v.1.2
+   CyberArts Script File
+   Creation Date: 5/15/02
+   Update: 8/31/06
+   Author: Robert Rusick
+
+
+   See "NURBS_RoundedBox_Notes.txt" for details
+   ( or read HTML documentation )
+   -----------------------------------------
+   Related scripts:
+
+     NURBS_RoundedBox.mel
+       Create a rounded box.
+
+     nRB_createUI.mel
+       Create a UI box to set rounded box options.
+
+     nRB_testHierarchy.mel
+       Test the hierarchy of an group
+       to see if it is an unaltered rounded box group.
+
+     nRB_deleteControls.mel
+       Selectively delete controls and history from a rounded box.
+
+     nRB_deleteControlsUI.mel
+       Create a UI box to set rounded box delete controls options.
+
+     nRB_attachSurfaces.mel
+       Attach rounded box surfaces.
+
+     nRB_attachSurfacesUI.mel
+       Create a UI box to set rounded box attach surfaces options.
+
+     getHelpDocs.mel
+       Used to call up HTML documentation.
+
+   ---------------------------------------------
+   History:
+   v.1.01 -- 11/28/03
+
+   v.1.1  -- 8/4/05
+      use 'getHelpDocs' to find path for help files.
+
+   v.1.2  -- 8/31/06
+      disabled menu bar help to avoid problems with Maya 8
+*/
+
+
+
+/* =======================================================================================
+                                  SET OPTION VARS
+   =======================================================================================
+   Description: Initialize the option values.
+   Input Arguments: Whether to set the options to default values.
+   Return Value: None.
+*/
+
+global proc nRB_SetOptionVars (int $useDefaults )
+{
+  // if these option vars don't exist (or "useDefaults" is set true),
+  // create option vars and set default values
+
+  // Bevel
+  if ($useDefaults || ! `optionVar -ex nRB_BevelRadius`)      optionVar -fv nRB_BevelRadius   0.05;
+  if ($useDefaults || ! `optionVar -ex nRB_BevelSpans`)       optionVar -iv nRB_BevelSpans    3;
+  if ($useDefaults || ! `optionVar -ex nRB_BevelSections`)    optionVar -iv nRB_BevelSections 3;
+
+  // Size
+  if ($useDefaults || ! `optionVar -ex nRB_SizeX`)            optionVar -fv nRB_SizeX 1.0;
+  if ($useDefaults || ! `optionVar -ex nRB_SizeY`)            optionVar -fv nRB_SizeY 1.0;
+  if ($useDefaults || ! `optionVar -ex nRB_SizeZ`)            optionVar -fv nRB_SizeZ 1.0;
+
+  // Sections
+  if ($useDefaults || ! `optionVar -ex nRB_SpanX`)            optionVar -iv nRB_SpanX 3;
+  if ($useDefaults || ! `optionVar -ex nRB_SpanY`)            optionVar -iv nRB_SpanY 3;
+  if ($useDefaults || ! `optionVar -ex nRB_SpanZ`)            optionVar -iv nRB_SpanZ 3;
+
+  // Feature switches
+  if ($useDefaults || ! `optionVar -ex nRB_BoxLock`)          optionVar -iv nRB_BoxLock   1;
+  if ($useDefaults || ! `optionVar -ex nRB_WedgeLock`)        optionVar -iv nRB_WedgeLock 1;
+  if ($useDefaults || ! `optionVar -ex nRB_EdgeLock`)         optionVar -iv nRB_EdgeLock  1;
+
+  // Feature factors
+  if ($useDefaults || ! `optionVar -ex nRB_BevelFactor`)      optionVar -fv nRB_BevelFactor 1.0;
+  if ($useDefaults || ! `optionVar -ex nRB_SizeFactorA`)      optionVar -fv nRB_SizeFactorA 1.0;
+  if ($useDefaults || ! `optionVar -ex nRB_SizeFactorB`)      optionVar -fv nRB_SizeFactorB 1.0;
+  if ($useDefaults || ! `optionVar -ex nRB_EdgeAdjust`)       optionVar -fv nRB_EdgeAdjust  0.5;
+
+  // Pole axis
+  if ($useDefaults || ! `optionVar -ex nRB_Axis`)             optionVar -sv nRB_Axis "+y";
+
+  // Controls
+  if ($useDefaults || ! `optionVar -ex nRB_CreateControls`)   optionVar -iv nRB_CreateControls true;
+}
+
+/* =======================================================================================
+                                  REMOVE OPTION VARS
+   =======================================================================================
+   Description: Remove the option values.
+   Input Arguments: None.
+   Return Value: None.
+
+   This has been used mainly to test
+   whether 'set option vars' had been working as desired;
+   by deleting the option vars and seeing whether they are recreated.
+*/
+
+global proc nRB_RemoveOptionVars()
+{
+  optionVar -rm nRB_BevelRadius;
+  optionVar -rm nRB_BevelSpans;
+  optionVar -rm nRB_BevelSections;
+
+  optionVar -rm nRB_SizeX;
+  optionVar -rm nRB_SizeY;
+  optionVar -rm nRB_SizeZ;
+
+  optionVar -rm nRB_SpanX;
+  optionVar -rm nRB_SpanY;
+  optionVar -rm nRB_SpanZ;
+
+  optionVar -rm nRB_BoxLock;
+  optionVar -rm nRB_WedgeLock;
+  optionVar -rm nRB_EdgeLock;
+
+  optionVar -rm nRB_BevelFactor;
+  optionVar -rm nRB_SizeFactorA;
+  optionVar -rm nRB_SizeFactorB;
+  optionVar -rm nRB_EdgeAdjust;
+
+  optionVar -rm nRB_Axis;
+
+  optionVar -rm nRB_CreateControls;
+}
+
+
+/* =======================================================================================
+                                  SETUP
+   =======================================================================================
+   Description: Update the state of the option box UI to reflect the option values.
+
+   Input Arguments:
+     parent               - Top level parent layout of the option box UI.
+                            Required so that UI object names can be successfully resolved.
+
+     $useDefaults - Whether the option values should be set to default values.
+
+   Return Value: None.
+*/
+
+global proc nRB_Setup(string $parent, int $useDefaults)
+{
+  // Retrieve the option settings
+  nRB_SetOptionVars($useDefaults);
+
+  setParent $parent;
+
+  // Query the optionVar's and set the values into the controls.
+
+  // Bevel
+  floatSliderGrp -e -v `optionVar -q nRB_BevelRadius`   nRB_BevelRadius;
+  intSliderGrp   -e -v `optionVar -q nRB_BevelSpans`    nRB_BevelSpans;
+  intSliderGrp   -e -v `optionVar -q nRB_BevelSections` nRB_BevelSections;
+
+  // Size
+  floatSliderGrp -e -v `optionVar -q nRB_SizeX` nRB_SizeX;
+  floatSliderGrp -e -v `optionVar -q nRB_SizeY` nRB_SizeY;
+  floatSliderGrp -e -v `optionVar -q nRB_SizeZ` nRB_SizeZ;
+
+  // Sections
+  intSliderGrp   -e -v `optionVar -q nRB_SpanX` nRB_SpanX;
+  intSliderGrp   -e -v `optionVar -q nRB_SpanY` nRB_SpanY;
+  intSliderGrp   -e -v `optionVar -q nRB_SpanZ` nRB_SpanZ;
+
+  // Feature switches
+  checkBox -e -v `optionVar -q nRB_BoxLock`   nRB_BoxLock;
+  checkBox -e -v `optionVar -q nRB_WedgeLock` nRB_WedgeLock;
+  checkBox -e -v `optionVar -q nRB_EdgeLock`  nRB_EdgeLock;
+
+  // Feature factors
+  floatSliderGrp -e -v  `optionVar -q nRB_BevelFactor` nRB_BevelFactor;
+  floatSliderGrp -e -v  `optionVar -q nRB_SizeFactorA` nRB_SizeFactorA;
+  floatSliderGrp -e -v  `optionVar -q nRB_SizeFactorB` nRB_SizeFactorB;
+  floatSliderGrp -e -v  `optionVar -q nRB_EdgeAdjust`  nRB_EdgeAdjust;
+
+  // Pole axis
+  string $selection;
+  string $axisSelection = `optionVar -q nRB_Axis`;
+  switch ($axisSelection)
+  { case "+x": $selection = "axisXpos"; break;
+    case "+y": $selection = "axisYpos"; break;
+    case "+z": $selection = "axisZpos"; break;
+    case "-x": $selection = "axisXneg"; break;
+    case "-y": $selection = "axisYneg"; break;
+    case "-z": $selection = "axisZneg"; break;
+
+    default:   $selection = "axisZpos"; break;
+  }
+  radioCollection -e -sl $selection nRB_AxisCollection;
+
+  // CreateControls
+  checkBox -e -v `optionVar -q nRB_CreateControls` nRB_CreateControls;
+
+  // Grey out options as required
+  string $EdgeLock_on  = "floatSliderGrp -e -en 0 nRB_EdgeAdjust;\n";
+  string $EdgeLock_off = "floatSliderGrp -e -en 1 nRB_EdgeAdjust;\n";
+  string $testEdgeLock = (
+  "if (`optionVar -q nRB_EdgeLock`) " + $EdgeLock_on +
+  "else                            " + $EdgeLock_off);
+
+  string $WedgeLock_on  = ("floatSliderGrp -e -en 0 nRB_SizeFactorB;\n" +
+                           "checkBox       -e -en 0 nRB_EdgeLock;\n" +
+                           $EdgeLock_on);
+  string $WedgeLock_off = ("floatSliderGrp -e -en 1 nRB_SizeFactorB;\n" +
+                           "checkBox       -e -en 1 nRB_EdgeLock;\n" +
+                           $testEdgeLock);
+  string $testWedgeLock = (
+  "if (`optionVar -q nRB_WedgeLock`) { " + $WedgeLock_on  + " }\n" +
+  "else                             { " + $WedgeLock_off + " }\n" );
+
+  string $BoxLock_on  = ("floatSliderGrp -e -en 0 nRB_BevelFactor;\n" +
+                         "floatSliderGrp -e -en 0 nRB_SizeFactorA;\n" +
+                         "checkBox       -e -en 0 nRB_WedgeLock;\n" +
+                         $WedgeLock_on);
+  string $BoxLock_off = ("floatSliderGrp -e -en 1 nRB_BevelFactor;\n" +
+                         "floatSliderGrp -e -en 1 nRB_SizeFactorA;\n" +
+                         "checkBox       -e -en 1 nRB_WedgeLock;\n" +
+                         $testWedgeLock);
+  string $testBoxLock = (
+  "if (`optionVar -q nRB_BoxLock`) { " + $BoxLock_on  + " }\n" +
+  "else                           { " + $BoxLock_off + " }\n");
+
+  eval $testBoxLock;
+}
+
+
+/* =======================================================================================
+                                  CALLBACK
+   =======================================================================================
+   Description: Update the option values with the current state of the option box UI.
+
+   Input Arguments:
+      parent - Top level parent layout of the option box UI.  Required so
+               that UI object names can be successfully resolved.
+
+      doIt   - Whether the command should execute.
+
+   Return Value: None.
+*/
+
+global proc nRB_Callback(string $parent, int $doIt)
+{
+  setParent $parent;
+  // Set the optionVar's from the control values, and then perform the command.
+
+  // Bevel
+  optionVar -fv nRB_BevelRadius   `floatSliderGrp -q -v nRB_BevelRadius`;
+  optionVar -iv nRB_BevelSpans    `intSliderGrp   -q -v nRB_BevelSpans`;
+  optionVar -iv nRB_BevelSections `intSliderGrp   -q -v nRB_BevelSections`;
+
+  // Size
+  optionVar -fv nRB_SizeX         `floatSliderGrp -q -v nRB_SizeX`;
+  optionVar -fv nRB_SizeY         `floatSliderGrp -q -v nRB_SizeY`;
+  optionVar -fv nRB_SizeZ         `floatSliderGrp -q -v nRB_SizeZ`;
+
+  // Section
+  optionVar -iv nRB_SpanX         `intSliderGrp   -q -v nRB_SpanX`;
+  optionVar -iv nRB_SpanY         `intSliderGrp   -q -v nRB_SpanY`;
+  optionVar -iv nRB_SpanZ         `intSliderGrp   -q -v nRB_SpanZ`;
+
+  // Feature switches
+  optionVar -iv nRB_BoxLock       `checkBox       -q -v nRB_BoxLock`;
+  optionVar -iv nRB_WedgeLock     `checkBox       -q -v nRB_WedgeLock`;
+  optionVar -iv nRB_EdgeLock      `checkBox       -q -v nRB_EdgeLock`;
+
+  // Feature factors
+  optionVar -fv nRB_BevelFactor   `floatSliderGrp -q -v nRB_BevelFactor`;
+  optionVar -fv nRB_SizeFactorA   `floatSliderGrp -q -v nRB_SizeFactorA`;
+  optionVar -fv nRB_SizeFactorB   `floatSliderGrp -q -v nRB_SizeFactorB`;
+  optionVar -fv nRB_EdgeAdjust    `floatSliderGrp -q -v nRB_EdgeAdjust`;
+
+  // Pole axis
+  string $selection;
+  string $axisSelection = `radioCollection -q -sl nRB_AxisCollection`;
+  switch ($axisSelection)
+  { case "axisXpos": $selection = "+x"; break;
+    case "axisYpos": $selection = "+y"; break;
+    case "axisZpos": $selection = "+z"; break;
+    case "axisXneg": $selection = "-x"; break;
+    case "axisYneg": $selection = "-y"; break;
+    case "axisZneg": $selection = "-z"; break;
+
+    default: $selection = "default"; break;
+  }
+  optionVar -sv nRB_Axis $selection;
+
+  // Create Controls
+  optionVar -iv nRB_CreateControls `checkBox -q -v nRB_CreateControls`;
+
+  if ($doIt) NURBS_RoundedBox ;
+}
+
+
+/* =======================================================================================
+                                  OPTIONS
+   =======================================================================================
+   Description: Construct the option box UI.
+     Involves accessing the standard option box and customizing the UI accordingly.
+
+   Input Arguments: None.
+   Return Value: None.
+
+   8/4/04 ---
+   Using 'getHelpDocsLoc' (defined in 'getHelpDocs.mel')
+   to create the 'help file' string.
+
+*/
+
+global proc nRB_Options()
+{
+  // Name of the command for this option box.
+  string $commandName = "nRB_";
+
+  // Build the option box actions.
+  string $callback = ($commandName + "Callback");
+  string $setup    = ($commandName + "Setup");
+
+  // Set up 'help file' string
+  if (! `exists getHelpDocLoc` ) source getHelpDocs.mel;
+
+  string $helpFile = ("file://" + `getHelpDocLoc "nRB_createUI.mel" "RoundedBox/nRB_intro.html"` );
+
+  /* STEP 1:  Get the option box.
+     ============================
+     The value returned is the name of the layout to be used as
+     the parent for the option box UI.
+  */
+  string $layout = getOptionBox();
+  setParent $layout;
+
+  /* STEP 2:  Pass the command name to the option box.
+     =================================================
+     Any default option box behaviour based on the command name is set up with this call.
+     For example, updating the 'Help' menu item with the name of the command.
+  */
+  setOptionBoxCommandName($commandName);
+
+  /* STEP 3:  Activate the default UI template.
+     ==========================================
+     Activate the default UI template so that the layout of this
+     option box is consistent with the layout of the rest of the
+     application.
+  */
+  setUITemplate -pushTemplate DefaultTemplate;
+
+  // Turn on the wait cursor.
+  waitCursor -state 1;
+
+  /* STEP 4: Create option box contents.
+     =================================== */
+  tabLayout -scr true -tv false;
+  string $parent = `columnLayout -adjustableColumn 1 newRoundedBoxUI`;
+
+  // Bevel
+  floatSliderGrp -l "Bevel Radius"  -min 0 -max 10  -fmn -0 -fmx 100000 nRB_BevelRadius;
+  intSliderGrp   -l "Bevel Spans"   -min 2 -max 10  -fmn -2 -fmx 255    nRB_BevelSpans;
+  intSliderGrp   -l "Bevel Section" -min 2 -max 10  -fmn -2 -fmx 255    nRB_BevelSections;
+
+  separator;
+
+  // Size
+  floatSliderGrp -l "Size X" -min 0 -max 100 -fmn -0 -fmx 100000 nRB_SizeX;
+  floatSliderGrp -l "Size Y" -min 0 -max 100 -fmn -0 -fmx 100000 nRB_SizeY;
+  floatSliderGrp -l "Size Z" -min 0 -max 100 -fmn -0 -fmx 100000 nRB_SizeZ;
+
+  separator;
+
+  // Section
+  intSliderGrp -l "Span X (lattice s)" -min 1 -max 10  -fmn -1 -fmx 255 nRB_SpanX;
+  intSliderGrp -l "Span Y (lattice t)" -min 1 -max 10  -fmn -1 -fmx 255 nRB_SpanY;
+  intSliderGrp -l "Span Z (lattice u)" -min 1 -max 10  -fmn -1 -fmx 255 nRB_SpanZ;
+
+  separator;
+
+  // Pole axis
+  radioCollection nRB_AxisCollection;
+  rowLayout -nc 2 -cw 2 260 -cal 2 "left";
+    text -l "   Pole Axis   ";
+    rowLayout -nc 6 -cw6 40 40 40 40 40 40;
+      radioButton -l "+x" -al "left" axisXpos;
+      radioButton -l "+y" -al "left" axisYpos;
+      radioButton -l "+z" -al "left" axisZpos;
+      radioButton -l "-x" -al "left" axisXneg;
+      radioButton -l "-y" -al "left" axisYneg;
+      radioButton -l "-z" -al "left" axisZneg;
+    setParent ..;
+  setParent $parent;
+
+  separator;
+
+  // Feature switches
+  rowLayout -nc 2 -cw 2 260 -cal 2 "left";
+    text -l "";
+    columnLayout;
+      checkBox -l "Lock to box shapes"       -al "left" nRB_BoxLock;
+      checkBox -l "Lock to wedge shapes"     -al "left" nRB_WedgeLock;
+      checkBox -l "Lock pole bevel tangency" -al "left" nRB_EdgeLock;
+    setParent ..;
+  setParent $parent;
+
+  separator;
+
+  // Feature factors
+  floatSliderGrp -l "Bevel Factor"          -min 0 -max 100 -fmn -0 -fmx 100000 nRB_BevelFactor;
+  floatSliderGrp -l "Primary Size Factor"   -min 0 -max 100 -fmn -0 -fmx 100000 nRB_SizeFactorA;
+  floatSliderGrp -l "Secondary Size Factor" -min 0 -max 100 -fmn -0 -fmx 100000 nRB_SizeFactorB;
+  floatSliderGrp -l "Pole Bevel Adjustment" -min 0 -max 1   -fmn -0 -fmx 1      nRB_EdgeAdjust;
+
+  separator;
+
+  rowLayout -nc 2 -cw 2 260 -cal 2 "left";
+    text -l "";
+    columnLayout;
+      checkBox -l "Create Controls" -al "left" nRB_CreateControls;
+    setParent ..;
+  setParent $parent;
+
+  // Grey out options as required
+  string $EdgeLock_on  = "floatSliderGrp -e -en 0 nRB_EdgeAdjust;\n";
+  string $EdgeLock_off = "floatSliderGrp -e -en 1 nRB_EdgeAdjust;\n";
+  string $testEdgeLock = (
+  "if (`optionVar -q nRB_EdgeLock`) " + $EdgeLock_on +
+  "else                            " + $EdgeLock_off);
+
+  string $WedgeLock_on  = ("floatSliderGrp -e -en 0 nRB_SizeFactorB;\n" +
+                           "checkBox       -e -en 0 nRB_EdgeLock;\n" +
+                           $EdgeLock_on);
+  string $WedgeLock_off = ("floatSliderGrp -e -en 1 nRB_SizeFactorB;\n" +
+                           "checkBox       -e -en 1 nRB_EdgeLock;\n" +
+                           $testEdgeLock);
+  string $testWedgeLock = (
+  "if (`optionVar -q nRB_WedgeLock`) { " + $WedgeLock_on  + " }\n" +
+  "else                             { " + $WedgeLock_off + " }\n" );
+
+  string $BoxLock_on  = ("floatSliderGrp -e -en 0 nRB_BevelFactor;\n" +
+                         "floatSliderGrp -e -en 0 nRB_SizeFactorA;\n" +
+                         "checkBox       -e -en 0 nRB_WedgeLock;\n" +
+                         $WedgeLock_on);
+  string $BoxLock_off = ("floatSliderGrp -e -en 1 nRB_BevelFactor;\n" +
+                         "floatSliderGrp -e -en 1 nRB_SizeFactorA;\n" +
+                         "checkBox       -e -en 1 nRB_WedgeLock;\n" +
+                         $testWedgeLock);
+  string $testBoxLock = (
+  $callback + " " + $parent + " " + 0 + ";\n" +
+  "if (`optionVar -q nRB_BoxLock`) { " + $BoxLock_on  + " }\n" +
+  "else                           { " + $BoxLock_off + " }\n" );
+
+  checkBox -e -cc $testBoxLock  nRB_EdgeLock;
+  checkBox -e -cc $testBoxLock  nRB_WedgeLock;
+  checkBox -e -cc $testBoxLock  nRB_BoxLock;
+
+  // Turn off the wait cursor.
+  waitCursor -state 0;
+
+  /* Step 5: Deactivate the default UI template.
+     =========================================== */
+  setUITemplate -popTemplate;
+
+  /* Step 6: Customize the buttons.
+     ==============================
+     Provide more descriptive labels for the buttons.
+     Disable those buttons that are not applicable to the option box.
+     Attach actions to those buttons that are applicable to the option box.
+  */
+
+  // 'Apply' button.
+  string $applyBtn = getOptionBoxApplyBtn();
+  button -e -l "Create" -c ($callback + " " + $parent + " " + 1) $applyBtn;
+
+  // 'Save' button.
+  string $saveBtn = getOptionBoxSaveBtn();
+  button -e -c ($callback + " " + $parent + " " + 0 + "; hideOptionBox") $saveBtn;
+
+  // 'Reset' button.
+  string $resetBtn = getOptionBoxResetBtn();
+  button -e -c ($setup + " " + $parent + " " + 1) $resetBtn;
+
+  /* Step 7: Set the option box title.
+     ================================= */
+  setOptionBoxTitle("NURBS Rounded Box Options");
+
+	/*	Step 8: Customize the 'Help' menu item text.
+	  	============================================ */
+	// setOptionBoxHelpTag( "-absolute \"" + $helpFile + "\"" );
+	setOptionBoxHelpTag( "" );
+
+  /* Set the current values of the option box.
+     ========================================= */
+  eval (($setup + " " + $parent + " " + 0));
+
+  /* Show the option box.
+     ==================== */
+  showOptionBox();
+}
+
+
+/* =======================================================================================
+                               CREATE UI
+   =======================================================================================
+*/
+
+global proc nRB_createUI() { nRB_Options; }

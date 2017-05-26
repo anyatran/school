@@ -1,0 +1,31 @@
+//Renaming Tool
+
+//Create the window
+
+string $RNM_Win = `window -t "Rename It!"`;
+
+//Make the window a columnLayout and adjustable
+
+columnLayout -adj 1;
+
+//Query your selection
+
+string $sel[] = `ls -sl`;
+
+//for loop - so we can access and apply the command to each selected object individually
+
+for ($each in $sel ){
+
+    //Name Field - acqure the name of selected objects and allow to remane them
+    
+    nameField -o $each;
+
+}
+
+//Button on window for closing out our Renaming Tool
+
+button -l "CLOSE" -c "deleteUI -window $RNM_Win";
+
+//Shows our Renaming Window
+
+showWindow $RNM_Win;

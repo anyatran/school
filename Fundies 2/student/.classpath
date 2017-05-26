@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="/Users/anna_tran2008/Documents/workspace/Lab11/jpt.jar"/>
+	<classpathentry kind="lib" path="/Users/anna_tran2008/Documents/workspace/Lab11/sorting.jar"/>
+	<classpathentry kind="lib" path="/Users/anna_tran2008/Documents/workspace/tester.jar"/>
+	<classpathentry kind="lib" path="/Users/anna_tran2008/Documents/workspace/javalib-1.0.3.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

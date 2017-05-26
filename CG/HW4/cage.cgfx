@@ -1,0 +1,185 @@
+/* Anh Tran
+Cage function */
+
+#ifndef FXCOMPOSER_VERSION	/* for very old versions */
+#define FXCOMPOSER_VERSION 180
+#endif /* FXCOMPOSER_VERSION */
+
+
+#define LIGHT_COORDS "World"
+/
+
+/* value Script: 
+    - no UI name
+    - class: Object
+    - Outputting a color
+    - equals to 0.8
+*/
+float Script : STANDARDSGLOBAL <
+    string UIWidget = "none";
+    string ScriptClass = "object";
+    string ScriptOrder = "standard";
+    string ScriptOutput = "color";
+    string Script = "Technique=Main;";
+> = 0.8;
+
+/*
+two matrixes 4x4
+gWvpXf is a Model * View * Projection
+gWorldXf is a World
+both of them don't have a UI name
+*/
+
+float4x4 gWvpXf : WorldViewProjection < string UIWidget="None"; >;
+float4x4 gWorldXf : World < string UIWidget="None"; >;
+
+/******** TWEAKABLES ****************************************/
+/*
+Wire is a yellow color, with RGBA of (1, 0.8, 0, 1)
+*/
+float4 gWireColor <
+    string UIName = "Wire";
+    string UIWidget = "color";
+> = {1.0f, 0.8f, 0.0f, 1.0f};
+/*
+Empty Color is black color with RGBA of (0, 0, 0, 0)
+*/
+float4 gEmptyColor <
+    string UIName = "Empty Space";
+    string UIWidget = "Color";
+> = {0.0f, 0.0f, 0.0f, 0.0f};
+
+/*
+Slider is a float between 0.0 and 1.0
+The balance between light and dark parts of the stripe
+*/
+float gBalance <
+    string UIWidget = "slider";
+    float uimin = 0.0;
+    float uimax = 1.0;
+    float uistep = 0.01;
+    string UIName = "Relative Width of Wire";
+> = 0.1;
+
+/*
+gScale is a Size of Pattern in inches, ranging [0,20] and 
+for now is initialized to 5.1 in
+*/
+
+float gScale : UNITSSCALE <
+    string units = "inches";
+    string UIWidget = "slider";
+    float uimin = 0.0;
+    float uimax = 20.0;
+    float uistep = 0.01;
+    string UIName = "Size of Pattern";
+> = 5.1;
+
+/////////////// prodecural texture /////////////
+
+#include "include/stripe_tex.cgh"
+
+/************* DATA STRUCTS **************/
+
+/* data from application vertex buffer */
+/*
+STRUCTS SECTION 
+Input from application
+*/
+struct appdata {
+    float3 Position    : POSITION;
+    float4 UV        : TEXCOORD0;
+    float4 Normal    : NORMAL;
+};
+
+/* data passed from vertex shader to pixel shader 
+   output to the program
+   */
+struct vertexOutput {
+    float4 HPosition    : POSITION;
+    float4 TexCoord    : TEXCOORD0;//
+};
+
+/*********** vertex shader ******/
+
+vertexOutput mainVS(appdata IN,
+		uniform float4x4 WvpXf,
+		uniform float4x4 WorldXf,
+		uniform float Scale
+) {
+    vertexOutput OUT;
+    float4 Po = float4(IN.Position.xyz,1.0); /* Po = input color with alpha = 1 */
+    float4 hpos  = mul(WvpXf,Po);
+    OUT.HPosition  = hpos;
+    float4 Pw = mul(WorldXf,Po);
+    OUT.TexCoord = Pw * Scale;
+    return OUT;
+}
+
+/******************** pixel shader *********************/
+/*
+
+*/
+float4 strokeTexPS(vertexOutput IN,
+		    uniform float4 WireColor,
+		    uniform float4 EmptyColor,
+		    uniform float Balance,
+		    uniform sampler2D StripeSampler) : COLOR {
+    /* x-stripe = (x-coord, 1-balance)*/
+    float stripex =
+	tex2D(StripeSampler,
+		    float2(IN.TexCoord.x,1-Balance)).x;
+    /* y -stripe = (y-coord, 1-balance) */
+    float stripey =
+	tex2D(StripeSampler,
+		    float2(IN.TexCoord.y,1-Balance)).x;
+    /* z-stripe = (z-coord, 1-balance)*/
+    float stripez = 
+	tex2D(StripeSampler,
+		    float2(IN.TexCoord.z,1-Balance)).x;
+    float check = stripex * stripey * stripez;
+    float4 dColor = lerp(WireColor,EmptyColor,check);
+    return dColor;
+}
+
+///////////////////////////////////////
+/// TECHNIQUES ////////////////////////
+///////////////////////////////////////
+ 
+technique Main <
+	string Script = "Pass=p0; Pass=p1;";
+> {
+    /* for the back of the shape */
+    pass p0  < string Script = "Draw=geometry;"; > {        
+        VertexProgram = compile vp40 mainVS(gWvpXf,gWorldXf,gScale);
+	    DepthTestEnable = true;
+	    DepthMask = true;
+	    BlendEnable = true;
+	    BlendFunc = int2(One,OneMinusSrcColor);
+	    CullFaceEnable = false;
+	    CullFace = back;
+	    DepthFunc = LEqual;
+        FragmentProgram = compile fp40 strokeTexPS(gWireColor,
+						    gEmptyColor,
+						    gBalance,
+						    gStripeSampler);
+    }
+    /* for the front of the shape */
+    pass p1  < string Script = "Draw=geometry;"; > {        
+        VertexProgram = compile vp40 mainVS(gWvpXf,gWorldXf,gScale);
+	    DepthTestEnable = true;
+	    DepthMask = true;
+	    BlendEnable = true;
+	    BlendFunc = int2(One,OneMinusSrcColor);
+	    CullFaceEnable = false;
+	    CullFace = front;
+	    DepthFunc = LEqual;
+        FragmentProgram = compile fp40 strokeTexPS(gWireColor,
+						    gEmptyColor,
+						    gBalance,
+						    gStripeSampler);
+    }
+
+}
+
+/***************************** eof ***/

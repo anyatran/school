@@ -1,0 +1,72 @@
+                       HOMEWORK 2
+		   due Thurs, Oct. 4
+
+For homework 2, you must write a "realistic" program in assembly.
+The program is the C program:  hw3-insertionsort.c
+in the course directory.
+You can test it via:  gcc hw3-insertionsort.c; ./a.out
+
+For extra credit, you may instead choose to implement quicksort.
+See hw3-quicksort.c for the example.   In this case, you will
+not obtain the extra credit, unless your quicksort implementation
+is near perfect (homework grade of 97 or higher).  If you earn
+the extra credit, it will take the form that I will drop your
+lowest homework score, and replace that by a score of 100.
+
+In addition, you must include each line of the C source code as
+a comment just before the corresponding assembly code.
+For example:
+ # x = y + z;
+ add $t4, $t2, $t1
+ # x -= 2;
+ sub $t4, $t4, 2
+
+You must submit (using the on-line submit script) your assembly source.
+You must submit it as a .tar.gz file.
+To submit on-line, login to the UNIX system and do:
+    /course/cs2600gc/submit-cs2600gc-hw3  hw3.tar.gz
+(assuming that your assembly program is in hw3.s, inside hw3.tar.gz)
+Recall that to create a tar file, you can do (for example):
+  mkdir hw3
+  cp hw3.s hw3
+  tar zcvf hw3.tar.gz ./hw3
+For more information, see 'man mkdir', 'man tar', etc.
+
+======================================================================
+Please use the MARS simulator, and especially its singlestep/backstep
+feature.  This will make your debugging much easier.
+
+Note that MARS supports various print commands as system calls
+(using syscall) (see Figure B.9.1, p. B-44 in the textbook,
+or the equivalent figure on the CD).
+
+======================================================================
+INITIALIZATION OF DATA STRUCTURES:
+
+Note also that for this C program, you will need to initialize the
+array of strings:  {"Joe", ...}
+To do so, you will need to use the assembler directives on
+ pp. B-47 -- B-49 (page numbers vary in the new printing).
+In the third edition, the appendix is on the CD (first printing of text)
+or in the book (second printing of text).
+The most useful directives for this are:  .asciiz  and  .align
+For example:
+	.align 5
+array:	.asciiz "Joe"
+	.align 5
+	.asciiz "Jenny"
+	...
+Then, array points to "Joe", array+32 points to "Jenny", etc.
+
+Once you have done this, you can then create the array, data[],
+in hw2-insertionsort.c or hw2-quicksort.c.  The array, data[],
+is an array of strings.  You should represent data[] as an array
+of addresses (pointers), where each address points to a string.
+So, you will initialize data as:
+	.align 2
+data:   .space 64 # 16 pointers to strings: 16*4 = 64
+
+This .space directive will allocate space, but it will not
+initialize the space.  Later, you must write code inside main()
+that will initialize the space so that each word starting at 'data'
+points to the address of the next string found at 'array'.

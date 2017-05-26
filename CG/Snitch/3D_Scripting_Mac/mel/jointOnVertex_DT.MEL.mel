@@ -1,0 +1,31 @@
+//Joints on Vertices Tool
+
+proc vrtJnt(){
+
+//Query vertex selection
+string $selVerts[] = `ls -sl -fl`;
+
+//For Loop - applies the command to each selected vertex
+for ($vrts in $selVerts){ 
+
+	//select each vertex individually
+    select $vrts;
+	//create a cluster on each selected vertex
+	string $cl[] = `newCluster " -relative -envelope 1"`;
+	//clear selection so joint is not parented under cluster
+	select -cl;
+	//create a joint
+	string $jnt = `joint`;
+	//point constrain the joint TO the cluster
+	string $ptCnJnt[] = `pointConstraint -offset 0 0 0 -weight 1 $cl $jnt`;
+	//Query the point constrain tied to the joint
+	string $findPtCn[] = `listRelatives -typ pointConstraint $jnt`;
+	//select and delete the joint's point constrain
+	select $findPtCn[0]; doDelete;
+	//select and delete the cluster 
+	select -replace $cl; doDelete;
+
+	}
+}
+//run the procedure
+vrtJnt;

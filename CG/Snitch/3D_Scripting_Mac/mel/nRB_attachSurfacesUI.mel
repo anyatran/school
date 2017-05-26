@@ -1,0 +1,534 @@
+/* usage: nRB_attachSurfacesUI()
+
+   nRB_attachSurfacesUI.mel v.1.2
+   CyberArts Script File
+   Creation Date: 4/25/02
+   Update: 8/31/06
+   Author: Robert Rusick
+
+
+   See "NURBS_RoundedBox_Notes.txt" for details
+   ( or read HTML documentation )
+   -----------------------------------------
+   Related scripts:
+
+     NURBS_RoundedBox.mel
+       Create a rounded box.
+
+     nRB_createUI.mel
+       Create a UI box to set rounded box options.
+
+     nRB_testHierarchy.mel
+       Test the hierarchy of an group
+       to see if it is an unaltered rounded box group.
+
+     nRB_deleteControls.mel
+       Selectively delete controls and history from a rounded box.
+
+     nRB_deleteControlsUI.mel
+       Create a UI box to set rounded box delete controls options.
+
+     nRB_attachSurfaces.mel
+       Attach rounded box surfaces.
+
+     nRB_attachSurfacesUI.mel
+       Create a UI box to set rounded box attach surfaces options.
+
+     getHelpDocs.mel
+       Used to call up HTML documentation.
+
+   ---------------------------------------------
+   History:
+   v.1.01 -- 11/28/03
+
+   v.1.1  -- 8/4/05
+      use 'getHelpDocLoc' to find path for help files.
+
+   v.1.2  -- 8/31/06
+      disabled menu bar help to avoid problems with Maya 8
+*/
+
+
+
+/* =======================================================================================
+                                  SET OPTION VARS
+   =======================================================================================
+   Description: Initialize the option values.
+   Input Arguments: Whether to set the options to default values.
+   Return Value: None.
+*/
+
+global proc nRB_attachSurfaces_SetOptionVars (int $useDefaults )
+{
+  // if these option vars don't exist (or "useDefaults" is set true),
+  // create option vars and set default values
+
+  // Attach
+  if ($useDefaults || ! `optionVar -ex nRB_AttachMethod`)     optionVar -iv nRB_AttachMethod    1; // blend
+  if ($useDefaults || ! `optionVar -ex nRB_KpMultipleKnots`)  optionVar -iv nRB_KpMultipleKnots 1;
+  if ($useDefaults || ! `optionVar -ex nRB_BlendKnotInsert`)  optionVar -iv nRB_BlendKnotInsert 1;
+
+  if ($useDefaults || ! `optionVar -ex nRB_AttachMode`   )    optionVar -iv nRB_AttachMode      3;
+
+  // Attach Mode A
+  if ($useDefaults || ! `optionVar -ex nRB_CreateBtmRing`)    optionVar -iv nRB_CreateBtmRing   1;
+  if ($useDefaults || ! `optionVar -ex nRB_CreateMidRing`)    optionVar -iv nRB_CreateMidRing   1;
+  if ($useDefaults || ! `optionVar -ex nRB_CreateTopRing`)    optionVar -iv nRB_CreateTopRing   1;
+  if ($useDefaults || ! `optionVar -ex nRB_ConnectBtmMid`)    optionVar -iv nRB_ConnectBtmMid   1;
+  if ($useDefaults || ! `optionVar -ex nRB_ConnectMidTop`)    optionVar -iv nRB_ConnectMidTop   1;
+
+  // Attach Mode B
+  if ($useDefaults || ! `optionVar -ex nRB_ConnectSurfs` )    optionVar -iv nRB_ConnectSurfs    1;
+
+  // Attach Mode C
+  if ($useDefaults || ! `optionVar -ex nRB_WedgeSpans`   )    optionVar -iv nRB_WedgeSpans      4;
+  if ($useDefaults || ! `optionVar -ex nRB_CreateWedges` )    optionVar -iv nRB_CreateWedges    1;
+  if ($useDefaults || ! `optionVar -ex nRB_ConnectWedges`)    optionVar -iv nRB_ConnectWedges   1;
+}
+
+
+/* =======================================================================================
+                                  SETUP
+   =======================================================================================
+   Description: Update the state of the option box UI to reflect the option values.
+
+   Input Arguments:
+     parent               - Top level parent layout of the option box UI.
+                            Required so that UI object names can be successfully resolved.
+
+     $useDefaults - Whether the option values should be set to default values.
+
+   Return Value: None.
+*/
+
+global proc nRB_attachSurfaces_Setup(string $parent, int $useDefaults)
+{
+  // Retrieve the option settings
+  nRB_attachSurfaces_SetOptionVars($useDefaults);
+
+  setParent $parent;
+  int $attachSwitch;
+
+  // Query the optionVar's and set the values into the controls.
+
+  // Attach method
+  string $attachMethod;
+  $attachSwitch = `optionVar -q nRB_AttachMethod`;
+  switch ($attachSwitch)
+  { case 0: $attachMethod = "attachConnect"; break;
+    case 1: $attachMethod =   "attachBlend"; break;
+
+    default: $attachMethod = "attachBlend"; break;
+  }
+  radioCollection -e -sl $attachMethod nRB_AttachMethodCollection;
+
+  checkBox -e -v `optionVar -q nRB_KpMultipleKnots` nRB_KpMultipleKnots;
+  checkBox -e -v `optionVar -q nRB_BlendKnotInsert` nRB_BlendKnotInsert;
+
+  // Attach mode
+  string $attachMode;
+  $attachSwitch = `optionVar -q nRB_AttachMode`;
+  switch ($attachSwitch)
+  { case 1: $attachMode = "attachModeA"; break;
+    case 2: $attachMode = "attachModeB"; break;
+    case 3: $attachMode = "attachModeC"; break;
+
+    default: $attachMode = "attachModeC"; break;
+  }
+  radioCollection -e -sl $attachMode nRB_AttachModeCollection;
+
+  // attach mode A options
+  int $makeBtmRing = `optionVar -q nRB_CreateBtmRing`;
+  int $makeMidRing = `optionVar -q nRB_CreateMidRing`;
+  int $makeTopRing = `optionVar -q nRB_CreateTopRing`;
+
+  string $use_ConnectBtmMid_on  = " checkBox -e -en 1 nRB_ConnectBtmMid;\n";
+  string $use_ConnectBtmMid_off = " checkBox -e -en 0 nRB_ConnectBtmMid;\n";
+  string $use_ConnectMidTop_on  = " checkBox -e -en 1 nRB_ConnectMidTop;\n";
+  string $use_ConnectMidTop_off = " checkBox -e -en 0 nRB_ConnectMidTop;\n";
+
+  checkBox -e -v $makeBtmRing nRB_CreateBtmRing;
+  checkBox -e -v $makeMidRing nRB_CreateMidRing;
+  checkBox -e -v $makeTopRing nRB_CreateTopRing;
+
+  checkBox -e -v `optionVar -q nRB_ConnectBtmMid` nRB_ConnectBtmMid;
+  checkBox -e -v `optionVar -q nRB_ConnectMidTop` nRB_ConnectMidTop;
+
+  if ($makeBtmRing && $makeMidRing) eval $use_ConnectBtmMid_on;
+  else                              eval $use_ConnectBtmMid_off;
+
+  if ($makeMidRing && $makeTopRing) eval $use_ConnectMidTop_on;
+  else                              eval $use_ConnectMidTop_off;
+
+  string $use_attachModeA_on =
+  ("columnLayout -e -en 1 attachModeA_col1;\n" +
+    $use_ConnectBtmMid_on +
+    $use_ConnectMidTop_on);
+
+  string $use_attachModeA_off =
+  ("columnLayout -e -en 0 attachModeA_col1;\n" +
+    $use_ConnectBtmMid_off +
+    $use_ConnectMidTop_off);
+
+  if (`radioButton -q -sl attachModeA`) eval $use_attachModeA_on;
+  else                                  eval $use_attachModeA_off;
+
+  // attach mode B options
+  checkBox -e -v `optionVar -q nRB_ConnectSurfs`  nRB_ConnectSurfs;
+
+  string $use_attachModeB_on  = "checkBox -e -en 1 nRB_ConnectSurfs";
+  string $use_attachModeB_off = "checkBox -e -en 0 nRB_ConnectSurfs";
+
+  if (`radioButton -q -sl attachModeB`) eval $use_attachModeB_on;
+  else                                  eval $use_attachModeB_off;
+
+  // attach mode C options
+  intSliderGrp -e -v `optionVar -q nRB_WedgeSpans`    nRB_WedgeSpans;
+  checkBox     -e -v `optionVar -q nRB_CreateWedges`  nRB_CreateWedges;
+  checkBox     -e -v `optionVar -q nRB_ConnectWedges` nRB_ConnectWedges;
+
+  string $createWedges_on  =
+  ("    checkBox -e -en 1 nRB_ConnectWedges;\n" +
+   "intSliderGrp -e -en 1 nRB_WedgeSpans;");
+  string $createWedges_off =
+  ("    checkBox -e -en 0 nRB_ConnectWedges;\n" +
+   "intSliderGrp -e -en 0 nRB_WedgeSpans;");
+
+  string $test_Wedges =
+  ("if (`checkBox -q -v nRB_CreateWedges`) { " + $createWedges_on  + " }\n" +
+   "else                                   { " + $createWedges_off + " }\n" );
+
+  string $use_attachModeC_on  = "checkBox -e -en 1 nRB_CreateWedges;\n" + $test_Wedges;
+  string $use_attachModeC_off = "checkBox -e -en 0 nRB_CreateWedges;\n" + $createWedges_off;
+
+  if (`radioButton -q -sl attachModeC`) eval $use_attachModeC_on;
+  else                                  eval $use_attachModeC_off;
+}
+
+/* =======================================================================================
+                                  CALLBACK
+   =======================================================================================
+   Description: Update the option values with the current state of the option box UI.
+
+   Input Arguments:
+      parent - Top level parent layout of the option box UI.  Required so
+               that UI object names can be successfully resolved.
+
+      doIt   - Whether the command should execute.
+
+   Return Value: None.
+*/
+
+global proc nRB_attachSurfaces_Callback(string $parent, int $doIt)
+{
+  setParent $parent;
+  string $attachSwitch;
+
+  // Set the optionVar's from the control values, and then perform the command.
+
+  // Attach method
+  int $attachMethod;
+  $attachSwitch = `radioCollection -q -sl nRB_AttachMethodCollection`;
+  switch ($attachSwitch)
+  { case "attachConnect": $attachMethod = 0; break;
+    case   "attachBlend": $attachMethod = 1; break;
+
+    default: $attachMethod = 1; break;
+  }
+  optionVar -iv nRB_AttachMethod $attachMethod;
+
+  optionVar -iv nRB_KpMultipleKnots `checkBox -q -v nRB_KpMultipleKnots`;
+  optionVar -iv nRB_BlendKnotInsert `checkBox -q -v nRB_BlendKnotInsert`;
+
+  // Attach mode
+  int $attachMode;
+  $attachSwitch = `radioCollection -q -sl nRB_AttachModeCollection`;
+  switch ($attachSwitch)
+  { case "attachModeA": $attachMode = 1; break;
+    case "attachModeB": $attachMode = 2; break;
+    case "attachModeC": $attachMode = 3; break;
+
+    default: $attachMode = 3; break;
+  }
+  optionVar -iv nRB_AttachMode $attachMode;
+
+  // attach mode A options
+  optionVar -iv nRB_CreateBtmRing   `checkBox -q -v nRB_CreateBtmRing`;
+  optionVar -iv nRB_CreateMidRing   `checkBox -q -v nRB_CreateMidRing`;
+  optionVar -iv nRB_CreateTopRing   `checkBox -q -v nRB_CreateTopRing`;
+  optionVar -iv nRB_ConnectBtmMid   `checkBox -q -v nRB_ConnectBtmMid`;
+  optionVar -iv nRB_ConnectMidTop   `checkBox -q -v nRB_ConnectMidTop`;
+
+  // attach mode B options
+  optionVar -iv nRB_ConnectSurfs    `checkBox -q -v nRB_ConnectSurfs`;
+
+  // attach mode C options
+  optionVar -iv nRB_WedgeSpans      `intSliderGrp -q -v nRB_WedgeSpans`;
+  optionVar -iv nRB_CreateWedges    `checkBox     -q -v nRB_CreateWedges`;
+  optionVar -iv nRB_ConnectWedges   `checkBox     -q -v nRB_ConnectWedges`;
+
+  if ($doIt) nRB_attachSurfaces ;
+}
+
+
+/* =======================================================================================
+                                  OPTIONS
+   =======================================================================================
+   Description: Construct the option box UI.
+     Involves accessing the standard option box and customizing the UI accordingly.
+
+   Input Arguments: None.
+   Return Value: None.
+
+   8/4/04 ---
+   Using 'getHelpDocLoc' (defined in 'getHelpDocs.mel')
+   to create the 'help file' string.
+
+*/
+
+global proc nRB_attachSurfaces_Options()
+{
+  // Name of the command for this option box.
+  string $commandName = "nRB_attachSurfaces_";
+
+  // Build the option box actions.
+  string $callback = ($commandName + "Callback");
+  string $setup    = ($commandName + "Setup");
+
+  // Set up 'help file' string
+  if (! `exists getHelpDocLoc` ) source getHelpDocs.mel;
+
+  string $helpFile = ("file://" + `getHelpDocLoc "nRB_createUI.mel" "RoundedBox/nRB_attachSurfaces.html"` );
+
+  /* STEP 1:  Get the option box.
+     ============================
+     The value returned is the name of the layout to be used as
+     the parent for the option box UI.
+  */
+  string $layout = getOptionBox();
+  setParent $layout;
+
+  /* STEP 2:  Pass the command name to the option box.
+     =================================================
+     Any default option box behaviour based on the command name is set up with this call.
+     For example, updating the 'Help' menu item with the name of the command.
+  */
+  setOptionBoxCommandName($commandName);
+
+  /* STEP 3:  Activate the default UI template.
+     ==========================================
+     Activate the default UI template so that the layout of this
+     option box is consistent with the layout of the rest of the
+     application.
+  */
+  setUITemplate -pushTemplate DefaultTemplate;
+
+  // Turn on the wait cursor.
+  waitCursor -state 1;
+
+  /* STEP 4: Create option box contents.
+     =================================== */
+  tabLayout -scr true -tv false;
+  string $parent = `columnLayout -adjustableColumn 1 nRB_attachSurfaces_UI`;
+
+  // Attach Method
+  frameLayout
+  -label "  Attach Method"
+  -labelAlign "center"
+  -cll false
+  // -w $uiWidth
+  -lw 500
+  -mh 5
+  -mw 10
+  -borderStyle "etchedIn"
+  attachMethodFrame;
+
+    columnLayout;
+    radioCollection nRB_AttachMethodCollection;
+      rowLayout -nc 3 -cw3 1 130 240;
+        text -l "";
+        columnLayout;
+          radioButton -l "Connect" -al "left" attachConnect;
+          radioButton -l "Blend"   -al "left" attachBlend;
+        setParent ..;
+        columnLayout;
+          checkBox -l "Keep Multiple Knots" -al "left" nRB_KpMultipleKnots;
+          checkBox -l "Blend Knot Insert"   -al "left" nRB_BlendKnotInsert;
+        setParent ..;
+      setParent ..;
+    setParent ..;
+
+  setParent $parent;
+
+  // Attach Mode
+  frameLayout
+  -label "  Attach Mode"
+  -labelAlign "center"
+  -cll false
+  // -w $uiWidth
+  -lw 500
+  -mh 5
+  -mw 10
+  -borderStyle "etchedIn"
+  attachModeFrame;
+
+    columnLayout;
+    radioCollection nRB_AttachModeCollection;
+      rowLayout -nc 4 -cw4 1 130 130 260;
+        text -l "";
+        columnLayout;
+          radioButton -l "Attach Mode A" -al "left" attachModeA;
+          text -l "    [   Ring attach   ]";
+        setParent ..;
+        columnLayout attachModeA_col1;
+          checkBox -l "Create Bottom Ring" -al "left" nRB_CreateBtmRing;
+          checkBox -l "Create Middle Ring" -al "left" nRB_CreateMidRing;
+          checkBox -l "Create Top Ring"    -al "left" nRB_CreateTopRing;
+        setParent ..;
+        columnLayout attachModeA_col2;
+          checkBox -l "Connect Bottom Ring to Middle" -al "left" nRB_ConnectBtmMid;
+          checkBox -l "Connect Middle Ring to Top"    -al "left" nRB_ConnectMidTop;
+        setParent ..;
+      setParent ..;
+
+      separator;
+      rowLayout -nc 3 -cw3 1 130 180;
+        text -l "";
+        columnLayout;
+          radioButton -l "Attach Mode B" -al "left" attachModeB;
+          text -l "    [    Cap attach   ]";
+        setParent ..;
+        checkBox -l "Connect Surfaces" -al "left" nRB_ConnectSurfs;
+      setParent ..;
+
+      separator;
+      rowLayout -nc 3 -cw3 1 200 280;
+        text -l "";
+        columnLayout;
+          radioButton -l "Attach Mode C" -al "left" attachModeC;
+          text -l "    [ Wedge attach ]";
+        setParent ..;
+        columnLayout attachModeC_col1;
+          rowLayout -nc 2 -cw2 1 500 -cal 2 "left";
+            text -l "";
+            intSliderGrp -l "Wedge Spans" -cw 1 80 -cal 1 "left" -cw 2 50 -cw 3 200
+                         -min 1 -max 10 -fmn 1 -fmx 255 nRB_WedgeSpans;
+          setParent ..;
+          checkBox -l "Create Wedges"  -al "left" nRB_CreateWedges;
+          checkBox -l "Connect Wedges" -al "left" nRB_ConnectWedges;
+        setParent ..;
+      setParent ..;
+
+      // attach mode A UI actions
+      string $use_ConnectBtmMid_on  = " checkBox -e -en 1 nRB_ConnectBtmMid;\n";
+      string $use_ConnectBtmMid_off = " checkBox -e -en 0 nRB_ConnectBtmMid;\n";
+      string $use_ConnectMidTop_on  = " checkBox -e -en 1 nRB_ConnectMidTop;\n";
+      string $use_ConnectMidTop_off = " checkBox -e -en 0 nRB_ConnectMidTop;\n";
+
+      string $test_BtmMid =
+      ("if ((`checkBox -q -v nRB_CreateBtmRing`)&&(`checkBox -q -v nRB_CreateMidRing`)) "
+               + $use_ConnectBtmMid_on  +
+       "else " + $use_ConnectBtmMid_off + "\n");
+
+      string $test_MidTop =
+      ("if ((`checkBox -q -v nRB_CreateMidRing`)&&(`checkBox -q -v nRB_CreateTopRing`)) "
+              + $use_ConnectMidTop_on  +
+       "else" + $use_ConnectMidTop_off + "\n");
+
+      string $test_Both = $test_BtmMid + $test_MidTop;
+
+      checkBox -e -cc $test_BtmMid nRB_CreateBtmRing;
+      checkBox -e -cc $test_Both   nRB_CreateMidRing;
+      checkBox -e -cc $test_MidTop nRB_CreateTopRing;
+
+      string $use_attachModeA_on  =
+      ("columnLayout -e -en 1 attachModeA_col1;\n" + $test_Both);
+      string $use_attachModeA_off =
+      ("columnLayout -e -en 0 attachModeA_col1;\n" +
+        $use_ConnectBtmMid_off +
+        $use_ConnectMidTop_off);
+
+      radioButton -e -onc $use_attachModeA_on  attachModeA;
+      radioButton -e -ofc $use_attachModeA_off attachModeA;
+
+      // attach mode B UI actions
+      string $use_attachModeB_on  = "checkBox -e -en 1 nRB_ConnectSurfs;";
+      string $use_attachModeB_off = "checkBox -e -en 0 nRB_ConnectSurfs;";
+
+      radioButton -e -onc $use_attachModeB_on  attachModeB;
+      radioButton -e -ofc $use_attachModeB_off attachModeB;
+
+      // attach mode C UI actions
+      string $createWedges_on  =
+      ("    checkBox -e -en 1 nRB_ConnectWedges;\n" +
+       "intSliderGrp -e -en 1 nRB_WedgeSpans;");
+      string $createWedges_off =
+      ("    checkBox -e -en 0 nRB_ConnectWedges;\n" +
+       "intSliderGrp -e -en 0 nRB_WedgeSpans;");
+
+      string $test_Wedges =
+      ("if (`checkBox -q -v nRB_CreateWedges`) { " + $createWedges_on  + " }\n" +
+       "else                                  { " + $createWedges_off + " }\n" );
+
+      string $use_attachModeC_on  = "checkBox -e -en 1 nRB_CreateWedges;\n" + $test_Wedges;
+      string $use_attachModeC_off = "checkBox -e -en 0 nRB_CreateWedges;\n" + $createWedges_off;
+
+      radioButton -e -onc $use_attachModeC_on  attachModeC;
+      radioButton -e -ofc $use_attachModeC_off attachModeC;
+
+      checkBox -e -onc $createWedges_on  nRB_CreateWedges;
+      checkBox -e -ofc $createWedges_off nRB_CreateWedges;
+
+    setParent ..;
+  setParent $parent;
+
+  // Turn off the wait cursor.
+  waitCursor -state 0;
+
+  /* Step 5: Deactivate the default UI template.
+     =========================================== */
+  setUITemplate -popTemplate;
+
+  /* Step 6: Customize the buttons.
+     ==============================
+     Provide more descriptive labels for the buttons.
+     Disable those buttons that are not applicable to the option box.
+     Attach actions to those buttons that are applicable to the option box.
+  */
+
+  // 'Apply' button.
+  string $applyBtn = getOptionBoxApplyBtn();
+  button -e -l "Attach" -c ($callback + " " + $parent + " " + 1) $applyBtn;
+
+  // 'Save' button.
+  string $saveBtn = getOptionBoxSaveBtn();
+  button -e -c ($callback + " " + $parent + " " + 0 + "; hideOptionBox") $saveBtn;
+
+  // 'Reset' button.
+  string $resetBtn = getOptionBoxResetBtn();
+  button -e -c ($setup + " " + $parent + " " + 1) $resetBtn;
+
+  /* Step 7: Set the option box title.
+     ================================= */
+  setOptionBoxTitle("NURBS Rounded Box Attach Surfaces Options");
+
+	/*	Step 8: Customize the 'Help' menu item text.
+	  	============================================ */
+	// setOptionBoxHelpTag( "-absolute \"" + $helpFile + "\"" );
+	setOptionBoxHelpTag( "" );
+
+  /* Set the current values of the option box.
+     ========================================= */
+  eval (($setup + " " + $parent + " " + 0));
+
+  /* Show the option box.
+     ==================== */
+  showOptionBox();
+}
+
+
+/* =======================================================================================
+                               CREATE UI
+   ======================================================================================= */
+
+global proc nRB_attachSurfacesUI() { nRB_attachSurfaces_Options; }

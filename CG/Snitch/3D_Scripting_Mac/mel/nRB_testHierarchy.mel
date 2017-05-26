@@ -1,0 +1,179 @@
+/* nRB_testHierarchy.mel
+
+   nRB_testHierarchy.mel v.1.0
+   CyberArts Script File
+   Creation Date: 5/5/02
+   Update: 11/28/03
+   Author: Robert Rusick
+
+
+   See "NURBS_RoundedBox_Notes.txt" for details
+   ( or read HTML documentation )
+   -----------------------------------------
+   Related scripts:
+
+     NURBS_RoundedBox.mel
+       Create a rounded box.
+
+     nRB_createUI.mel
+       Create a UI box to set rounded box options.
+
+     nRB_testHierarchy.mel
+       Test the hierarchy of an group
+       to see if it is an unaltered rounded box group.
+
+     nRB_deleteControls.mel
+       Selectively delete controls and history from a rounded box.
+
+     nRB_deleteControlsUI.mel
+       Create a UI box to set rounded box delete controls options.
+
+     nRB_attachSurfaces.mel
+       Attach rounded box surfaces.
+
+     nRB_attachSurfacesUI.mel
+       Create a UI box to set rounded box attach surfaces options.
+
+     getHelpDocs.mel
+       Used to call up HTML documentation.
+
+*/
+
+
+global proc int nRB_testHierarchy (string $rBoxArray[])
+{
+   string $rBox = $rBoxArray[0];
+
+   string $cGrp, $c[8],  $cShape[8];  // corners
+   string $eGrp, $e[12], $eShape[12]; // edges
+   string $fGrp, $f[6],  $fShape[6];  // faces
+
+   string $nodeList[];
+   string $subNodeList[];
+   string $holdTokens[];
+   int $tokenCount;
+   int $nodeCount;
+
+   int $index;
+   int $noHierarchyErrors = 1; // assume no errors; this will change if we find any.
+
+
+/* ============================================================
+   collect the names of component parts, and test the hierarchy
+   ============================================================
+   (11/29/03) ---
+   earlier behavior of 'select -r -hi $rBox'
+   had been to create a list with the top of the hierarchy
+   at the end of the list;
+   this has apparently changed...
+*/
+   // save current selection list
+   string $originalSelection[] = `ls -sl`;
+
+   // select the top node of the rounded box and its hierarchy
+   select -r -hi $rBox;
+   $nodeList  = `selectedNodes`;
+   $nodeCount = `size $nodeList`;
+
+   if ($nodeCount == 56 )
+   { // topmost rounded box node should be *first* in the list (see 11/29/03 note);
+     // make sure we are using full hierarchy path
+     $rBox = $nodeList[0];
+
+     $index = 1;
+
+     // collect corners
+     $cGrp = $nodeList[($index)]; $index++;
+
+     select -r -hi $cGrp;
+     $subNodeList = `selectedNodes`;
+
+     if ( (`size $subNodeList` != 17 )||(`nodeType $cGrp` != "transform") )
+     { $noHierarchyErrors = 0;
+       print ("\nFound a hierarchy mismatch on what should be the group node for corners.\n");
+     }
+     else
+     { for ($i = 0; $i < 8; $i++ )
+       { // loop for number of corners
+              $c[$i] = $nodeList[($index)]; $index++;
+         $cShape[$i] = $nodeList[($index)]; $index++;
+         if (`nodeType      $c[$i]` != "transform"   ) $noHierarchyErrors = 0;
+         if (`nodeType $cShape[$i]` != "nurbsSurface") $noHierarchyErrors = 0;
+       }
+       if (!$noHierarchyErrors) print ("\nEncountered a hierarchy error while collecting corners.\n");
+     }
+
+     // collect edges
+     if ($noHierarchyErrors)
+     {
+       $eGrp = $nodeList[($index)]; $index++;
+
+       select -r -hi $eGrp;
+       $subNodeList = `selectedNodes`;
+
+       if ( (`size $subNodeList` != 25 )||(`nodeType $eGrp` != "transform") )
+       { $noHierarchyErrors = 0;
+         print ("\nFound a hierarchy mismatch on what should be the group node for edges.\n");
+       }
+       else
+       { for ( $i = 0; $i < 12; $i++ )
+         { // loop for number of edges
+                $e[$i] = $nodeList[($index)]; $index++;
+           $eShape[$i] = $nodeList[($index)]; $index++;
+           if (`nodeType      $e[$i]` != "transform"   ) $noHierarchyErrors = 0;
+           if (`nodeType $eShape[$i]` != "nurbsSurface") $noHierarchyErrors = 0;
+         }
+         if (!$noHierarchyErrors) print ("\nEncountered a hierarchy error while collecting edges.\n");
+       }
+     }
+
+     // collect faces
+     if ($noHierarchyErrors)
+     {
+       $fGrp = $nodeList[($index)]; $index++;
+
+       select -r -hi $fGrp;
+       $subNodeList = `selectedNodes`;
+
+       if ( (`size $subNodeList` != 13 )||(`nodeType $fGrp` != "transform"))
+       { $noHierarchyErrors = 0;
+         print ("\nFound a hierarchy mismatch on what should be the group node for faces.\n");
+       }
+       else
+       { for ( $i = 0; $i < 6; $i++ )
+         { // loop for number of faces
+                $f[$i] = $nodeList[($index)]; $index++;
+           $fShape[$i] = $nodeList[($index)]; $index++;
+           if (`nodeType      $f[$i]` != "transform"   ) $noHierarchyErrors = 0;
+           if (`nodeType $fShape[$i]` != "nurbsSurface") $noHierarchyErrors = 0;
+         }
+         if (!$noHierarchyErrors) print ("\nEncountered a hierarchy error while collecting faces.\n");
+       }
+     }
+   }
+   else
+   { $noHierarchyErrors = 0;
+     print ("The number of nodes in the \"rounded box\" hierarchy does not meet expectations.\n"
+     + "The total number of nodes should equal 56; it doesn't.\n"
+     + "Either you have picked something other than a \"rounded box\" root node,\n"
+     + "or the hierarchy has been modified in some manner.\n"
+     + "This procedure is not designed to work under those circumstances.\n");
+   }
+
+   // restore original selection
+   select -r $originalSelection;
+
+   // fill $rBoxArray
+   $rBoxArray[0] = $rBox;
+   $rBoxArray[1] = $cGrp;
+   $rBoxArray[2] = $eGrp;
+   $rBoxArray[3] = $fGrp;
+
+   for ($i = 0; $i < 8;  $i++ ) { $index = $i + 4;  $rBoxArray[$index] = $c[$i]; }
+   for ($i = 0; $i < 12; $i++ ) { $index = $i + 12; $rBoxArray[$index] = $e[$i]; }
+   for ($i = 0; $i < 6;  $i++ ) { $index = $i + 24; $rBoxArray[$index] = $f[$i]; }
+
+   // return flag
+   return $noHierarchyErrors;
+}
+

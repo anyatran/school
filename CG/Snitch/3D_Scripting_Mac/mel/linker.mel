@@ -1,0 +1,205 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Linker
+''    Author:  
+''    Last Updated: May 06, 2008
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/animation/4567.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+// Linker v 1.0
+
+ if (`window -ex linker` == 1){
+ 	deleteUI linker;
+ 	} 
+ window -t "Linker" -sizeable 1 -resizeToFitChildren 1 -menuBar true -widthHeight 150 50 linker;
+ 
+ 		menu -label "Help" -helpMenu true;
+ 		string $website = "system(\"start explorer http://www.danmoreno.com/help/linker.jpg\")";
+  		menuItem -c $website -label "About this script...";
+ 
+ columnLayout -adjustableColumn true -rowSpacing 5;
+ 	frameLayout -cll 0 -label "Options:" -w 160 -mw 5 -borderStyle "etchedOut";
+  		columnLayout -rowSpacing 5;
+ 			
+				textFieldGrp -l "Prefix:" -tx "" -cw2 40 100 prefix;
+				checkBox -l "Lock Source Attribute"  locker;
+				checkBox -l "Hide Source Attribute" hideme;
+				checkBox -l "Hide Source Object" hideobj;
+				
+				frameLayout -cll 0 -label "Limits:" -w 145 -mw 5 -borderStyle "etchedOut";
+				columnLayout -rowSpacing 5;
+				rowLayout -nc 2 -cw2 70 50 ;
+				checkBox -l " Set Max" -onc yesmax -ofc nomax maxlimit;
+				intField -en 0 -w 60 -v 1 maxfield;
+ 				setParent ..;
+					
+				rowLayout -nc 2 -cw2 70 50 ;
+				checkBox -l " Set Min" -onc yesmin -ofc nomin minlimit;
+				intField -en 0 -v 0 -w 60 minfield;
+ 				setParent ..;
+				setParent ..;
+				setParent ..;
+ 				
+ 				button -w 145 -l "Link Attributes" -c makeshelf -annotation "Transfer attributes from first to second object" shelf_Button;
+ 						
+ 			
+ 		setParent ..;
+ 	setParent ..;
+ 	
+ text -fn "boldLabelFont" -l "www.danmoreno.com"-width 150 StatusLine;
+ 
+ showWindow linker;
+ 
+ proc nomax(){
+intField -e -en 0 maxfield;
+}
+ 
+proc yesmax(){
+intField -e -en 1 maxfield;
+}
+ 
+proc nomin(){
+intField -e -en 0 minfield;
+}
+ 
+proc yesmin(){
+intField -e -en 1 minfield;
+}
+
+ 
+
+
+ 	
+ proc makeshelf() {
+ 	
+ 	global string $allattr[]; 
+	string $selection[] = `ls -sl`;
+	
+	
+	$allattr = `listAttr -k -v -u $selection[0]`;
+	
+ 	 	
+ 	if (`window -ex checkattr` == 1){
+ 	deleteUI checkattr;
+ 	} 
+ 
+ 	window -h 10 -w 10 -t "Check!" -sizeable 1 -resizeToFitChildren 1 checkattr;
+ 	frameLayout -mw 5 -l "";
+ 	columnLayout -rs 5;
+ 	
+ 		for ($f in $allattr){
+ 				
+ 			
+ 		checkBox -label $f $f;
+ 						
+ 		}
+ 		
+ 	button -label "Link Selected!" -w 150 -c mandaselecao;
+	button -label "Select All" -w 150 -c all;
+	button -label "Unselect All" -w 150 -c none;
+ 	
+ 	
+ 	showWindow checkattr;
+ 	}
+	
+  proc all(){
+ global string $allattr[]; 
+   		for ($f in $allattr){
+ 		checkBox -e -v 1 $f;
+ 		}
+ }
+ 
+ proc none(){
+ global string $allattr[]; 
+   		for ($f in $allattr){
+ 		checkBox -e -v 0 $f;
+ 		}
+ }
+
+ 
+ proc mandaselecao(){
+	 
+	string $prefix = `textFieldGrp -q -tx prefix`; 
+	global string $allattr[]; 
+ 	global int $checkboxes[];
+	string $selection[] = `ls -sl`;
+	
+	int $max = `intField -q -v maxfield`;
+	int $min = `intField -q -v minfield`;
+ 	
+ 	int $z = 0;
+ 	
+ 		for ($f in $allattr){
+ 			
+ 		$checkboxes[$z] = `checkBox -q -value $f`;
+ 		$z = $z + 1;
+ 		}
+ 	
+	int $l = `checkBox -q -v locker`;
+	int $h = `checkBox -q -v hideme`;
+ 	
+ 	$z = 0;
+ 	
+ 	
+ 		for ($f in $allattr){
+ 		
+ 		if ($checkboxes[$z] == 1){
+			
+		string $type = `getAttr -type ($selection[0] + "." + $f)`;
+		string $isconnected[] = `listConnections -t "animCurveTL" -d off -s on ($selection[0] + "." + $f)`;
+		float $value = `getAttr ($selection[0] + "." + $f)`;
+
+
+		
+ 		addAttr -attributeType $type -ln ($prefix + $f) $selection[1];
+		setAttr -e -keyable true ($selection[1] + "." + $prefix + $f);
+		
+		setAttr ($selection[1] + "." + $prefix + $f) $value; 
+		
+		connectAttr -f ($selection[1] + "." + $prefix + $f) ($selection[0] + "." + $f);
+		
+
+			if ($type != "boolean"){if ($type != "string"){
+		
+			if (`checkBox -q -v maxlimit` == 1){
+			addAttr -e -maxValue $max ($selection[1] + "." + $prefix + $f); 
+			}
+			
+			if (`checkBox -q -v minlimit` == 1){
+			addAttr -e -minValue $min ($selection[1] + "." + $prefix + $f);
+			}
+		
+		
+		
+			}}
+		
+		
+			if ($l == 1){
+			setAttr -lock true ($selection[0] + "." + $f);
+			}
+			
+			if ($h == 1){
+			setAttr -keyable false -channelBox false ($selection[0] + "." + $f);
+			}
+ 	
+ 		}
+ 		$z = $z + 1;
+ 		}
+		
+		int $o = `checkBox -q -v hideobj`;
+		
+			if ($o == 1){
+			setAttr -lock 0 ($selection[0] + ".visibility");
+			setAttr ($selection[0] + ".visibility") 0;
+			}
+			
+		deleteUI checkattr;
+		
+ }
+ 

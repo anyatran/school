@@ -1,0 +1,156 @@
+//----------------------------------------------------------------------------------------------
+//
+//	icQRbuildMainControl
+//
+//	SCRIPT:			icQRbuildMainControl.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//					
+//	DATE:			Jun 30, 2011
+//					created: Jun 16, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// builds the main character control and finishes the rigging process
+//
+//----------------------------------------------------------------------------------------------
+
+
+global proc icQRaddMainVisAttrExecute ( string $ctrl, string $attr, string $charName )
+{
+	if (`objExists $ctrl`)
+	{
+		setAttr ($ctrl + ".overrideEnabled") 1;
+		connectAttr -f ("main_ctrl" + $charName + "." + $attr) ($ctrl + ".overrideVisibility");
+		setAttr -l 1 -k 0 ($ctrl + ".overrideVisibility");
+	}
+
+	setAttr ("main_ctrl" + $charName + "." + $attr) 1;
+}
+
+global proc icQRbuildMainControl ( string $charName, string $version )
+{
+	int $userScale = `intField -q -v QRheight`;
+	string $mainCtrl = "main_ctrl" + $charName;
+	circle -c 0 0 0 -nr 0 1 0 -sw 360 -r ($userScale / 1.5) -d 3 -ut 0 -tol 0.01 -s 12 -ch 0 -n $mainCtrl;
+
+	icCRlockHideAttr ( $mainCtrl, "sx,sy,sz,v" );
+
+	string $objectsToLayer[];
+	$objectsToLayer[0] = $mainCtrl;
+	icQRcontrolSet ( $charName, ("controls_set_" + $charName), $objectsToLayer, 0, 1, 0 );
+	icCRdisplayOverride ( $objectsToLayer, 0, 1, 0 );
+	icCRcreateCharSet ( $charName, "placement_cs", 1 , $objectsToLayer );
+	icCRaddDefaultAttr $mainCtrl;
+
+	//before establishing a parent constraint from the animation controls group to the
+	//main control we need to unlock the channels of the animation controls group
+	icCRunlockAttr ( ("animationControls_grp" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v");
+
+	//connect the main control
+	parent $mainCtrl ("characterScale_grp" + $charName);
+	//parent constrain the animation control group to the main control
+	$ctrlParentConst = `parentConstraint -mo -w 1 $mainCtrl ("animationControls_grp" + $charName)`;
+	setAttr ($ctrlParentConst[0] + ".int") 0;
+	//clean up the constraint
+	icCRlockHideAttr ( $ctrlParentConst[0], "nodeState,int,w0");
+
+	//relock the attributes of the animation control group
+	icCRlockHideAttr ( ("animationControls_grp" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v");
+
+	//handle the world spaces
+	icCRunlockAttr ( ("head_worldSpace_grp" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v");
+	icCRunlockAttr ( ("neck_worldSpace_grp" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v");
+	icCRunlockAttr ( ("tail_worldSpace_grp" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v");
+	parent ("head_worldSpace_grp" + $charName) $mainCtrl;
+	parent ("neck_worldSpace_grp" + $charName) $mainCtrl;
+	parent ("tail_worldSpace_grp" + $charName) $mainCtrl;
+	icCRlockHideAttr ( ("head_worldSpace_grp" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v");
+	icCRlockHideAttr ( ("neck_worldSpace_grp" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v");
+	icCRlockHideAttr ( ("tail_worldSpace_grp" + $charName), "tx,ty,tz,rx,ry,rz,sx,sy,sz,v");
+
+	//----------------------------------------------------------------------------------------
+	//
+	//add the visibility attributes
+	//
+	//----------------------------------------------------------------------------------------
+
+	addAttr -ln "bodyPartVisibility" -at "enum" -en "-:" -k 1 $mainCtrl;
+	setAttr -l 1 ($mainCtrl + ".bodyPartVisibility");
+
+	string $attr[] = {"torso","neck","tail","frontLegs","backLegs","ears"};
+
+	string $groups1[] = {"spine_controls_grp","neck_const_grp",
+						"tail_constGrp","L_front_leg_controls_grp","R_front_leg_controls_grp",
+						"L_back_leg_controls_grp","R_back_leg_controls_grp","ear_const_grp","L_front_scapulaHelper","R_front_scapulaHelper"};
+	string $groups2[] = {"spineJoints_grp","neckJoints_grp","ikNeckJoints_grp",
+						"front_legJoints_const_grp","back_legJoints_const_grp", "earJoints_const_grp"};
+
+	for ($a in $attr)
+	{
+		addAttr -ln $a -at "bool" -k 1 $mainCtrl;
+	}
+
+	//torso
+	icQRaddMainVisAttrExecute ( ($groups1[0] + $charName), $attr[0], $charName );
+	icQRaddMainVisAttrExecute ( ($groups2[0] + $charName), $attr[0], $charName );
+
+	//neck
+	icQRaddMainVisAttrExecute ( ($groups1[1] + $charName), $attr[1], $charName );
+	icQRaddMainVisAttrExecute ( ($groups2[1] + $charName), $attr[1], $charName );
+	icQRaddMainVisAttrExecute ( ($groups2[2] + $charName), $attr[1], $charName );
+
+	//tail
+	icQRaddMainVisAttrExecute ( ($groups1[2] + $charName), $attr[2], $charName );
+
+	//front legs
+	icQRaddMainVisAttrExecute ( ($groups1[3] + $charName), $attr[3], $charName );
+	icQRaddMainVisAttrExecute ( ($groups1[4] + $charName), $attr[3], $charName );
+	icQRaddMainVisAttrExecute ( ($groups2[3] + $charName), $attr[3], $charName );
+	icQRaddMainVisAttrExecute ( ($groups1[8] + $charName), $attr[3], $charName );
+	icQRaddMainVisAttrExecute ( ($groups1[9] + $charName), $attr[3], $charName );
+
+	//back legs
+	icQRaddMainVisAttrExecute ( ($groups1[5] + $charName), $attr[4], $charName );
+	icQRaddMainVisAttrExecute ( ($groups1[6] + $charName), $attr[4], $charName );
+	icQRaddMainVisAttrExecute ( ($groups2[4] + $charName), $attr[4], $charName );
+
+	//ears
+	icQRaddMainVisAttrExecute ( ($groups1[7] + $charName), $attr[5], $charName );
+	icQRaddMainVisAttrExecute ( ($groups2[5] + $charName), $attr[5], $charName );
+
+	//----------------------------------------------------------------------------------------
+	//
+	//execute some procedures for cleanup
+	//
+	//----------------------------------------------------------------------------------------
+
+	icQRaddHeightInfo ( $charName );
+
+	icQRremoveJointRadius ( $charName );
+
+	//add the version attribute to the group
+	addAttr -ln "riggerRelease" -at "enum" -k 1 -en ($version + ":") ("character_grp" + $charName);
+	setAttr -l 1 ("character_grp" + $charName + ".riggerRelease");
+
+	//lock all SDK curves from being edited
+	string $animCurve[] = `ls -type animCurveUA -type animCurveUL -type animCurveUU`;
+	for ($a in $animCurve)
+	{
+		setAttr -l 1 ($a + ".keyTimeValue");
+		lockNode -l 1 $a;
+	}
+	select -cl;
+
+}

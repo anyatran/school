@@ -1,0 +1,385 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: GhostMan
+''    Author: kas4f2 
+''    Last Updated: Nov 13, 2008
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/animation/2563.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+// Global Variables
+global string $gmChar[], $whichPanel;
+global int $gmHeirarchy, $gmKeyframes, $gmSpecTick, $gmLOD, $gmVisible, $gmHideCurves, $mayaVers;
+
+//Defaults
+$mayaVers = (int) startString(`about -v`,1);
+$gmSpecTick = 0;
+$gmHeirarchy = 1;
+$gmKeyframes = 1;
+$gmLOD = 3;
+$gmVisible = 1;
+$gmHideCurves = 1;
+$whichPanel = `getPanel -withFocus`;
+shadingNode -name "GhostTransp" -asShader lambert -shared;
+
+
+//Initializes the UI
+proc gmInitUI() {
+	string $orig[] = `ls -selection`;
+
+	global int $gmHeirarchy, $gmLOD, $mayaVers;
+	
+	// OS check -- this will probably go away once the UI is built using forms
+	if (`about -mac`) {
+		$gmButtonRowPad = 10;
+	} else {
+		$gmButtonRowPad = 1;
+	}
+
+	if (`window -q -ex GhostManWin`) deleteUI GhostManWin ;
+
+	// Make Window
+	window -w 300 -h 5 -mnb 1 -mxb 0 -menuBar 1 -mbv 1 -rtf 1 -s 1 -t "GhostMan - 1.0" -in "GhostMan" GhostManWin;
+
+		//Menu Layout
+		menu -l "Options" gmOptions;
+			menuItem -l "Ghost Heirarchy" -cb 1 -c "$gmHeirarchy = 1 - $gmHeirarchy" gmMIHeirarchy;
+			menuItem -l "Only on Keyframes" -cb 1 -c "$gmKeyframes	= 1 - $gmKeyframes" gmMIKeyFrames;
+			/*if ($mayaVers > 6) {
+				menuItem -l "Special Tick Color" -cb 0 -c "$gmSpecTick = 1-$gmSpecTick" gmMISpecialTickColor;
+			}*/
+			menuItem -l "Hide Curves" -cb 1 -c "$gmHideCurves = 1 - $gmHideCurves" gmMIHideCurves;
+			menuItem -d true;
+			menuItem -l "Level of Detail" -sm 1 gmMILeveOfDetail;
+				radioMenuItemCollection;
+				menuItem -l "1" -rb 0 -c "gmChangeDetail(1); $gmLOD = 1;" gmMILOD1;
+				menuItem -l "2" -rb 0 -c "gmChangeDetail(2); $gmLOD = 2;" gmMILOD2;
+				menuItem -l "3" -rb 1 -c "gmChangeDetail(3); $gmLOD = 3;" gmMILOD3;
+		//Form Layout
+		columnLayout -adj 1 -cat "both" 0 gmMainGroupCL;
+	    	rowLayout -nc 3 -cw 1 80 -cw 2 100 gmFirstRow;
+				button -label " Set Character " -width 80 -command "gmSetCharacter" gmBtnSetCharacter;
+				text -label "           (No Ghosting Object Set)" gmTxtCharacter;
+			setParent ..;
+			rowLayout -nc 4 -cw 1 90 -cw 2 80 -cw 3 90 gmSecondRow;
+				button -label " Ghost Character " -width 90	-command "gmGhostCharacter"	gmBtnGhostCharacter;
+				button -label " Delete Ghosts "	-width 80 -command "gmDeleteGhosts" gmBtnDeleteGhosts;
+				button -label " Toggle Visibility "	-width 90 -command "gmToggleVis"	gmBtnToggleVisibility;	
+			setParent ..;
+			rowLayout -nc 3 -cw 1 120 -cw 2 120 gmThirdRow;
+				button -label " Refresh Current Ghost " -width 120 -command "gmRefreshCurrent" gmBtnRefreshCurrent;
+				button -label " Delete Current Ghost " -width 120 -command "gmDeleteCurrent" gmBtnDeleteCurrent;
+			setParent ..;
+			rowColumnLayout -numberOfRows 8;
+				attrColorSliderGrp -l "  Ghost Transparency" -sb 0 -at GhostTransp.transparency;
+			setParent ..;
+			/*rowLayout -nc 4 -cw 1 100 -cw 2 30 -cw 3 30 -cw 4 30 gmFourthRow;
+				text -l "  Use Frame Range " gmTxtFrameRange;
+				checkBox -l "" -rs 1 gmChbxFrame;
+				text -l "From" -al "right" gmTxtFromText;
+				text -l "To" -al "right" gmTxtToText;
+			setParent ..;*/
+		setParent ..;
+			
+				
+	select -cl;
+	
+	showWindow GhostManWin ;
+
+	scriptJob -p GhostManWin -e "SceneOpened" "deleteUI GhostManWin; gmInitUI;";
+	scriptJob -p GhostManWin -e "NewSceneOpened" "deleteUI GhostManWin;";
+//	scriptJob -p GhostManWin -e "timeChanged" "gmFrameChange;";
+
+}
+
+
+proc gmFrameChange(){
+	//old, don't use
+	global string $gmChar[];
+	
+	if ($gmChar[0] != "") {
+//		hide gmGhostGroup;	
+
+		int $now = `currentTime - query`;
+		int $i = $now + 10;
+		string $temp[];
+		
+		//hide gmGhostGroup;
+		
+		while ($i != $now - 10){
+			string $sel;
+			string $a = "gmFrame_";
+			string $c = $a + $i;
+			$temp = `ls $c`;
+			
+			if (size($temp) != 0) {
+				for ($sel in $temp) {
+					showHidden $sel;
+					print $sel;
+				}
+			}
+			$i--;
+		}
+	}
+}
+
+
+//Lowers resolution on ghost group for performance reasons
+proc gmChangeDetail(int $res) {
+	
+	if (`objExists gmGhostGroup`) {
+		select -r gmGhostGroup ;
+			
+		if ($res == 1) {
+			displaySmoothness 
+				-divisionsU 0 
+				-divisionsV 0 
+				-pointsWire 4 
+				-pointsShaded 1 
+				-polygonObject 1;
+			subdivDisplaySmoothness -smoothness $res;
+		}
+		if ($res == 2) {
+			displaySmoothness 
+				-divisionsU 1 
+				-divisionsV 1 
+				-pointsWire 8 
+				-pointsShaded 2 
+				-polygonObject 2;
+			subdivDisplaySmoothness -smoothness $res;
+		}
+		if ($res == 3) {
+			displaySmoothness 
+				-divisionsU 3 
+				-divisionsV 3 
+				-pointsWire 16 
+				-pointsShaded 4 
+				-polygonObject 3;
+			subdivDisplaySmoothness -smoothness $res;
+		}
+		select -cl;
+	}
+}
+
+
+//Hides NurbsCurves in Ghost Group 
+proc gmHideCurves()
+{
+	global int $gmHideCurves;
+	
+	if ($gmHideCurves == 1) {
+		select -r -hi gmGhostGroup;
+		
+		string $temp[];
+		string $sel;
+		$temp = `ls -sl -typ nurbsCurve`;
+		select -cl;
+		for ($sel in $temp)
+		{
+			hide $sel;
+		}
+	}
+}
+
+
+//deletes and recreates ghost on current frame
+proc gmRefreshCurrent(){
+	gmDeleteCurrent();
+	gmGhostCharacter();
+}
+
+
+//deletes ghost on the current frame or keyframe
+proc gmDeleteCurrent(){
+	global int $gmKeyframes;
+	int $now = `currentTime -query`;
+	
+	//if keyframes is checked
+	if ($gmKeyframes == 1) {
+		int $i;
+		$i = `findKeyframe -timeSlider -which previous`;
+		
+		currentTime -edit $i;
+		if (`findKeyframe -timeSlider -which next` == $now){
+			currentTime -edit $now;
+		}	
+	}
+	
+
+	string $time = `currentTime -query`;
+	string $name = "gmFrame_" + $time;
+	
+	
+	currentTime -edit $now;
+	
+	if (`objExists $name`){
+		delete $name;
+	} else {
+		if ($gmKeyframes == 1) {
+			error ("No Object " + $name + ". No Ghost Exists on Current Keyframe");
+		} else {
+			error ("No Object " + $name + ". No Ghost Exists on Current Frame");
+		}
+	}
+}
+
+
+//Deletes all ghosts
+proc gmDeleteGhosts(){
+	if (`objExists gmGhostGroup`) {   
+		delete gmGhostGroup;
+	}
+}
+
+
+//Sets character
+proc gmSetCharacter(){
+
+	global int $gmHeirarchy;
+	global string $gmChar[];
+	
+	gmDeleteGhosts();
+	
+	//capture original selection and time
+	string $orig[] = `ls -selection`;
+	int $now = `currentTime -query`;
+	
+	if ($orig[0] == "") {
+		error ("No Object Selected");
+	}
+	
+	//if heirarchy is checked
+	if ($gmHeirarchy == 1) {
+		//pickwalk up until top node is reached
+		select -hi;
+		
+		$temp = `ls -sl`;
+		pickWalk -d up;
+		$temp2 = `ls -sl`;
+		
+		while ($temp[0] != $temp2[0]){
+			$temp = `ls -sl`;
+			pickWalk -d up;
+			$temp2 = `ls -sl`;
+		}
+	}
+	$gmChar = `ls -sl`;
+	
+	//Error when nothing selected
+	if ( size($gmChar) == 0 ) error "No geometry selected!";
+
+	//Edit UI label
+	$label = "           (" + $gmChar[0] + ")";
+	text -edit -label $label gmTxtCharacter;
+	
+	// Restore the original selection and time. 
+	select -replace $orig;
+	currentTime -edit $now;
+
+}
+
+
+//Hides/Shows gmGhostGroup
+proc gmToggleVis(){
+	global int $gmVisible;
+	string $orig[] = `ls -selection`;
+	
+	select -r gmGhostGroup ; 
+	
+	if ($gmVisible == 1) {
+		hide `ls -sl`;
+	} else {
+		showHidden -a;
+	}
+	
+	$gmVisible = 1 - $gmVisible;
+	select -replace $orig;
+}
+
+
+//Ghosts every frame with a keyframe on it
+global proc gmGhostCharacter(){
+
+	global string $gmChar[];
+	global int $gmLOD, $gmKeyframes;
+	
+	//capture original selection and time
+	string $orig[] = `ls -selection`;
+	int $now = `currentTime -query`;
+	
+	//declare ghost group if it doesn't exist
+    if (! `objExists gmGhostGroup`) 
+    {
+		group -name gmGhostGroup -empty;
+      	setAttr "gmGhostGroup.overrideEnabled" 1;         
+    }
+
+	
+	//only ghosts on a keyframes if checked
+	if ($gmKeyframes == 1) {
+		int $i;
+		$i = `findKeyframe -timeSlider -which previous`;
+		
+		currentTime -edit $i;
+		if (`findKeyframe -timeSlider -which next` == $now){
+			currentTime -edit $now;
+		}	
+	}
+	
+	select $gmChar;
+	
+	string $time = `currentTime -query`;
+	string $name = "gmFrame_" + $time;
+	if (! `objExists $name`){	
+		gmGhost($gmChar);
+	}
+		
+		gmHideCurves();
+	
+		gmChangeDetail($gmLOD);
+	
+	
+	
+   	// Restore the original selection and time. 
+	select -replace $orig;
+	currentTime -edit $now;
+}
+
+
+// Main proc to ghost the selected object on the current frame
+proc gmGhost(string $object[]){
+	
+	select $object[0];
+
+	//labels a 
+	string $a = "gmFrame_";
+	int $time = `currentTime -query`;
+	string $c = $a + $time;
+
+   	showHidden -a;
+	//duplicate object
+    duplicate -rc;
+	//group it to itself
+	group -name $c;
+	//parent it to the main group
+	parent $c gmGhostGroup;
+	
+	// Assign existing shader to selected.
+	if ( catch (`shadingNode -name "GhostTransp" -asShader lambert -shared`) ) ;
+	sets  -name GhostTranspSG -renderable yes -noSurfaceShader yes -empty;
+
+	select $object[0];
+	
+   	// Add the selected geometry to the shading group. 
+	sets  -edit  -forceElement GhostTranspSG gmGhostGroup;
+	select -deselect;
+	if ( catch (`connectAttr GhostTransp.outColor GhostTranspSG.surfaceShader`) ) ;
+	
+}
+
+gmInitUI;

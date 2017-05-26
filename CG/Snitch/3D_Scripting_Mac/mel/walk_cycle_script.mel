@@ -1,0 +1,59 @@
+// ----------------------------------------------------
+// BEGIN - Animate the camera
+// ----------------------------------------------------
+currentTime 1 ;
+select -r camera1 ;
+setKeyframe -breakdown 0 |camera1.translate;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"camera1"};
+
+currentTime 20 ;
+move -r 0 24.106109 270.524107 ;
+setKeyframe -breakdown 0 |camera1.translate;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"camera1"};
+
+currentTime 40 ;
+move -r 0 -52.229902 278.559476 ;
+setKeyframe -breakdown 0 |camera1.translate;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"camera1"};
+// ----------------------------------------------------
+// END - Animate the camera
+// ----------------------------------------------------
+
+// ----------------------------------------------------
+// BEGIN - Animate the character
+// ----------------------------------------------------
+currentTime 1 ;
+select -r stw_root_ctrl ;
+setKeyframe -breakdown 0 |stw_grp|stw_rig_all_grp|stw_rig_grp|stw_root_ctrl_frzGrp|stw_root_ctrl.translate;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"stw_root_ctrl"};
+
+currentTime 10 ;
+move -r 0 23.192605 131.42476 ;
+rotate -r -os -8.874505 0 0 ;
+move -r 0 -3.514031 0 ;
+setKeyframe -breakdown 0 |stw_grp|stw_rig_all_grp|stw_rig_grp|stw_root_ctrl_frzGrp|stw_root_ctrl.translate;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"stw_root_ctrl"};
+
+currentTime 20 ;
+move -r 0 31.626279 178.512776 ;
+setAttr "stw_root_ctrl.masterScale" 1.5;
+setKeyframe -breakdown 0 |stw_grp|stw_rig_all_grp|stw_rig_grp|stw_root_ctrl_frzGrp|stw_root_ctrl.translate;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"stw_root_ctrl"};
+
+currentTime 30 ;
+move -r 0 -28.815054 143.372466 ;
+rotate -r -os 20.234334 0 0 ;
+move -r 0 -1.405612 0 ;
+setKeyframe -breakdown 0 |stw_grp|stw_rig_all_grp|stw_rig_grp|stw_root_ctrl_frzGrp|stw_root_ctrl.translate;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"stw_root_ctrl"};
+
+currentTime 40 ;
+move -r 0 -23.895411 145.480885 ;
+setAttr "stw_root_ctrl.masterScale" 1;
+setKeyframe -breakdown 0 |stw_grp|stw_rig_all_grp|stw_rig_grp|stw_root_ctrl_frzGrp|stw_root_ctrl.translate;
+setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 {"stw_root_ctrl"};
+
+currentTime 1 ;
+// ----------------------------------------------------
+// END - Animate the character
+// ----------------------------------------------------

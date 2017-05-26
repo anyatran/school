@@ -1,0 +1,64 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRswitchCharSet.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Oct 13,2006
+//					created: Oct 18, 2005
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// switch the character sets based on the selection
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRswitchCharSet ( string $setType)
+{
+	string $charSetArray[];
+	string $subCharSetArray[];
+	string $sel[];
+
+	$sel = `ls -sl`;
+
+	if (size($sel) != 0)
+	{
+		//get the name of the character
+		$charName = `substring $sel[0] (size($sel[0]) - 3) (size($sel[0]))`;
+
+		switch ($setType)
+		{
+			case "main":
+				//get which character set the selection belongs to
+				$subCharSetArray = `listConnections -s 1 -d 0 -t character $sel`;
+				//get the primary character set the sub set outputs to
+				$charSetArray = `listConnections -s 0 -d 1 -t character $subCharSetArray[0]`;
+				//make the character set active
+				setCurrentCharacters ( {$charSetArray[0]} );
+				break;
+			case "sub":
+				//get which character set the selection belongs to
+				$subCharSetArray = `listConnections -s 1 -d 0 -t character $sel`;
+				//make the character set active
+				setCurrentCharacters ( {$subCharSetArray[0]} );
+				break;
+			default:
+				break;
+		}
+	}
+	else
+	{
+		setCurrentCharacters ( {} );
+	}
+}

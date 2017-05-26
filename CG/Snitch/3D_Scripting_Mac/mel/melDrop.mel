@@ -1,0 +1,652 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: melDrop
+''    Author: ewerybody 
+''    Last Updated: Dec 02, 2008
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/utility_external/copying/2593.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+// melDrop - version 0.6 /////////////////////////////////////
+//
+// Enables drag & drop script installation for Maya.
+// Copies files, sets up hotkeys and shelfButtons with ease.
+// Works even out of zip files and makes script deployment
+// incredibly easy!
+//
+// how it works: If a script with a proc is dropped
+// into maya, "whatIs" can instantly locate the files origin.
+// melDrop can then copy the file from there to the
+// userScriptDir, add it to userSetup.mel or create
+// hotkeys or shelfButtons.
+//
+// (c) eRiC Werner Apr-2008
+//////////////////////////////////////////////////////////////
+// goodsoul.de                  ewerybody+melDrop@gmail.com //
+/////////////////////////////////////////////////////////////
+
+
+// Future TODOs:
+// * if available offer xpmBrowser
+// * on update offer to skip hotkey and shelfButton
+// * maybe even offer a single click dialog that lists all actions, you can check them
+//   and press Ok just once
+// * "add=filename.bla" argument that enables to copy more than 1 mel & icon file for a script
+
+
+// ---------------------------------------------------------------------------------
+// melDrop helper procs
+
+// getPathFromProc - returns the actual path from 
+// whatIs-command or "Unknown" if the proc does not exist
+// ---------------------------------------------------------------------------------
+proc string getPathFromProc(string $procName)
+{
+	string $whatIs = `whatIs $procName`;
+	string $parts[] = `stringToStringArray $whatIs ":"`;
+	// in case something went wrong:
+	if (size($parts) == 1)
+		return $parts[0];
+
+	// else if there are 2 items the second is the path:
+	string $path = $parts[1];
+	// or more than 2 the ":" separated them: reattach
+	if (size($parts) > 2)
+		for ($i = 2; $i < size($parts); $i++)
+			$path += ":" + $parts[$i];
+
+	return strip($path);
+}
+
+
+// stuff for editing userSetup.mel -----------------------------
+// setUserSetup - if wanted this adds the given filename to
+// the userSetup.mel so it will be sourced at mayastartup
+// useful for scripts that alter the Maya-UI
+// ---------------------------------------------------------------------------------
+proc setUserSetup(string $file)
+{
+	string $userScriptDir = `internalVar -userScriptDir`;
+	string $userSetupMel = ($userScriptDir + "userSetup.mel");
+	int $isInUserSetup = 0;
+	// if userSetup exists check if the files installed already
+	if (`file -q -ex $userSetupMel`)
+	{
+		int $fileId = `fopen $userSetupMel "r"`;
+	 	string $nextLine = `fgetline $fileId`;
+	 	while (size($nextLine))
+		{	// check each line for the scriptname.mel (lousy check indeed.. but..)
+			if (`gmatch $nextLine ("*source*" + $file + "*")`)
+			{
+				$isInUserSetup = 1;
+				break;
+			}
+	 		$nextLine = `fgetline $fileId`;
+		}
+		fclose $fileId;
+	}
+
+	// if not in, open userSetupMel for "a"ppend anyway
+	if (!$isInUserSetup)
+	{
+		string $result = `confirmDialog -t "Edit userSetup.mel"
+			-m ("melDrop can now add the file:\n"+
+				">" + $file + "<\n"+
+				"to the \"userSetup.mel\" in the userScriptDir!\nSo it will be run each time your start Maya!\nDo you want me to do that now?")
+				-button "Ok" -button "Cancel" -defaultButton "Ok"`;
+		
+		if ($result == "Ok")
+		{
+			int $fileId = `fopen $userSetupMel "a"`;
+			fprint $fileId ("\nsource \"" + $file + "\";");
+			fclose $fileId;
+		}
+	}
+	else
+		confirmDialog -t "userSetup already set!"
+			-m ("Seems the file :\n>" + $file + "<\nwill already be sourced in the userSetup.mel!\nDoing nothing to userSetup...");
+}
+
+
+// ShelfButton-Stuff -------------------------------------------
+// melDrop_SetShelfButtonUI - the UI to setup a shelfButton
+// ---------------------------------------------------------------------------------
+global proc melDrop_SetShelfButtonUI(string $procName, string $origpath, string $buttonImage, string $overlay, string $annotation)
+{
+	// get shelves
+	global string $gShelfTopLevel;
+	string $shelves[];
+	for ($layout in `lsUI -cl`)
+		if (`shelfLayout -ex $layout`)
+			$shelves[size($shelves)] = $layout;
+
+	string $currentShelf = `tabLayout -q -st $gShelfTopLevel`;
+
+	// look for an image located at the spot where you dropped the mel-file from
+	string $image;
+	int $copyIcon = 0;
+	string $stub = dirname($origpath) + "/" + basenameEx($origpath);
+	string $imageGuess[] = {$stub + ".bmp",$stub + ".xpm",$stub + "_icon.bmp",$stub + "_icon.xpm"};
+	for ($guess in $imageGuess)
+	{
+		if (file("-q","-ex",$guess))
+		{
+			$image = $guess;
+			$copyIcon = 1;
+			break;
+		}
+	}
+	// if nothing found take the suggestion or the standard-button
+	if ($image == "")
+	{
+		if ($buttonImage != "")
+			$image = $buttonImage;
+		else
+			$image = "commandButton.xpm";		
+	}
+
+	// Get the dialog's formLayout.
+	string $form = `setParent -q`;
+
+	// add some controls
+	string $text = `text -label ("Do you want to add a shelfButton for the command \"" + $procName + "\"?")`;
+	string $butF = `frameLayout -lv 0 -bs out`;
+		string $butt = `shelfButton -w 32 -h 32 -image $image -ann $procName -command "melDrop_runXpmPicker"`;
+		shelfButton -e -command ("melDrop_runXpmPicker " + $butt) $butt;
+		setParent ..;
+	string $cBox = `optionMenu -w 200 -label shelves -cc "tabLayout -e -st #1 $gShelfTopLevel"`;
+		for ($shelf in $shelves)
+			menuItem -label $shelf;
+	optionMenu -e -v $currentShelf $cBox;
+	string $anno = `textFieldGrp -cw 1 90 -label "Label & Tooltip:" -text $annotation -cc ("shelfButton -e -ann \"#1\" " + $butt)`;
+	string $over = `textFieldGrp -cw 1 90 -label "overlay" -text $overlay -cc ("shelfButton -e -imageOverlayLabel \"#1\" " + $butt)`;
+
+	// assemble the controls names to the okButton-command:
+	string $okCmd = "melDrop_createShelfButton " + $procName + " " + $butt + " " + $copyIcon + " " + $cBox + " " + $anno + " " + $over + "; layoutDialog -dismiss \"Ok\";";
+	print("$okCmd: " + $okCmd + "\n");
+	string $ok   = `button -w 80 -h 25 -label "Ok" -command $okCmd`;
+	string $canc = `button -w 80 -h 25 -label "Cancel" -command "layoutDialog -dismiss \"Cancel\""`;
+
+	formLayout -e -width 380 -height 155
+ 		-af $text left 0 		-af $text top 10
+ 		-ac $butF top 25 $text	-ac $cBox top 10 $text
+		-ac $cBox left 50 $butF	-ac $anno left 0 $butF
+		-ac $anno top 0 $cBox	-ac $over top 0 $anno
+		-ac $over left 0 $butF	-af $canc bottom 0
+		-af $ok bottom 0		-ap $ok right 5 50
+		-ap $canc left 5 50		-af $butF left 10
+		$form;
+}
+
+
+// melDrop_runXpmPicker - runs xpmPicker if exists else does nothing
+// ---------------------------------------------------------------------------------
+global proc melDrop_runXpmPicker(string $butt)
+{
+	if (exists("xpmPicker"))
+	{
+		string $newIcon = xpmPicker("-fn","");
+		if ($newIcon != "")
+			shelfButton -e -image $newIcon $butt;
+	}
+	else
+		error "xpmPicker does not exist!";
+}
+
+// melDrop_createShelfButton - to disburden the dismiss string
+// this proc gets the info from the layoutDialog and performs
+// the shelfButton creation. much easier!!
+// ---------------------------------------------------------------------------------
+global proc melDrop_createShelfButton(string $procName,string $shelfB, int $copyIcon, string $comboBox, string $anno, string $over)
+{
+	string $image = `shelfButton -q -image1 $shelfB`;
+	string $shelf = `optionMenu -q -v $comboBox`;
+	string $annot = `textFieldGrp -q -text $anno`;
+	string $overl = `textFieldGrp -q -text $over`;
+
+	if ($copyIcon)
+	{
+		string $newIconsPath = internalVar("-userBitmapsDir") + basename($image,"");
+		sysFile -copy $newIconsPath $image;
+		// icons in standard-icon dir can be called directly:
+		$image = basename($image,"");
+	}
+
+	shelfButton
+		-parent $shelf
+		-command ($procName + ";")
+		-image1 $image
+		-ann $annot
+		-label $annot
+		-imageOverlayLabel $overl
+		-style `shelfLayout -q -style $shelf`
+		-width `shelfLayout -q -cellWidth $shelf`
+		-height `shelfLayout -q -cellHeight $shelf`;
+}
+
+// setHotkeyDialog - offers you options to create a hotkey
+// that was you suggested or to open up the Maya Hotkey Editor
+// ---------------------------------------------------------------------------------
+proc setHotkeyDialog(string $procName, string $hotkey, string $annotation)
+{
+	string $result;
+	int $ctrl, $alt;
+	// if no hotkey is suggested just open Hotkey Editor
+	if ($hotkey == "")
+	{
+		$result = `confirmDialog -t "setup a hotkey?"
+			-m ("Its suggested to put \"" + $procName + "\" on a hotkey!\n" +
+			"Do you want to open the Hotkey Editor to set one up now?")
+			-button Ok -button Cancel -defaultButton Ok`;
+		if ($result == "Ok")
+			melDrop_openMayaHKEditor $procName $hotkey $annotation $ctrl $alt;
+	}
+	else
+	{
+		// extract ctrl and alt
+		string $hotkeyString;
+		if ((size($hotkey) > 1) && (`gmatch $hotkey "*\^*"`))
+		{
+			$ctrl = 1;
+			$hotkey = substitute("\\^", $hotkey, "");
+			$hotkeyString = "Ctrl + ";
+		}
+		if ((size($hotkey) > 1) && (`gmatch $hotkey "*!*"`))
+		{
+			$alt = 1;
+			$hotkey = substitute("!", $hotkey, "");
+			$hotkeyString += "Alt + ";
+		}
+		$hotkeyString += $hotkey;
+
+		// look if the Hotkey is already in use / show different dialogs:
+		source "hotkeyEditor";
+		string $thisCommand = getHotkeyCommand($hotkey, $ctrl, $alt, 0, 1);
+		// if not in use: 
+		if ($thisCommand == "")
+		{
+			$result = `confirmDialog -t "setup a hotkey?"
+				-m ("Its suggested to put \"" + $procName + "\" on the following hotkey:\n\n" +
+				$hotkeyString + "\n\n" +
+				"This hotkey is not assigned yet! Do you want to set it now?")
+				-button Ok -button "Open Hotkey Editor" -button Cancel`;
+		}
+		// if it is: 
+		else
+		{
+			$result = `confirmDialog -t "setup a hotkey?"
+				-m ("Its suggested to put \"" + $procName + "\" on the following hotkey:\n\n" +
+				$hotkeyString + "\n\n" +
+				"But its already assigned to the command:\n" +
+				"\"" + $thisCommand + "\"\n" +
+				"Do you want to override this command with the new hotkey?")
+				-button Ok -button "Open Hotkey Editor" -button Cancel`;
+		}
+
+		// but do the same afterwards
+		if ($result == "Ok")
+			melDrop_setHotkey($procName, $hotkey, $annotation, $ctrl, $alt);
+		else if ($result == "Open Hotkey Editor")
+			melDrop_openMayaHKEditor $procName $hotkey $annotation $ctrl $alt;
+	}
+}
+
+// melDrop_setHotkey - actually forces setting up a hotkey with the given options
+// ---------------------------------------------------------------------------------
+global proc melDrop_setHotkey(string $procName, string $hotkey, string $annotation, int $ctrl, int $alt)
+{
+	string $ctlString = "";
+	if ($ctrl)
+		$ctlString = " -ctl";
+	string $altString = "";
+	if ($alt)
+		$altString = " -alt";
+	string $nameCommand = $procName + "_NameCommand";
+	eval("hotkey -keyShortcut " + $hotkey + $ctlString + $altString + " -name " + $nameCommand);
+
+	string $hotkeyName = $procName + "_hotkey";
+	nameCommand
+		-annotation $nameCommand
+		-command $hotkeyName
+		$nameCommand;
+	
+	runTimeCommand
+		-annotation $annotation
+		-category "User"
+		-command ($procName + ";")
+		$hotkeyName;
+}
+
+// melDrop_openMayaHKEditor - opens up Maya Hotkey Editor and already
+// sets the UI elements to the given values
+// ---------------------------------------------------------------------------------
+global proc melDrop_openMayaHKEditor(string $procName, string $hotkey, string $annotation, int $ctrl, int $alt)
+{
+	hotkeyEditor;
+	// enter hotkey
+	textField -e -text $hotkey HotkeyEditorKeyField;
+	checkBox -e -v $ctrl HotkeyEditorCtrlCheckBox;
+	checkBox -e -v $alt HotkeyEditorAltCheckBox;
+	
+	// setup command
+	textScrollList -e -si "User" HotkeyEditorCategoryTextScrollList;
+	hotkeyEditorCategoryTextScrollListSelect;
+	hotkeyEditorCreateCommand;
+	textField -edit -text ($procName + "_hotkey") HotkeyEditorNameField;
+	textField -edit -text $annotation HotkeyEditorDescriptionField;
+	// textField -edit -text "bla" HotkeyEditorCategoryField;
+	scrollField -edit -text ($procName + ";") HotkeyEditorCommandField;
+	
+	string $hotkeySetString;
+	if (size($hotkey))
+		$hotkeySetString = "And the Hotkey-field and checkboxes are set!\n";
+
+	// to not already show the "finished"-dialog temporally setup a var
+	// and hook the dialog to close of HotkeyEditor
+	optionVar -iv "melDrop_DelayFinishDialog" 1;
+	scriptJob -parent HotkeyEditor -uiDeleted "HotkeyEditor" "melDrop_showFinishedDialog";
+
+	confirmDialog -t "Maya Hotkey Editor"
+		-m ("This is Mayas built in Hotkey Editor!\n" +
+			"Yet nothing has happened. Only the fields for the command were filled!\n" + 
+			$hotkeySetString + "\n" +
+			"1. If you think you're Ok with the Name and Command press \"Accept\"\n" +
+			"2. Then alter the Hotkey to your needs and press \"Assign\"\n\n" +
+			"Hit \"Save\" to save prefs immediately and \"Close\" when you're finished.")
+		-button "Ok";
+}
+
+// getArgs - browses the $arguments-string array provided by the
+// melDrop-call. if it finds an entry it returns the value
+// after the "=". otherwise it returns nothing "".
+// ---------------------------------------------------------------------------------
+proc string getArgs(string $searchArg, string $arguments[])
+{
+	string $parts[];
+	for ($arg in $arguments)
+	{
+		$parts = stringToStringArray($arg, "=");
+		if ($parts[0] == $searchArg)
+			return $parts[1];
+	}
+	return "";
+}
+
+// melDrop_showFinishedDialog - just displays the last message of the installation
+// process. Is either called by the main proc directly or by the scriptJob on 
+// Hotkey-Editor-close
+// ---------------------------------------------------------------------------------
+global proc melDrop_showFinishedDialog()
+{
+	string $file = `optionVar -q melDrop_fileName`;
+	optionVar -rm melDrop_fileName;
+
+	confirmDialog -t "melDrop - Finished!"
+		-m ("You can already use: \"" + basename($file,"") + "\"\n" +
+			"Everything is copied and set up.\n" +
+			"You don't even need to restart Maya!\n" +
+			"\nThanks for using melDrop!")
+		-b "Ok" -db "Ok";
+	print ("// melDrop: Finished installing \"" + basename($file,"") + "\"!\n");
+}
+
+// main script ----------------------------------------------------------------------
+// call melDrop with a proc-name and a string array with the options
+// thats good to keep the script compatible all the time.
+// An item in an array is the only optional "argument" you could add to a procedure!
+//
+// currently the following is checked in the format {"arg1=value","arg2=value"...}
+//
+// "toUserSetup=1" - to make the script sourced at maya-startup
+// "shelfButton=1" - to create a shelfButton
+// "buttonImage=TEXT.BMP" - to set the icon in the dialog to a built-in image
+// "iconOverlay=ABC" - to set the icon overlay to "ABC"
+// "createHotkey=1" - to install a hotkey
+// "hotkey=^!U" - to suggest to put the hotkey on Ctrl + Alt + Shift + U
+// "annotation=Does awesome stuff!" - annotation for shelfButton, Hotkey, intro
+// "v=0.5" - script version. melDrop will alert when dropping lover versions
+// "mDv=0.5" - current melDrop version. melDrop will alert when its outdated
+// ---------------------------------------------------------------------------------
+global proc melDrop(string $procName, string $arguments[])
+{
+	string $path = `getPathFromProc $procName`;
+	string $file = basename($path,"");
+	string $userScriptDir = `internalVar -userScriptDir`;
+	string $result;
+	
+	// first of all check if the script isn't dropped from the userScriptsDir
+	if ($path == ($userScriptDir + $file))
+	{
+		print "// melDrop: Mel script already in userScriptDir. Doing Nothing...";
+		return;
+	}
+	// or if it was executed in script editor
+	else if ($path == "Mel procedure entered interactively.")
+	{
+		print "// melDrop: Mel procedure entered interactively. Doing Nothing...";
+		return;
+	}
+	// if the path cannot retrieved by any means
+	else if (($path == "Unknown") || (!`file -q -ex $path`))
+	{
+		confirmDialog -t "melDrop - Error!"
+			-m ("I was unable to retrieve the path from where the proc:\n" + 
+				"> " + $procName + " < was dropped:\n" +
+				"> " + $path + " <")
+			-button Ok;
+		return;
+	}
+	
+	// everything is ok: go on: ----------------------------------------------------
+	
+	// first check the melDrop-version: If its outdated offer to update:
+	if ($procName != "melDrop")
+	{
+		string $thisMDropV = getArgs("mDv", $arguments);
+		string $currMDropV = getArgs("melDrop", (stringToStringArray(`optionVar -q "melDropVersions"`,",")));
+
+		if ($thisMDropV == "" || $currMDropV == "")
+			warning "melDrop couldn't check its version number. Make sure its up to date!";
+		else 
+		{
+			float $thisMDropVf = $thisMDropV;
+			float $currMDropVf = $currMDropV;
+			if ($currMDropVf < $thisMDropVf)
+			{
+				$result = `confirmDialog -t "melDrop - outdated!"
+					-m ("You have melDrop version " + $currMDropVf + "installed!\n" +
+						"But this drop requires melDrop " + $thisMDropVf + "!\n" +
+						"Its strongly recommened that you update!\n")
+					-b "Goto Highend3D" -b "Move on" -b "Cancel" -db "Cancel"`;
+
+				if ($result == "Goto Highend3D")
+					showHelp -absolute "http://www.highend3d.com/users/43011.html?t=downloads";
+				if ($result != "Move on")
+					return;
+			}
+		}
+	}
+
+	// now check if the file is already installed and its version and show install dialogs:
+
+	// get the annotation and version for the dialogs:
+	string $annotation	= getArgs("annotation", $arguments);
+	// annotation exists: set it up for dialogs with extra linebreaks
+	string $dialogAnnotation = "";
+	if ($annotation != "")
+		$dialogAnnotation = $annotation + "\n\n";
+
+	// get version numbers from args and from the melDropVersions-optionVar
+	// look for filename without extension not for procname as script name
+	string $thisV = getArgs("v", $arguments);
+	string $currV = getArgs(basenameEx($file), (stringToStringArray(`optionVar -q "melDropVersions"`,",")));
+	// if a comparison is possible and file already exists:
+	if ($thisV != "" && $currV != "" && `file -q -ex ($userScriptDir + $file)`)
+	{
+		float $thisVf = $thisV;
+		float $currVf = $currV;
+		string $message, $defaultButton = "Cancel and reload";
+		if ($currVf > $thisVf)
+		{
+			$message = ("WARNING! The file: \"" + $file + "\" already exists in your userScriptDirectory and\n" +
+				"the saved version number (" + $currVf + ") for the script is higher than from the one you just dropped (" + $thisVf + ")!\n" +
+				"Do you really want to install an older version of this script?!?!");
+		}
+		else if ($currVf == $thisVf)
+		{
+			$message = ("WARNING! The file: \"" + $file + "\" already exists in your userScriptDirectory and\n" +
+				"the saved version number (" + $currVf + ") for the script is the same than from the one you just dropped!\n" +
+				"Do you really want to overwrite the yet installed version of this script?!?!");
+		}
+		else if ($currVf < $thisVf)
+		{
+			$message = ("The file: \"" + $file + "\" already exists in your userScriptDirectory!\n" +
+				"This updates it from v" + $currVf + " to v" + $thisVf + "!\n" +
+				"Do you want to continue?");
+			$defaultButton = "Ok";
+		}
+
+		$message += "\n\nNote that dropping the script file already caused sourcing it!\nChoose \"Cancel and reload\" to re-source the installed version!";
+
+		$result = `	confirmDialog -t ("melDrop - install " + $file)
+			-m $message
+			-b "Ok" -b ("Cancel and reload") -b "Cancel" -db "Cancel"`;
+
+		if ($result != "Ok")
+		{
+			if ($result == "Cancel and reload")
+				evalDeferred("source (\"" + $userScriptDir + $file + "\")");
+		}
+	}
+	// else just ask to install it
+	else
+	{
+		$result = `confirmDialog -t ("melDrop - install " + $file + " " + $thisV)
+			-m ($dialogAnnotation + "This will put the file \"" + $file + "\" to your userScriptDirectory?\n" +
+				"Do you want to continue?")
+			-b "Ok" -b "Cancel" -db "Ok"`;
+	}
+	if ($result == "Cancel" || $result == "Cancel and reload")
+	{
+		print ("// melDrop: installation of \"" + $file + "\" aborded!");
+		return;
+	}
+
+	// user has chosen to install: -----------------------------------------------
+	// copy the file:
+	sysFile -copy ($userScriptDir + $file) $path;
+	// if copying has succeded go on with the installation...
+	if (`file -q -ex ($userScriptDir + $file)`)
+	{
+		// temporally remember filename:
+		optionVar -sv melDrop_fileName $file;
+		
+		// put the versionNumber to the melDropVersions optionVar
+		if ($thisV != "")
+		{
+			string $melDropVersions, $versionsArray[];
+			string $scriptName = basenameEx($file);
+
+			// if var exists get it into the array
+			if (`optionVar -ex "melDropVersions"`)
+				$versionsArray = stringToStringArray(`optionVar -q "melDropVersions"`,",");
+
+			int $sizeVersionArray = size($versionsArray);
+			// if not set OR var doesn't exists put versionNumber to last arrayitem
+			if ((getArgs($scriptName, $versionsArray) == "") || (!`optionVar -ex "melDropVersions"`))
+				$versionsArray[$sizeVersionArray] = ($scriptName + "=" + $thisV);
+			// else browse for the item and change it
+			else
+			{
+				string $parts[];
+				for ($i = 0; $i < $sizeVersionArray; $i++)
+				{
+					$parts = stringToStringArray($versionsArray[$i], "=");
+					if ($parts[0] == $scriptName)
+					{
+						$versionsArray[$i] = $scriptName + "=" + $thisV;
+						break;
+					}
+				}
+			}
+
+			// put the array as string to the melDropVersions-optionVar:
+			optionVar -sv "melDropVersions" (stringArrayToString($versionsArray, ","));
+		}
+
+		// -------------------------------------------------------------
+		// now the optional stuff:
+		if (getArgs("toUserSetup", $arguments) == "1")
+			setUserSetup($file);
+
+		if (getArgs("shelfButton", $arguments) == "1")
+		{
+			string $buttonImage = getArgs("buttonImage", $arguments);
+			string $iconOverlay = getArgs("iconOverlay", $arguments);
+			layoutDialog -title "add shelfButton?"
+				-ui ("melDrop_SetShelfButtonUI " + $procName + " \"" + $path + "\" \"" + $buttonImage + "\" \"" + $iconOverlay + "\" \"" + $annotation + "\"");
+		}
+
+		if (getArgs("createHotkey", $arguments) == "1")
+		{
+			string $hotkey = getArgs("hotkey", $arguments);
+			setHotkeyDialog($procName, $hotkey, $annotation);
+		}
+		// -------------------------------------------------------------
+
+		// finished! hotkey editor may have hooked the finish dialog to HK-Editor-close
+		if (!`optionVar -ex "melDrop_DelayFinishDialog"`)
+			melDrop_showFinishedDialog;
+		else // if so delete the var already:
+			optionVar -rm "melDrop_DelayFinishDialog";
+	}
+	// if the file could not be copied: break up
+	else
+	{
+		string $result = `confirmDialog -t "melDrop - Error!"
+			-m ($file + " could not be copied to your scripts folder!\n" +
+				"Something went wrong. Please retry!\n\n" +
+				"If the problem it persists please report it!\n")
+			-b "Ok" -b "Mail me!"`;
+
+		if ($result == "Mail me!")
+		{
+			if (`about -ntOS`)
+			{
+				system("load mailto:ewerybody+melDrop@gmail.com&subject=melDrop Error: " + $file);
+				confirmDialog -t melDrop
+					-m ("It would be very helpful if you could attach the script file:\n" +
+						">" + $file + "<\n" +
+						"to the mail! Thanks for coorperation! - eRiC")
+					-b Ok;
+			}
+			else
+			{
+				promptDialog -t melDrop
+					-m ("It would be very helpful if you could attach the script file:\n" +
+						">" + $file + "<\n" +
+						"to the mail! Thanks for coorperation! - eRiC")
+					-text "ewerybody+melDrop@gmail.com"
+					-b Ok;
+			}
+		}
+	}
+}
+
+// -----------------------------------------------------------
+// finally installing melDrop itself:
+confirmDialog -t "melDrop v0.6"
+	-m ("Hello and welcome to melDrop!\n\n"+
+		"Its made to help you installing scripts in the future by simply\n"+
+		"dragging and dropping them into Mayas 3D-viewport!\n\n"+
+		"Don't be worried it will always ask you before doing anything!\n"+
+		"So: melDrop will now apply itself to install itself...")
+	-b "Ok" -db "Ok";
+
+// call melDrop with the procName and args
+melDrop("melDrop",{"annotation=melDrop - drag and drop makes you happy! :)","v=0.6"});

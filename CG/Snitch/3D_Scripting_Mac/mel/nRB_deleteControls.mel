@@ -1,0 +1,252 @@
+/* nRB_deleteControls.mel
+
+   nRB_deleteControls.mel v.1.1
+   CyberArts Script File
+   Creation Date: 5/5/02
+   Update: 12/1/03
+   Author: Robert Rusick
+
+
+   See "NURBS_wRoundedBox_Notes.txt" for details
+   ( or read HTML documentation )
+   -----------------------------------------
+   Related scripts:
+
+     NURBS_RoundedBox.mel
+       Create a rounded box.
+
+     nRB_createUI.mel
+       Create a UI box to set rounded box options.
+
+     nRB_testHierarchy.mel
+       Test the hierarchy of an group
+       to see if it is an unaltered rounded box group.
+
+     nRB_deleteControls.mel
+       Selectively delete controls and history from a rounded box.
+
+     nRB_deleteControlsUI.mel
+       Create a UI box to set rounded box delete controls options.
+
+     nRB_attachSurfaces.mel
+       Attach rounded box surfaces.
+
+     nRB_attachSurfacesUI.mel
+       Create a UI box to set rounded box attach surfaces options.
+
+     getHelpDocs.mel
+       Used to call up HTML documentation.
+
+*/
+
+
+
+/* ==================================================================================
+                           SCRIPT SETUP
+   ==================================================================================
+   Test for one of the optionVars;
+   if it does not exist,
+   source the script used to create them,
+   and set them up as their default values.
+*/
+
+if (! `optionVar -ex nRB_DeleteControls`)
+{ source nRB_deleteControlsUI.mel;
+  nRB_deleteControls_SetOptionVars 1;
+}
+
+
+
+
+global proc int isRoundedBox (string $rBox)
+{ int $flag;
+
+  // Flag is true if $rBox is a node with rounded box attributes.
+  string $attrList[] = `listAttr -st roundedBoxDummy $rBox`;
+  $flag = `size $attrList`;
+
+  return $flag;
+} // end procedure isRoundedBox
+
+
+global proc doDeleteRoundedBoxHistory (string $rBox)
+{ // save current selection list
+  string $originalList[] = `ls -sl`;
+
+  // Delete history.
+  select -hi $rBox;
+  string $selectedList[] = `ls -sl`;
+  select -cl;
+  delete -ch $selectedList;
+
+  // restore original selection list
+  select -r $originalList;
+}
+
+
+proc int testAndDeleteRoundedBoxHistory (string $rBoxArray[])
+{
+  int $noHierarchyErrors = `nRB_testHierarchy $rBoxArray`;
+
+  $rBox = $rBoxArray[0];
+
+  if ($noHierarchyErrors) doDeleteRoundedBoxHistory $rBox;
+  else print ("\nEncountered a hierarchy error on " + $rBox + ".\n"
+            + "Cannot delete history only; doing nothing for now.\n"
+            + "\n"
+            + "There was an error with doDeleteRoundedBoxHistory; see Script Editor for details.");
+
+  return $noHierarchyErrors;
+}
+
+
+global proc do_nRB_deleteControls (string $rBox)
+{
+  // get the names of the control expressions, and delete these
+  string $expressions[] = `listConnections ($rBox + ".boxLock")`;
+  delete $expressions[0];
+  delete $expressions[1];
+
+  /* (11/29/03) --
+     apparently no longer able to delete 'locked' attributes
+     without first unlocking them.
+
+     Only a few of the attributes got locked as a 'matter of course';
+     but we've set up an array with the attribute names,
+     a looping mechanism to loop thru the array,
+     unlock each attribute
+     then delete it.
+
+     Seemed it would be simpler and quicker
+     to simply set each attr as 'unlocked',
+     than it would be to query each,
+     then unlock the attr
+     only if it had been locked.
+  */
+
+  string $attrList[] = {
+  "bevelRadius",
+  "bevelSpans",
+  "bevelSections",
+  "xSize",
+  "ySize",
+  "zSize",
+  "xSpan",
+  "ySpan",
+  "zSpan",
+  "boxLock",
+  "wedgeLock",
+  "edgeLock",
+  "bevelFactor",
+  "sizeFactorA",
+  "sizeFactorB",
+  "edgeAdjust",
+  "roundedBoxDummy"
+  };
+
+  string $attr;
+  string $itemAttr;
+  int $lockFlag;
+
+  // delete added attributes for rounded box
+  for ($attr in $attrList)
+  {
+    $itemAttr = ($rBox + "." + $attr);
+    setAttr -l 0 $itemAttr;
+    deleteAttr $itemAttr;
+  }
+
+} // end procedure do_nRB_deleteControls
+
+
+global proc now_nRB_deleteControls (string $operation)
+{
+  string $rBoxArray[30];
+
+  string $list[] = `ls -sl`;
+  for ($node in $list)
+  { switch ($operation)
+    { case "historyOnly":
+  	if (`isRoundedBox $node`)
+  	{ print ("\n" + $node + " is a rounded box with controls.\n"
+  	          + "Cannot delete history only; doing nothing for now.\n"
+  	          + "\n"
+  	          + "Use \"historyAndControls\" option\n"
+  	          + "(nRB_deleteControls \"historyAndControls\")\n"
+  	          + "to delete history and controls.\n"
+  	          + "\n"
+  	          + "There was an error with nRB_deleteControls; see Script Editor for details.");
+  	}
+        else
+        { $rBoxArray[0] = $node;
+          testAndDeleteRoundedBoxHistory $rBoxArray;
+        }
+        break;
+
+      case "controlsOnly":
+  	if (`isRoundedBox $node`) do_nRB_deleteControls $node;
+        else
+        { print ("\n" + $node + " is either not a rounded box,\n"
+                  + "or has had controls deleted already.\n"
+                  + "\n"
+                  + "There was an error with nRB_deleteControls; see Script Editor for details.");
+        }
+        break;
+
+      case "historyAndControls":
+  	if (`isRoundedBox $node`)
+  	{ do_nRB_deleteControls $node;
+  	  $rBoxArray[0] = $node;
+          testAndDeleteRoundedBoxHistory $rBoxArray;
+  	}
+        else
+        { print ("\n" + $node + " is either not a rounded box,\n"
+                  + "or has had controls deleted already.\n"
+                  + "\n"
+  	          + "Try the \"historyOnly\" option\n"
+  	          + "to delete only the history.\n"
+  	          + "\n"
+                  + "Alternatively, try deleting the history from this hierarchy manually.\n"
+                  + "\n"
+  	          + "There was an error with nRB_deleteControls; see Script Editor for details.");
+        }
+        break;
+
+      case "any": default:
+        if (`isRoundedBox $node`) do_nRB_deleteControls $node;
+        $rBoxArray[0] = $node;
+        testAndDeleteRoundedBoxHistory $rBoxArray;
+        break;
+     }
+  }
+} // end procedure now_nRB_deleteControls
+
+
+/* ==================================================================================
+                          NURBS ROUNDED BOX DELETE CONTROLS
+   ==================================================================================
+*/
+
+global proc nRB_deleteControls()
+{
+  int    $deleteSwitch;
+  string $deleteMode;
+
+  // get option var
+  int $deleteSwitch   = `optionVar -q nRB_DeleteControls`;
+
+  switch ($deleteSwitch)
+  {
+    case 1: $deleteMode = "historyOnly";        break;
+    case 2: $deleteMode = "controlsOnly";       break;
+    case 3: $deleteMode = "historyAndControls"; break;
+    case 4: $deleteMode = "any";                break;
+
+    default: $deleteMode = "any"; break;
+  }
+
+  now_nRB_deleteControls $deleteMode;
+
+} // end proc
+
+

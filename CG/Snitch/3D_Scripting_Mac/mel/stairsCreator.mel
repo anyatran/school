@@ -1,0 +1,420 @@
+//
+//	stairsCreator v 3.0
+//
+//  Author:		Rasul Rasulov
+//
+//  My e-mail:		rasul3d@mail.ru
+//
+//	My webSite:		www.volusar.narod.ru
+//
+//  Creation Date:       ( 10/08/05 )
+//  
+//  For Maya 5.0 - 7.0
+//
+//  Description:	
+//  This script creates polygonal stairs of 2 types: Spiral and Straight.
+//	It is possible to create Solid and Separated Stairs of both types.
+//
+//	Thanx to "Shea" from #maya channel on EFnet server, for great help and support.
+// ------ 
+// UPDATE: -> V 3.0	
+//			- Spiral Stairs.
+//			- Straight Stairs.
+//			- Solid and separated creation option.
+//
+// ------
+// If you have any comments please e-mail me.
+// I hope you will find it usefull.
+//
+// ------------------------------------------
+global proc stairsCreator()
+{
+int $R_ww = 400; 
+int $R_wh = 350; 
+   if (`windowPref -q -ex "R_Win"`) 
+   { 
+      if ((`windowPref -q -w "R_Win"`) != $R_ww) 
+         windowPref -e -w $R_ww "R_Win"; 
+      if ((`windowPref -q -h "R_Win"`) != $R_wh) 
+         windowPref -e -h $R_wh "R_Win"; 
+   }
+	
+if(`window -ex R_Win`) deleteUI R_Win;
+
+window -t "Stairs Creator v 3.0" -w 400 -h 350 -s 0 "R_Win";
+
+global string $R_pCylinder[];
+global string $R_polyName[];
+global string $R_stGroup;
+
+columnLayout;
+
+	separator -height 5 -st none;
+	textField -text " Created by Rasul Rasulov  -  rasul3d@mail.ru" -w 390 -ed 0 textLine; 
+	separator -height 10 -st none;
+	radioButtonGrp -nrb 2 -l "Type of Stair" -labelArray2 "Spiral" "Straight" -sl 1 -cc "R_redrawUI()" r_rbtnGrp;
+	checkBoxGrp -ncb 1 -l " " -l1 "Solid" -v1 1 -cc "R_redrawSolidUI()" r_chBoxSolid; 
+	checkBoxGrp -ncb 1 -l " " -l1 "Create Cylinder" -v1 1 r_chBoxOpt;
+	separator -height 10 -st none;
+	floatSliderGrp -l "Inside Radius" -f 1 -min 0.0 -max 10.0 -fmn 0 -fmx 1000 -value 1  r_radius;		
+	intSliderGrp -l "Number of Steps" -f 1 -min 0 -max 100  -fmn 0 -fmx 5000  -v 30 r_number;
+	floatSliderGrp -l "Step Height" -f 1 -min 0.0 -max 2.0 -fmn 0 -fmx 1000.0 -value 0.1  r_height;
+	floatSliderGrp -l "Step Depth" -f 1 -min 0.0 -max 2.0 -fmn 0 -fmx 1000.0 -value 0.2  r_depth;
+	floatSliderGrp -l "Step Width" -f 1 -min 0.0 -max 10.0 -fmn 0 -fmx 1000.0 -value 1  r_width;
+	intSliderGrp -l "Subdivisions" -f 1 -min 0 -max 10  -fmn 0 -fmx 100  -v 1 r_subdivs;
+	floatSliderGrp -l "Height Offset" -f 1 -min 0.0 -max 2.0 -fmn 0 -fmx 1000.0 -v 0 -en 0 r_heightoff;
+	floatSliderGrp -l "Bottom Height" -f 1 -min 0.0 -max 2.0 -fmn 0 -fmx 1000.0 -v 0  r_bheight;
+			
+
+	separator -height 15 -st none;
+
+rowLayout -numberOfColumns 3 
+
+ 		-columnWidth3 130 130 130
+
+ 		-columnAlign  1 "center"
+		 
+		-columnAlign  2 "center"
+
+		-columnAlign  3 "center"
+		
+ 		-columnAttach 1 "both" 	20
+
+		-columnAttach 2 "both"  20
+
+ 		-columnAttach 3 "both"  20;
+
+ 		button -label "Create" -c "R_createCmd()";
+
+ 		button -label "Apply" -c "R_applyCmd()";
+
+ 		button -label "Close" -c ("deleteUI R_Win");
+
+showWindow R_Win;
+
+}
+
+global proc R_createCmd()
+{
+global string $R_pCylinder[];
+	
+	string $r_getSolidOpt = `checkBoxGrp -q -v1  r_chBoxSolid`;
+	string $r_getCylOpt = `checkBoxGrp -q -v1  r_chBoxOpt`;
+	string $r_getOpt = `radioButtonGrp -q -sl r_rbtnGrp`;
+	
+	if( `objExists $R_pCylinder[0]` ){
+	delete ($R_pCylinder[0]);}
+
+		if (($r_getSolidOpt==1)&&($r_getOpt==1)) 	//If Solid Spiral
+	{
+
+		float $R_stHeight=`floatSliderGrp -q -v r_height`;
+		float $R_btmHeight=`floatSliderGrp -q -v r_bheight`;
+		float $R_stWidth=`floatSliderGrp -q -v r_width`;
+		float $R_stDepth=`floatSliderGrp -q -v r_depth`;
+		float $R_heightOffset=`floatSliderGrp -q -v r_heightoff`;
+		float $R_cRadius=`floatSliderGrp -q -v r_radius`;
+		int $R_stQtty=`intSliderGrp -q -v r_number`;
+		int $R_midQtty=`intSliderGrp -q -v r_subdivs`;
+
+		if( `objExists $R_pCylinder[0]` ){
+		delete $R_pCylinder;}
+
+		if ($r_getCylOpt==1){
+		R_createCylinder($R_cRadius, $R_stQtty, $R_stHeight,$R_heightOffset);}
+		
+		spiral_stairsCreator($R_stHeight, $R_btmHeight, $R_stWidth, $R_stDepth, $R_cRadius, $R_stQtty, $R_midQtty);
+
+	} else if (($r_getSolidOpt==0)&&($r_getOpt==1)) //If Separated Spiral
+	{
+
+		float $R_stHeight=`floatSliderGrp -q -v r_height`;
+		float $R_stWidth=`floatSliderGrp -q -v r_width`;
+		float $R_stDepth=`floatSliderGrp -q -v r_depth`;
+		float $R_cRadius=`floatSliderGrp -q -v r_radius`;
+		float $R_heightOffset=`floatSliderGrp -q -v r_heightoff`;
+		int $R_stQtty=`intSliderGrp -q -v r_number`;
+		int $R_midQtty=`intSliderGrp -q -v r_subdivs`;
+
+		if( `objExists $R_pCylinder[0]` ){
+		delete $R_pCylinder;}
+
+		if ($r_getCylOpt==1){
+		R_createCylinder($R_cRadius, $R_stQtty, $R_stHeight,$R_heightOffset);}
+		separatedSpiralStairs($R_stHeight, $R_stWidth,	$R_stDepth, $R_cRadius, $R_stQtty, $R_heightOffset, $R_midQtty);
+
+	} else if (($r_getSolidOpt==1)&&($r_getOpt==2)) //If Solid Straight
+	{
+				
+		float $R_st_height=`floatSliderGrp -q -v r_height`;
+		float $R_stWidth=`floatSliderGrp -q -v r_width`;
+		float $R_st_depth=`floatSliderGrp -q -v r_depth`;
+		float $R_btmHeight=`floatSliderGrp -q -v r_bheight`;
+		int $R_stQuantity=`intSliderGrp -q -v r_number`;
+		solideStraightStair($R_stQuantity, $R_stWidth, $R_st_height, $R_st_depth, $R_btmHeight);
+
+	} else if (($r_getSolidOpt==0)&&($r_getOpt==2)) //If Separated Straight
+	{		
+
+		float $R_stHeight=`floatSliderGrp -q -v r_height`;
+		float $R_stWidth=`floatSliderGrp -q -v r_width`;
+		float $R_stDepth=`floatSliderGrp -q -v r_depth`;
+		float $R_heightOffset=`floatSliderGrp -q -v r_heightoff`;
+		int $R_stQtty=`intSliderGrp -q -v r_number`;
+		separatedStraightStair($R_stHeight, $R_stWidth,	$R_stDepth, $R_stQtty, $R_heightOffset);
+
+	}
+}
+global proc R_applyCmd()
+{
+global string $R_pCylinder[];
+global string $R_polyName[];
+global string $R_stGroup;
+
+		if( `objExists $R_pCylinder[0]` ){
+	delete ($R_pCylinder[0]);}
+		if( `objExists $R_polyName[0]` ){
+	delete $R_polyName;R_createCmd();}
+		if( `objExists $R_stGroup` ){
+	delete $R_stGroup;R_createCmd();}
+	 
+}
+
+
+global proc R_redrawSolidUI() 
+{
+
+string $r_getSolidOpt = `checkBoxGrp -q -v1  r_chBoxSolid`;
+
+switch($r_getSolidOpt)
+{
+
+	case "1": //Solid
+			floatSliderGrp -e -en 0  r_heightoff;
+			floatSliderGrp -e -en 1  r_bheight;			
+	break;
+			
+	case "0": //Separated
+			floatSliderGrp -e -en 1  r_heightoff;
+			floatSliderGrp -e -en 0  r_bheight;
+	break;
+}
+
+
+}
+
+global proc R_redrawUI() 
+{
+global string $R_Create_cmd;
+global string $R_Apply_cmd;
+
+string $r_getSolidOpt = `checkBoxGrp -q -v1  r_chBoxSolid`;
+string $r_getOpt = `radioButtonGrp -q -sl r_rbtnGrp`;
+
+switch($r_getOpt)
+{
+	case "1": //Spiral
+			checkBoxGrp -e -en1 1 r_chBoxOpt;
+			floatSliderGrp -e -en 1  r_radius;		
+			intSliderGrp -e -en 1 r_subdivs;
+
+
+	break;
+
+	case "2": //Straight
+			checkBoxGrp -e -en1 0 r_chBoxOpt;
+			floatSliderGrp -e -en 0  r_radius;		
+			intSliderGrp -e -en 0 r_subdivs;
+
+	break;
+	}
+}
+//--- Creating Cylinder
+global proc R_createCylinder(float $R_cRadius, int $R_stQtty, float $R_stHeight, float $R_heightOffset)
+{
+global string $R_pCylinder[];
+
+float $R_cylHight = $R_stQtty*$R_stHeight;
+float $R_cylHeighoff = ($R_stQtty*($R_stHeight+$R_heightOffset));
+string $r_getSolidOpt = `checkBoxGrp -q -v1  r_chBoxSolid`;
+ 
+	if ($r_getSolidOpt==0)
+		{
+		global string $R_pCylinder[];
+		string $R_pCylinder[]=`polyCylinder -r ($R_cRadius) -h ($R_cylHeighoff) -sx 20 -sy 0 -sz 0 -ax 0 1 0 -tx 1 -ch 1`;
+		move -a 0 ($R_cylHeighoff/2) 0 ($R_pCylinder[0]);
+		}
+
+	else 
+		{
+		global string $R_pCylinder[];
+		string $R_pCylinder[]=`polyCylinder -r ($R_cRadius) -h ($R_cylHight) -sx 20 -sy 0 -sz 0 -ax 0 1 0 -tx 1 -ch 1`;
+		move -a 0 ($R_cylHight/2) 0 ($R_pCylinder[0]);
+		}
+//print ($R_pCylinder[0]);
+//print "test";
+}
+
+	
+//---SOLID SPIRAL STAIRS
+global proc spiral_stairsCreator(float $R_stHeight, float $R_btmHeight, float $R_stWidth,
+	float $R_stDepth, float $R_cRadius, int $R_stQtty, int $R_midQtty)
+{
+
+float $R_Depth=($R_stDepth/17.9757)/($R_midQtty+1);
+float $R_inc=($R_Depth/$R_cRadius)/2;
+float $R_ia, $R_ib, $R_ic, $R_e=2;
+float $R_xa=0, $R_ya=0, $R_za=0;
+float $R_xb=0, $R_yb=0, $R_zb=0, $R_q=$R_inc;
+
+global string $R_polyName[];
+
+//---------creating a first plane 
+$R_ya+=$R_stHeight;
+$R_xa=cos($R_inc*36)*$R_cRadius;
+$R_za=sin($R_inc*36)*$R_cRadius;
+string $R_polyName[]=`polyCreateFacet -ch 0 -p  $R_cRadius  (0-$R_btmHeight)  0 -p  $R_cRadius $R_ya 0 -p $R_xa  $R_ya  $R_za -p $R_xa (0-$R_btmHeight) $R_za -n polyStairs`;
+//---------appending last facets of the first step
+for ($R_ia=0; $R_ia<$R_midQtty; $R_ia++)
+{
+	$R_q+=$R_inc;
+	$R_xa=cos($R_q*36)*$R_cRadius;
+	$R_za=sin($R_q*36)*$R_cRadius;
+	polyAppend -ch 0 -ed $R_e -p $R_xa $R_ya $R_za -p $R_xa (0-$R_btmHeight) $R_za $R_polyName;
+	$R_e+=3;
+};
+//---------creating loop of all other steps
+for ($R_ib=0; $R_ib<($R_stQtty-1); $R_ib++)
+{
+	$R_xb = $R_xa;
+	$R_zb = $R_za;
+	$R_ya+=$R_stHeight;
+	$R_yb+=($R_stHeight/($R_midQtty+1));
+	$R_q+=$R_inc;
+	$R_xa=cos($R_q*36)*$R_cRadius;
+	$R_za=sin($R_q*36)*$R_cRadius;
+	polyAppend -ch 0 -ed $R_e -p $R_xb $R_ya $R_zb -p $R_xa $R_ya $R_za -p $R_xa ($R_yb-$R_btmHeight) $R_za $R_polyName;
+	
+	$R_e+=4;
+
+//---------appending last facets of the second step
+for ($R_ic=0; $R_ic<$R_midQtty; $R_ic++)
+{
+	$R_q+=$R_inc;
+	$R_yb+=($R_stHeight/($R_midQtty+1));
+	$R_xa=cos($R_q*36)*$R_cRadius;
+	$R_za=sin($R_q*36)*$R_cRadius;
+	polyAppend -ch 0 -ed $R_e -p $R_xa $R_ya $R_za -p $R_xa ($R_yb-$R_btmHeight) $R_za $R_polyName;
+	$R_e+=3;
+};
+};
+polyExtrudeFacet -ch 0 -kft 1 -ws 1 -sx (($R_stWidth+$R_cRadius)/$R_cRadius) -sz (($R_stWidth+$R_cRadius)/$R_cRadius) -sy 1 -pvt 0 0 0  $R_polyName;
+polySoftEdge -a 30 -ch 0 $R_polyName;
+scale 0.1 0.1 0.1 $R_polyName;
+makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+select $R_polyName;
+}
+
+// SEPARATED SPIRAL STAIRS
+global proc separatedSpiralStairs(float $R_stHeight, float $R_stWidth,
+	float $R_stDepth, float $R_cRadius, int $R_stQtty, float $R_heightOffset, int $R_midQtty)
+{
+
+float $R_rotAngl = -((($R_stDepth*180)/3.14)/$R_cRadius);
+float $R_Depth=($R_stDepth/17.9757)/($R_midQtty+1);
+float $R_inc=($R_Depth/$R_cRadius)/2;
+float $R_i, $R_ia, $R_ib, $R_ic, $R_e=2;
+float $R_xa=0, $R_ya=0, $R_za=0, $R_q=$R_inc;
+global string $R_stGroup;
+string $R_stGroup=`group -em -n separatedSteps`;
+
+//---------creating a first plane 
+$R_ya+=$R_stHeight;
+$R_xa=cos($R_inc*36)*$R_cRadius;
+$R_za=sin($R_inc*36)*$R_cRadius;
+string $R_polyName[]=`polyCreateFacet -ch 0 -p  $R_cRadius  0  0 -p  $R_cRadius $R_ya 0 -p $R_xa  $R_ya  $R_za -p $R_xa 0 $R_za -n polyStep1`;
+//---------appending last facets of the first step
+for ($R_ia=0; $R_ia<$R_midQtty; $R_ia++)
+{
+	$R_q+=$R_inc;
+	$R_xa=cos($R_q*36)*$R_cRadius;
+	$R_za=sin($R_q*36)*$R_cRadius;
+	polyAppend -ch 0 -ed $R_e -p $R_xa $R_ya $R_za -p $R_xa 0 $R_za $R_polyName;
+	$R_e+=3;
+};
+polyExtrudeFacet -ch 0 -kft 1 -ws 1 -sx (($R_stWidth+$R_cRadius)/$R_cRadius) -sz (($R_stWidth+$R_cRadius)/$R_cRadius) -sy 1 -pvt 0 0 0  $R_polyName;
+polySoftEdge -a 30 -ch 0 $R_polyName;
+scale 0.1 0.1 0.1 $R_polyName;
+makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+select $R_polyName;
+
+//--- Duplicating steps
+parent $R_polyName $R_stGroup;
+duplicate;	
+move -r 0 ($R_stHeight+$R_heightOffset);
+rotate -a 0 $R_rotAngl 0 -p 0 0 0;
+
+for ($R_i=0; $R_i<($R_stQtty-2); $R_i++)
+{
+duplicate -st;
+};
+select $R_stGroup;
+}
+// SOLID STRAIGHT STAIR
+global proc solideStraightStair(float $R_stQuantity, float $R_stWidth, float $R_st_height, float $R_st_depth, float $R_btmHeight) 
+{
+global string $R_polyName[];
+
+	int $R_q = $R_stQuantity;
+	float $R_d = $R_st_depth;
+	float $R_wheight = $R_st_height*$R_stQuantity;
+	float $R_x = 0, $R_y = 0, $R_z = 0, $R_i;
+
+	nurbsToPolygonsPref -f 0 -pt 1 -pc 1;
+	curve -d 1 -p 0 0 0;
+	string $R_cn[] = `ls-sl`;
+ 
+	for ($R_i=0; $R_i<$R_q; $R_i++)
+	{
+		$R_y += $R_st_height;
+		curve -a -p $R_x $R_y $R_z $R_cn;
+		$R_x += $R_d;
+		curve -a -p $R_x $R_y $R_z $R_cn;
+	}
+
+	curve -a -p $R_x (($R_wheight-$R_st_height)-$R_btmHeight) $R_z -p $R_st_depth (0-($R_btmHeight)) 0 -p 0 (0-($R_btmHeight)) 0 -p 0 0 0 $R_cn;
+	
+string $R_polyName[] = `planarSrf  -ch 0  -d 1 -n polyStairs -po 1  $R_cn`;
+
+	delete $R_cn;
+	select $R_polyName.f[0];
+
+	polyExtrudeFacet -ch 0 -ltz $R_stWidth;
+
+	select $R_polyName;
+
+}
+
+//---SEPARATED STRAIGHT STAIRS
+global proc separatedStraightStair(float $R_stHeight, float $R_stWidth,
+	float $R_stDepth, int $R_stQtty, float $R_heightOffset)
+{
+global string $R_stGroup;
+
+string $R_stGroup=`group -em -n separatedSteps`;
+
+float $R_i;
+string $R_psepStep[]=`polyCube -ch 0 -w $R_stDepth -h $R_stHeight -d $R_stWidth  -n polyStep1`;
+move -a ($R_stDepth/2) ($R_stHeight/2) ($R_stWidth/2);
+
+parent $R_psepStep $R_stGroup;
+duplicate;	
+
+move -r $R_stDepth ($R_stHeight+$R_heightOffset) 0;
+
+for ($R_i=0; $R_i<($R_stQtty-2); $R_i++)
+	{
+	duplicate -st;
+	}
+select $R_stGroup;
+}

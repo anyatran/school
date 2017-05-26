@@ -1,0 +1,41 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRpickWalk.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jan 05, 2005
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// pickwalk to the next connected control
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRpickWalk ( string $dir )
+{
+	string $selObj[] = `ls -sl`;
+	string $obj = $selObj[0];
+	string $linked[];
+
+	if (`attributeExists ("charRigPickWalk" + $dir) $obj`)
+	{
+		//get the connected objects for pickwalking this direction
+		$linked = `listConnections ($obj + ".charRigPickWalk" + $dir)`;
+		if (size($linked) != 0)
+		{
+			select $linked[0];
+		}
+	}
+}

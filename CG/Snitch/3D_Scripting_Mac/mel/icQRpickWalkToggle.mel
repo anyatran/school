@@ -1,0 +1,116 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icQRpickWalkToggle.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			May 04, 2006
+//					created: Jan 05, 2005
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// toggle between default pickwalking and character rig pickwalking
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRcreateNameCommands ()
+{
+	nameCommand -ann "pickWalk next control left"
+		-c "icCRpickWalk Left" charRigPickWalkLeft;
+	nameCommand -ann "pickWalk next control right"
+		-c "icCRpickWalk Right" charRigPickWalkRight;
+	nameCommand -ann "pickWalk next control up"
+		-c "icCRpickWalk Up" charRigPickWalkUp;
+	nameCommand -ann "pickWalk next control down"
+		-c "icCRpickWalk Down" charRigPickWalkDown;
+}
+
+global proc icCRtoggleExecute ()
+{
+	//if it's the default pickwalking change it to the charRig pick walk
+	if (!`optionVar -q "icCRpickWalkSwitch"`)
+	{
+		hotkey -k Left -n "charRigPickWalkLeft";
+		hotkey -k Right -n "charRigPickWalkRight";
+		hotkey -k Up -n "charRigPickWalkUp";
+		hotkey -k Down -n "charRigPickWalkDown";
+
+		optionVar -iv "icCRpickWalkSwitch" 1;
+		print "// Switched to Character Rigging Tool Pickwalking.\n";
+	}
+	//otherwise change it back to the default setting
+	else
+	{
+		hotkey -k Left -n "NameComWalk_left_in_the_current_hierarchy";
+		hotkey -k Right -n "NameComWalk_right_in_the_current_hierarchy";
+		hotkey -k Up -n "NameComWalk_up_the_current_hierarchy";
+		hotkey -k Down -n "NameComWalk_down_the_current_hierarchy";
+
+		optionVar -iv "icCRpickWalkSwitch" 0;
+		print "// Switched to Default Pickwalking.\n";
+	}
+}
+
+global proc icQRpickWalkToggle ()
+{
+	string $userCmdName;
+	int $cmdCount = `assignCommand -q -suc -num`;
+	int $exists = 0;
+
+	//initialize the pickwalking procedure
+	//source "quadrupedRigger/icCRpickWalk.mel";
+
+	//when executing the script for the first time create environment variables
+	if (!`optionVar -ex "icCRpickWalkSwitch"`)
+	{
+		//if the environment variable is not present the pick walk commands might not exist
+		//check if this is true; in this case create the commands
+		for ($i = 1; $i <= $cmdCount; $i ++)
+		{
+			$userCmdName = `assignCommand -q -n $i`;
+			if ($userCmdName == "charRigPickWalkLeft" || $userCmdName == "charRigPickWalkRight" ||
+				$userCmdName == "charRigPickWalkUp" || $userCmdName == "charRigPickWalkFDown")
+			{
+				$exists = 1;
+			}
+		}
+
+		if ($exists == 0)
+		{
+			icCRcreateNameCommands;
+		}
+
+		optionVar -iv "icCRpickWalkSwitch" 0;
+		icCRtoggleExecute;
+	}
+	else
+	{
+		//if the environment variable already exists but the name commands have been deleted
+		//they need to be created again
+		for ($i = 1; $i <= $cmdCount; $i ++)
+		{
+			$userCmdName = `assignCommand -q -n $i`;
+			if ($userCmdName == "charRigPickWalkLeft")
+			{
+				$exists = 1;
+				icCRtoggleExecute;
+			}
+		}
+		if ($exists == 0)
+		{
+			optionVar -rm "icCRpickWalkSwitch";
+			icCRpickWalkToggle;
+		}
+	}
+}

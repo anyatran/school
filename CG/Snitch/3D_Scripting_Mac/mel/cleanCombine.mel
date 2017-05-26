@@ -1,0 +1,30 @@
+global proc cleanCombine()
+{
+
+	string $selection[] = `ls -sl`;
+	string $target_object = $selection[0];
+
+	print $target_object;
+
+	// Store some attributes 
+	$pivot = `xform -q -ws -rp $target_object`;
+	$displayLayers = `listConnections -type "displayLayer" $target_object`;
+
+	// combine the meshes, with disabled construction history
+	// this will get rid of the empty nodes that get left behind
+	$new_mesh = `polyUnite -ch false`;
+
+	// move the pivot back into place
+	xform -rp $pivot[0] $pivot[1] $pivot[2] $new_mesh;
+
+	// if the object was a part of any display layers, add the new object 
+	// to the same 
+	if (`size $displayLayers`)
+	{
+		editDisplayLayerMembers $displayLayers[0] $new_mesh;
+	}
+
+	// rename the new mesh to it's original name 
+	rename $new_mesh $target_object;
+
+}

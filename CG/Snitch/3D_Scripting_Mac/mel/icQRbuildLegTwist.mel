@@ -1,0 +1,94 @@
+//----------------------------------------------------------------------------------------------
+//
+//	icQRbuildLegTwist
+//
+//	SCRIPT:			icQRbuildLegTwist.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//					
+//	DATE:			Jun 16, 2011
+//					created: Jun 16, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// builds a twist setup for the given joint chain
+//
+//----------------------------------------------------------------------------------------------
+
+
+global proc icQRbuildLegTwist ( string $joint1, string $joint2, 
+								string $twist1, string $twist2, string $twist4,
+								string $charName, string $side, string $part )
+{
+	string $upVectorGrp = ($side + $part + "Twist_upVectorGrp" + $charName);
+	string $upVectorCtrl = ($side + $part + "Twist_upVectorCtrl" + $charName);
+	string $twistGrp = ($side + $part + "Twist_grp" + $charName);
+	string $aimConstGrp = ($side + $part + "Twist_aimConstGrp" + $charName);
+
+	//create an empty group
+	rename (`CreateEmptyGroup`) $twistGrp;
+	//temporarily point and orient constrain it to the first joint
+	delete(`pointConstraint $joint1 $twistGrp`);
+	delete(`orientConstraint $joint1 $twistGrp`);
+	//duplicate the group for the aim const group
+	rename (`duplicate $twistGrp`) $aimConstGrp;
+
+	//create an empty group for the up vector groups
+	//these are created separately to have a different orientation independet from the joint
+	rename (`CreateEmptyGroup`) $upVectorGrp;
+	delete(`pointConstraint $joint1 $upVectorGrp`);
+	//duplicate the group for the up vector control
+	rename (`duplicate $upVectorGrp`) $upVectorCtrl;
+	parent $upVectorGrp $twistGrp;
+	parent $upVectorCtrl $upVectorGrp;
+
+	float $pos[] = `getAttr ($twist2 + ".t")`;
+	if ($side == "L_") move -r -ls -wd 0 $pos[0] 0 $upVectorGrp;
+	else move -r -ls -wd 0 ($pos[0] * -1) 0 $upVectorGrp;
+
+	//parent the groups
+	parent $aimConstGrp $joint1;
+	parent $twist1 $aimConstGrp;
+	parent $twistGrp (`listRelatives -p $joint1`);
+
+	//create the aim constraint
+	string $aimConst[];
+	if ($side == "L_")
+	{
+		$aimConst = `aimConstraint -aim 1 0 0 -u 0 1 0 -wut "object" -wuo $upVectorCtrl $joint2 $aimConstGrp`;
+	}
+	else
+	{
+		$aimConst = `aimConstraint -aim -1 0 0 -u 0 1 0 -wut "object" -wuo $upVectorCtrl $joint2 $aimConstGrp`;
+	}		
+
+	//apply the constrained rotation to the twist joint
+	$twistMultNode = `shadingNode -au multiplyDivide`;
+	//substitute the name from the compensate mult node
+	$twistMultName = $side + $part + "TwistFraction_mult" + $charName;
+	$twistMultNode = `rename $twistMultNode $twistMultName`;
+	setAttr ($twistMultNode + ".operation") 2;
+	setAttr ($twistMultNode + ".input2X") -2;
+	connectAttr -f ($aimConstGrp + ".rx") ($twistMultNode + ".input1X");
+	connectAttr -f ($twistMultNode + ".outputX") ($twist2 + ".rx");
+	connectAttr -f ($twistMultNode + ".outputX") ($twist4 + ".rx");
+
+	//cleanup
+	icCRlockHideAttr ( $upVectorGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $upVectorCtrl, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $twistGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $aimConstGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $aimConst[0], "nodeState,offsetX,offsetY,offsetZ,w0" );
+	icCRlockHideAttr ( $twistMultNode, "i1x,i1y,i1z,i2x,i2y,i2z" );
+}

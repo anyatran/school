@@ -1,0 +1,61 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icQuadRigStartUp.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jul 14, 2011
+//					created: Aug 25, 2007
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// initialize the tool
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQuadRigStartUp ()
+{
+	string $dirContent[];
+	string $scripts[];
+	string $paths[];
+	string $pathString = `getenv MAYA_SCRIPT_PATH`;
+	string $separator = ":";
+	string $endLine = "";
+
+	if (`substring $pathString 2 3` == ":/")
+	{
+		$separator = ";";
+		$endLine = "/";
+	}
+
+	tokenize $pathString $separator $paths;
+	for ($p in $paths)
+	{
+		$dirContent = `getFileList -fld ($p + $endLine)`;
+		for ($c in $dirContent)
+		{
+			if (`gmatch $c "*quadrupedRigger*"`)
+			{
+				$scripts = `getFileList -fld ($p + "/" + $c + $endLine)`;
+				for ($s in $scripts)
+				{
+					if (`gmatch $s "*.mel"`)
+					{
+						eval("source \"" + $p + "/" + $c + "/" + $s + "\";");
+					}
+				}
+			}
+		}
+	}
+}

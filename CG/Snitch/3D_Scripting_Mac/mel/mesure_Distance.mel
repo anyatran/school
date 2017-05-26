@@ -1,0 +1,7 @@
+string $Loc[]=`ls -sl`;
+	float $loc1[] = `xform -q -ws -t $Loc[0]`;
+	float $loc2[] = `xform -q -ws -t $Loc[1]`;
+	$pt1=$loc1[0]-$loc2[0];
+	$pt2=$loc1[1]-$loc2[1];
+	$pt3=$loc1[2]-$loc2[2];
+	float $dis=sqrt($pt1*$pt1+$pt2*$pt2+$pt3*$pt3);

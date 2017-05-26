@@ -1,0 +1,430 @@
+//--------------------------------------------------------------------------------------
+//  lcMrBatchBake.mel
+//
+//  Mental Ray Batch Bake Script
+//
+//  run with command: lcMrBatchBake;
+//
+//  Assign a new Bake Set to the Selected object and Batch Bake them
+//  Will convert all texture, shading and lighting information to texture - as per options in the bakeSet
+//  this will only create and work for texture bakeSets (not vertex bakeSets)
+//  and may not work with per-face assigned shaders
+//
+//  Author : Leonardo Covarrubias
+//  Created: 05/25/2008
+//  blog.leocov.com
+//  www.leocov.com
+//
+//  Change Log:
+//  1.0 - initial release
+//  1.1 - 05/25/2008 - ??
+//  1.5 - 03/30/2010 - general cleanup - updated filepath tokenize/parse code - added button to open bakeSet in Attribute Editor
+//  1.7 - 08/25/2010 - added vertex bake sets
+//--------------------------------------------------------------------------------------
+
+//Current version number and latest update date
+global string $lcMBB_version = "1.7" ;
+global string $lcMBB_date = "August 25, 2010" ;
+
+//
+// main procedure and ui setup
+//
+global proc lcMrBatchBake()
+{
+    if (`window -q -ex mrBatchBakeUI`) deleteUI mrBatchBakeUI;
+
+    global string $lcMBB_version;
+    global string $lcMBB_date;
+    int $w = 285;
+
+    //check box variable
+    global string $bakeShadows;
+
+
+    ////////////
+    //UI Setup//
+    ////////////
+    window -title ("lcMrBatchBake - v"+$lcMBB_version)
+           -rtf 1
+           -mxb 0
+           -s 1
+           mrBatchBakeUI;
+
+    columnLayout -cw $w
+                 mainCol;
+
+    separator -style "none" -h 10;
+    text -al "center"
+         -label "  Create and Assign BakeSets and Bake Shaders/Lighting";
+    separator -style "in" -h 10 -w $w;
+
+    rowColumnLayout -nc 2
+                    -cw 1 (85)
+                    -cw 2 ($w-85)
+                    nameCol;
+
+      text -label ("Bake Set Name:")
+           -al center
+           -w 85;
+      textField -text "mrBakeSet"
+                -ec ("lcMrBB_callBakeSet")
+                -w ($w-85)
+                setName;
+    setParent "..";
+
+    rowColumnLayout -nc 2
+                    -cw 1 ($w/2)
+                    -cw 2 ($w/2)
+                    editCol;
+        button -label "Create Texutre Bake Set"
+               -bgc 0.6 0.8 0.6
+               -c "lcMrBB_makeBakeSet(\"tex_\")";
+        button -label "Create Vertex Bake Set"
+               -bgc 0.9 0.75 0.45
+               -c "lcMrBB_makeBakeSet(\"vert_\")";
+               
+        text -label ("Active Bake Set:")
+             -fn "boldLabelFont"
+             -al center;
+
+        button -label "Add Selected to Bake Set"
+               -c ("lcMrBB_assignBakeSet `optionMenu -q -v bakeList`");
+
+        optionMenu -w ($w/2) bakeList;
+
+        button -label "Select Bake Set Objects"
+               -c ("select -r `optionMenu -q -v bakeList`");
+        text " ";
+        button -label "Edit Bake Set Options"
+               -bgc 0.6 0.6 0.8
+               -c ("showEditor `optionMenu -q -v bakeList`");
+        setParent "..";
+    separator -style "in" -h 10 -w $w;
+
+    rowColumnLayout -nc 2
+                    -cw 1 ($w/2)
+                    -cw 2 ($w/2);
+        text -al "right"
+             "Bake Camera = ";
+        optionMenu -w 130 camList;
+
+        text " ";
+        $bakeShadows= `checkBox -v true -label "Bake Shadows or AO?"`;
+        setParent "..";
+    separator -style "in" -h 10 -w $w;
+
+    text -fn "boldLabelFont"
+         -w $w
+         -al "center" "File Output Directory:";
+    text  -w $w -al "left" "Example:   D:\\textureBake";
+    text  -w $w -al "left" "Blank => current project \"\\renderData\\mentalray\\lightMap\"";
+
+    textField -w $w
+              -text ""
+              writeDir;
+
+    separator -style "none" -h 10;
+
+        button -label "Bake It !"
+               -al "center"
+               -bgc 0.8 0.6 0.6
+               -w $w
+               -c ("lcMrBB_convertToTexture");
+
+    separator -style "in" -h 20 -w $w;
+
+
+    rowColumnLayout -nc 2
+                    -cw 1 ($w-160)
+                    -cw 2 160
+                    "endButtons";
+        button -label "Reset Interface"
+               -bgc 0.6 0.75 0.85
+               -c ("lcMrBatchBake");
+        button -label "Delete ALL BakeSets"
+               -bgc 0.85 0.25 0.25
+               -c ("lcMrBB_deleteBakeSets");
+        setParent "..";
+
+    separator -style "in"
+              -h 10
+              -w $w;
+    text -label ("Leonardo Covarrubias - " + $lcMBB_date + " ")
+         -al "right"
+         -w $w;
+
+    showWindow mrBatchBakeUI;
+
+    // initialize existing bake sets into script
+    lcMrBB_buildList "INITIALIZE";
+    lcMrBB_buildCamList;
+}
+//--------------------------------------------------------------------------------------
+
+//
+//  Create and Assign Bake Set
+//
+global proc lcMrBB_makeBakeSet(string $type)
+{
+    //store current selection for later retreval
+    string $selectionList[] = `ls -selection`;
+    //get the current bake set name
+    string $bakeSetName = `textField -query -text setName`;
+    if($bakeSetName != "") $bakeSetName = $type+$bakeSetName;
+
+    string $tx[] = `ls -type textureBakeSet`;
+    string $vx[] = `ls -type vertexBakeSet`;
+    appendStringArray($tx,$vx,size($vx));
+
+     int $exists = 0;
+     for ($i=0;$i<size($tx);$i++){
+       if($bakeSetName == $tx[$i]) {
+         error (" Choose a Different Name\n");
+         $exists = 1;
+       }
+     }
+     if($exists == 0){
+         lcMrBB_buildList $bakeSetName;
+         print "/// Creating Bake Set ///\n";
+
+         //create the bake set and store the name
+         string $currentBakeSet;
+         if($type == "tex_")  $currentBakeSet = `lcMrBB_createBakeSet $bakeSetName "tex_"`;
+         if($type == "vert_") $currentBakeSet = `lcMrBB_createBakeSet $bakeSetName "vert_"`;
+
+         // Restore the selection list.
+         select -r $selectionList;
+         //assign the bake set if objects are selected
+         if (size($selectionList) != 0)
+         {
+           print "/// Assigning Bake Set ///\n";
+           lcMrBB_assignBakeSet $currentBakeSet;
+         }
+     }
+}
+//--------------------------------------------------------------------------------------
+
+//
+// This creates and evaluates the convertLightmap command
+// the lightmap files are put in the "current project"\renderData\mentalray\lightMap
+//
+global proc lcMrBB_convertToTexture()
+{
+  //check box variable
+  global string $bakeShadows;
+  //initialize variables
+  string $shadowsOn = "";
+  string $convetString = "";
+  //get the camera
+  string $bakeCam = `optionMenu -q -v camList`;
+  //get the output directory
+  string $fileWrite = lcMrBB_repathDir(`textField -query -text writeDir`);
+  
+  //select the objects of the current bake set
+  string $currentBakeSet = `optionMenu -q -v bakeList`;
+  
+  string $buffer[];
+  tokenize $currentBakeSet "_" $buffer;
+  
+  select -r $currentBakeSet;
+  string $bakeObj[] = `ls -selection`;
+  
+  if($bakeObj[0] == "")
+  {
+    error ("No objects assigned to this bake set");
+  }else{
+    //check if turn on shadows
+    if (`checkBox -q -v $bakeShadows`){
+       $shadowsOn = " -sh";
+    }
+  
+    //check file output directory of use project default, must have a lighMap folder, example: D:\textureBake\lightMap
+    if ($fileWrite != "")
+    {
+      $fileWrite = " -project \""+$fileWrite+"\"";
+    }
+   
+  //convertLightmap -camera persp -sh -vm -bo tmpVerticesBakeSet initialShadingGroup |pSphere1|pSphereShape1;
+   
+    //initialize convertLightmap command
+    if($buffer[0] == "tex")  $convertString = "convertLightmap -camera " + $bakeCam + $shadowsOn + $fileWrite;
+    if($buffer[0] == "vert") $convertString = "convertLightmap -vm -camera " + $bakeCam + $shadowsOn + " -bo " + $currentBakeSet + " ";
+  
+    //loop to add object to convertLightmap command
+    for ($i=0; $i<`size($bakeObj)`; $i++)
+    {
+      select -r $bakeObj[$i];
+      string $fullPath[] = `ls -selection -long`;
+      string $sg[] = `listConnections -destination true -source false -plugs false -type "shadingEngine" $bakeObj[$i]`;
+      $convertString = $convertString + " " + $sg[0] + " " + $fullPath[0];
+    }
+    //print the command for debuging
+    print  "\n";
+    print ("// Convert Command: " + $convertString + "\n");
+    //evaluate the completed command
+    eval $convertString;
+  }
+}
+//--------------------------------------------------------------------------------------
+
+//
+//delets all the bake sets in the scene
+//
+global proc lcMrBB_deleteBakeSets()
+{
+  string $tx[] = `ls -type textureBakeSet`;
+  string $vx[] = `ls -type vertexBakeSet`;
+  appendStringArray($tx,$vx,size($vx));
+
+  for ( $obj in $tx ) deleteUI -menuItem $obj;
+
+  select -r -ne $tx;
+  delete;
+}
+//--------------------------------------------------------------------------------------
+
+//
+// build the list texture bake sets
+//
+global proc lcMrBB_buildList(string $newSet) {
+  if($newSet == "INITIALIZE")
+  {
+    string $tx[] = `ls -type textureBakeSet`;
+    string $vx[] = `ls -type vertexBakeSet`;
+    appendStringArray($tx,$vx,size($vx));
+
+    for ( $obj in $tx ) menuItem -p bakeList -l ($obj) $obj;
+  }else{
+    menuItem -p bakeList -l ($newSet) $newSet;
+  }
+}
+//--------------------------------------------------------------------------------------
+
+//
+// build/rebuild the list of cameras
+//
+global proc lcMrBB_buildCamList() {
+    string $sl[];
+    $sl = `ls -cameras`;
+    for ( $obj in $sl ) {
+      menuItem -p camList -l ($obj) $obj;
+    }
+
+}
+
+//--------------------------------------------------------------------------------------
+
+//
+// tokenize & recreate paths
+//
+global proc string lcMrBB_repathDir(string $inputPath) {
+  string $pathFixed;
+  string $buffer[];
+  int $numTokens;
+
+  $numTokens = `tokenize $inputPath "\\\/" $buffer`;
+
+  print ($numTokens+"\n");
+  print ($buffer);
+  print "\n";
+
+  $pathFixed = $buffer[0];
+  for ($i=1;$i<$numTokens;$i++){
+    $pathFixed += ("/"+$buffer[$i]);
+  }
+
+  sysFile -makeDir ($pathFixed+"/lightMap"); //create lightMap directory if it does not exist
+
+  return $pathFixed;
+}
+//--------------------------------------------------------------------------------------
+
+///////////////////////////////////////////////////////////////
+// the folowing scripts are based off of Autodesk's scripts: //
+//  createBakeSet.mel                                        //
+//  assignBakeSet.mel                                        //
+///////////////////////////////////////////////////////////////
+//
+//create the bake set, edited to work only for textureBakeSets and may not work with shaders assigned per face
+//
+global proc string lcMrBB_createBakeSet(string $name, string $type)
+{
+  // Create the bakeSet node.
+  // Add the new bakeSet to the appropriate partition.
+  //
+  string $bakeSetName;
+  if ($type == "tex_")
+  {
+    $bakeSetName = `createNode -n $name textureBakeSet`;
+    if( size(`ls textureBakePartition`) < 1 )
+    {
+      partition -n "textureBakePartition" $bakeSetName;
+    }else{
+      partition -add "textureBakePartition" $bakeSetName;
+         }
+  }
+
+  if ($type == "vert_")
+  {
+    $bakeSetName = `createNode -n $name vertexBakeSet`;
+    setFilterScript ($bakeSetName);
+    if( size(`ls vertexBakePartition`) < 1 )
+    {
+      partition -n "vertexBakePartition" $bakeSetName;
+    }else{
+      partition -add "vertexBakePartition" $bakeSetName;
+         }
+         
+    // Add two dynamic attributes to the vertexBakeSet node.
+    //
+    addAttr -ln filterSize -sn fs -min -1 $bakeSetName;
+    setAttr ($bakeSetName+".filterSize") 0.001;
+    addAttr -ln filterNormalTolerance
+            -sn fns 
+            -min 0
+            -max 180
+            $bakeSetName;
+    setAttr ($bakeSetName+".filterNormalTolerance") 5; 
+  }
+
+  return $bakeSetName;
+}
+//--------------------------------------------------------------------------------------
+
+//
+//assigns the bake sets, edited to work only for textrueBakeSets and may not work with shaders assigned per face
+//
+global proc lcMrBB_assignBakeSet(string $bakeSet)
+{
+    string $assignString = "";
+
+    // No bake set ?
+    if ($bakeSet == "")
+  {
+    error( "assignBakeSet: No bake set named." );
+  }
+
+  string $objs[];
+  $objs = `ls -dag -objectsOnly -geometry -selection`;
+  if (size ($objs) == 0)
+  {
+     error( "Nothing selected." );
+  }
+
+    $assignString = "the selected shapes";
+
+    sets -forceElement $bakeSet $objs;
+
+    print (
+    "\n// Result: Assigned "
+    + $assignString
+    + " to "
+    + $bakeSet
+    + ". //\n\n");
+}
+//--------------------------------------------------------------------------------------
+
+
+/////////////////
+// End of File //
+/////////////////

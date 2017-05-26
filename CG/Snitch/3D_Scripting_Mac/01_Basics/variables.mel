@@ -1,0 +1,152 @@
+/**************************************************************
+
+	   variables.mel
+	
+	
+	This is a cheat sheet of the concepts talked about in the 
+	chapter that we covered variables. 
+	
+    variables
+    data types
+        float
+        int
+        string
+        bool
+    arrays
+    
+    comments
+    
+    commands
+    basic logic loops
+    if
+    for
+    while
+
+*****************************************************************/
+
+/*****************************************************************/
+// int 
+
+int $x = 1;
+int $y = 4;
+int $z = $x + $y;
+
+print $z;
+
+int $int_test = 4.9;  // an int is an integer number and can't have decimal information, it'll get sliced
+print ("truncated int = " + $int_test);
+
+// ints won't get rounded up or down, you have to do that yourself
+int $ceiling_test = ceil(4.9);  // ceil() rounds them up 
+print $ceiling_test;
+
+int $floor_test = floor(4.9);  // floor() rounds them down 
+print $floor_test;
+
+// Ints are usually used for counting things up
+
+/* FLOAT ****************************************************************/
+print "\n"; 
+
+float $fX = 4.2;
+print $fX;
+
+
+/* STRING ****************************************************************/
+string $my_sphere = "pSphere1";
+print ("My sphere is " + $my_sphere);
+
+/* BOOLEAN ****************************************************************/
+// Booleans are really just ints, true=1 and false=0, but it's easier to read 
+
+$make_cube = true;
+if ($make_cube)
+{    
+    print "YES";  
+	polyCube;
+}
+else
+{
+    print "NO";
+}
+
+/* ARRAYS ****************************************************************/
+
+// you can make arrays out of any of the data types described before 
+string $spheres[] = {"pSphere1","pSphere2", "pSphere3"};
+
+// you can access them by number 
+print $spheres[1];
+print "\n";
+
+int $interval = 5;
+// you can also iterate over them
+for ($sphere in $spheres)
+{
+	setAttr ($sphere + ".translateY") $interval;
+	$interval = $interval + $interval;
+}
+
+/* COMMENTS ****************************************************************/
+
+// this is a single line comment 
+
+/* <- this starts a multi line comment
+
+	everything here is commented out 
+
+this closes the comment -> */
+
+
+/* COMMANDS ****************************************************************/
+
+proc makeSphere()
+{
+	polySphere -r 3;
+}
+
+makeSphere();
+
+
+/* IF ELSE LOGIC *************************************************************/
+// and parameters for commands
+proc sayMyName(string $name, int $asYoda)
+{
+	if ($asYoda == true)
+	{
+		print ($name + ", your name is. Hmmmmmm.\n");
+	}
+	else
+	{
+		print ("Your name is " + $name + ".\n");
+	}
+}
+
+sayMyName("Luiz", true);
+sayMyName("Bob", false);
+
+
+/* FOR LOGIC ******************************************************************/
+
+proc forLoopExample()
+{
+	string $materials[] = {"lambert1", "blinn2", "phong1"};
+	for ($material in $materials)
+	{
+		print $material;
+	}
+}
+
+/* WHILE LOGIC ***********************************************************/
+
+// be super careful of while loops, since if you have a typo, it's easy for it to go on forever. 
+proc whileLoopExample()
+{
+	int $times_to_try = 10;
+	int $i = 0;
+	while ($i < $times_to_try)
+	{
+		print ("Attempt number " + $i + "\n");
+		$i = $i + 1;
+	}
+}

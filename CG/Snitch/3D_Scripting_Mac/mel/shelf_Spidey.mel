@@ -1,0 +1,30 @@
+global proc shelf_Spidey () {
+    global string $gBuffStr;
+    global string $gBuffStr0;
+    global string $gBuffStr1;
+
+
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -preventOverride 0
+        -align "center" 
+        -label "select all ctrls" 
+        -labelOffset 0
+        -font "tinyBoldLabelFont" 
+        -imageOverlayLabel "SelAll" 
+        -image "commandButton.xpm" 
+        -image1 "commandButton.xpm" 
+        -style "iconOnly" 
+        -marginWidth 1
+        -marginHeight 1
+        -command "select -r ctrl_spidey ;\rselect -add ctrl_l_FK_wrist ;\rselect -add ctrl_r_FK_wrist ;\rselect -add ctrl_l_FK_upperArm ;\rselect -add ctrl_r_FK_upperArm ;\rselect -add ctrl_l_FK_foreArm ;\rselect -add ctrl_r_FK_foreArm ;\rselect -add ctrl_l_IK_hand ;\rselect -add ctrl_r_IK_hand ;\rselect -add ctrl_l_hand ;\rselect -add ctrl_r_hand ;\rselect -add ctrl_l_elbow ;\rselect -add ctrl_r_elbow ;\rselect -add ctrl_l_knee ;\rselect -add ctrl_r_knee ;\rselect -add ctrl_l_IK_foot ;\rselect -add ctrl_r_IK_foot ;\rselect -add ctrl_r_leg ;\rselect -add ctrl_l_leg ;\rselect -add ctrl_r_FK_foot ;\rselect -add ctrl_r_FK_toe ;\rselect -add ctrl_l_FK_toe ;\rselect -add ctrl_l_FK_foot ;\rselect -add ctrl_r_FK_thigh ;\rselect -add ctrl_r_FK_shin ;\rselect -add ctrl_l_FK_thigh ;\rselect -add ctrl_l_FK_shin ;\rselect -add jt__spine_Root ;\rselect -add rig_jt_spine01_Hips ;\rselect -add ctrl_hipExtra ;\rselect -add rig_jt_spine01FK1 ;\rselect -add rig_jt_spine01FK2 ;\rselect -add rig_jt_spine01FK3 ;\rselect -add rig_jt_spine01_Shoulders ;\rselect -add ctrl_neck ;\rselect -add ctrl_l_shoulder ;\rselect -add ctrl_r_shoulder ;\rselect -add ctrl_head ;\rselect -add ctrl_jaw ;\rselect -add ctrl_spidey ;" 
+        -sourceType "mel" 
+        -actionIsSubstitute 0
+    ;
+
+} 

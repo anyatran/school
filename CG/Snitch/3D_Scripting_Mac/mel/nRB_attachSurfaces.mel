@@ -1,0 +1,830 @@
+/* nRB_attachSurfaces.mel
+
+   nRB_attachSurfaces.mel v.1.02
+   CyberArts Script File
+   Creation Date: 5/5/02
+   Update: 8/10/05
+   Author: Robert Rusick
+
+
+   See "NURBS_RoundedBox_Notes.txt" for details
+   ( or read HTML documentation )
+   -----------------------------------------
+   Related scripts:
+
+     NURBS_RoundedBox.mel
+       Create a rounded box.
+
+     nRB_createUI.mel
+       Create a UI box to set rounded box options.
+
+     nRB_testHierarchy.mel
+       Test the hierarchy of an group
+       to see if it is an unaltered rounded box group.
+
+     nRB_deleteControls.mel
+       Selectively delete controls and history from a rounded box.
+
+     nRB_deleteControlsUI.mel
+       Create a UI box to set rounded box delete controls options.
+
+     nRB_attachSurfaces.mel
+       Attach rounded box surfaces.
+
+     nRB_attachSurfacesUI.mel
+       Create a UI box to set rounded box attach surfaces options.
+
+     getHelpDocs.mel
+       Used to call up HTML documentation.
+
+   History:
+   -----------------------------------------
+   v.1.01 ( 11/28/03 ) --
+
+   v.1.02 (  8/10/05 ) -- Debugged 'Error: no object matches name:" messages
+                          when attach modes B and C created unified surfaces.
+
+                          Had renamed unified surfaces,
+                          but neglected to capture new names
+                          for use when centering pivot.
+
+*/
+
+
+
+/* ==================================================================================
+                           SCRIPT SETUP
+   ==================================================================================
+   Test for one of the optionVars;
+   if it does not exist,
+   source the script used to create them,
+   and set them up as their default values.
+*/
+
+if (! `optionVar -ex nRB_AttachMethod`)
+{ source nRB_attachSurfacesUI.mel;
+  nRB_attachSurfaces_SetOptionVars 1;
+}
+
+/* Test for one of the procedures defined in 'nRB_deleteControls.mel',
+   and if it does not exist, source that script.
+*/
+if (! `exists isRoundedBox`) source nRB_deleteControls.mel;
+
+
+
+/* ==================================================================================
+                           DO ATTACH ROUNDED BOX SURFACES
+   ================================================================================== */
+proc do_nRB_attachSurfaces (string $rBoxArray[])
+{
+   string $cGrp, $c[8];  // corners
+   string $eGrp, $e[12]; // edges
+   string $fGrp, $f[6];  // faces
+   int $index;
+
+/* =========================================================
+         prepare to attach surfaces
+   ========================================================= */
+   // get variables from $rBoxArray
+   $rBox = $rBoxArray[0];
+   $cGrp = $rBoxArray[1];
+   $eGrp = $rBoxArray[2];
+   $fGrp = $rBoxArray[3];
+
+   for ($i = 0; $i < 8;  $i++ ) { $index = $i + 4;  $c[$i] = $rBoxArray[$index]; }
+   for ($i = 0; $i < 12; $i++ ) { $index = $i + 12; $e[$i] = $rBoxArray[$index]; }
+   for ($i = 0; $i < 6;  $i++ ) { $index = $i + 24; $f[$i] = $rBoxArray[$index]; }
+
+   // get variables from option vars
+   int $attachMethodOV    = `optionVar -q nRB_AttachMethod`;     // blend
+   int $kpMultipleKnotsOV = `optionVar -q nRB_KpMultipleKnots`;
+   int $blendKnotInsertOV = `optionVar -q nRB_BlendKnotInsert`;
+
+   int $attachModeOV      = `optionVar -q nRB_AttachMode`;
+
+   // Attach Mode A
+   int $createBtmRingOV   = `optionVar -q nRB_CreateBtmRing`;
+   int $createMidRingOV   = `optionVar -q nRB_CreateMidRing`;
+   int $createTopRingOV   = `optionVar -q nRB_CreateTopRing`;
+   int $connectBtmMidOV   = `optionVar -q nRB_ConnectBtmMid`;
+   int $connectMidTopOV   = `optionVar -q nRB_ConnectMidTop`;
+
+   // Attach Mode B
+   int $connectSurfsOV    = `optionVar -q nRB_ConnectSurfs`;
+
+   // Attach Mode C
+   int $wedgeSpansOV      = `optionVar -q nRB_WedgeSpans`;
+   int $createWedgesOV    = `optionVar -q nRB_CreateWedges`;
+   int $connectWedgesOV   = `optionVar -q nRB_ConnectWedges`;
+
+   // select the attach mode
+   int $attachModeA = 0;
+   int $attachModeB = 0;
+   int $attachModeC = 0;
+
+   switch ($attachModeOV)
+   { case 1:          $attachModeA = 1; break;
+     case 2:          $attachModeB = 1; break;
+     case 3: default: $attachModeC = 1; break;
+   }
+
+   int    $j, $k;
+   string $tmp[];
+   float  $minV, $midV, $maxV;
+   string $from, $to;
+
+   string $bc[8]; // bottom corners
+   string $me[8]; // middle edges
+   string $tc[8]; //    top corners
+
+   // specific to attach mode A
+
+   string $bRing, $bRingH; // bottom ring and bottom ring with hierarchy
+   string $mRing, $mRingH; // middle ring and middle ring with hierarchy
+   string $tRing, $tRingH; //    top ring and    top ring with hierarchy
+
+   // specific to attach mode C
+
+   string $bWedge[4]; // bottom wedge
+   string $mWedge[4]; // middle wedge
+   string $tWedge[4]; //    top wedge
+
+   string $bCrvs[4],  $dbCrvs[4]; // bottom and duplicate bottom curves
+   string $tCrvs[4],  $dtCrvs[4]; // top and duplicate top curves
+   string $bCrvsGrp, $dbCrvsGrp;  // bottom and duplicate bottom curve groups
+   string $tCrvsGrp, $dtCrvsGrp;  // top and duplicate top curve groups
+
+
+/* =========================================================
+        attach mode A
+   ========================================================= */
+   if ($attachModeA)
+   {
+/*   =========================================================
+       create bottom ring
+     ========================================================= */
+     if ($createBtmRingOV)
+     { // split first bottom corner
+       $maxV = `getAttr ($c[0] + ".mxv")`;
+       $minV = `getAttr ($c[0] + ".mnv")`;
+       $midV = $minV + (($maxV - $minV) / 2.0);
+       $tmp = `detachSurface -d 0 -p $midV -ch 0 -rpo 1 $c[0]`;
+       parent $tmp[0] $cGrp;
+
+       // fill bottom corner array
+       $bc[0] = $tmp[0];
+       $bc[4] = $c[0];
+       for ($i = 1; $i < 4; $i++ ) $bc[$i] = $c[$i];
+
+       $j = 4; $k = 1;
+       for ($i = 0; $i < 4; $i++ )
+       {
+         $maxV = `getAttr ($bc[0] + ".mxv")`;
+         $minV = `getAttr ($e[$j] + ".mnv")`;
+         $from = ($bc[0] + ".v[" + $maxV + "]");
+         $to   = ($e[$j] + ".v[" + $minV + "]");
+         attachSurface
+           -m   $attachMethodOV -du 0 -rpo 1
+           -kmk $kpMultipleKnotsOV
+           -bki $blendKnotInsertOV
+           $from $to;
+         delete $e[$j]; $j++;
+
+         $maxV = `getAttr ($bc[0]  + ".mxv")`;
+         $minV = `getAttr ($bc[$k] + ".mnv")`;
+         $from = ($bc[0]  + ".v[" + $maxV + "]");
+         $to   = ($bc[$k] + ".v[" + $minV + "]");
+         attachSurface
+           -m   $attachMethodOV -du 0 -rpo 1
+           -kmk $kpMultipleKnotsOV
+           -bki $blendKnotInsertOV
+           $from $to;
+         delete $bc[$k]; $k++;
+       }
+       $bRing = `rename $bc[0] "rB_bottomRing#"`;
+       parent $bRing $rBox;
+       $bRingH = $rBox + "|" + $bRing;
+       xform -cp $bRingH;
+     }
+
+/*   =========================================================
+        create middle ring
+     ========================================================= */
+     if ($createMidRingOV)
+     { // split first middle edge
+       $maxV = `getAttr ($e[0] + ".mxv")`;
+       $minV = `getAttr ($e[0] + ".mnv")`;
+       $midV = $minV + (($maxV - $minV) / 2.0);
+       $tmp = `detachSurface -d 0 -p $midV -ch 0 -rpo 1 $e[0]`;
+       parent $tmp[0] $eGrp;
+
+       // fill middle edges array
+       $me[0] = $tmp[0];
+       $me[4] = $e[0];
+       for ($i = 1; $i < 4; $i++ ) $me[$i] = $e[$i];
+
+       $j = 0; $k = 1;
+       for ( $i = 0; $i < 4; $i++ )
+       {
+         $maxV = `getAttr ($me[0] + ".mxv")`;
+         $minV = `getAttr ($f[$j] + ".mnv")`;
+         $from = ($me[0] + ".v[" + $maxV + "]");
+         $to   = ($f[$j] + ".v[" + $minV + "]");
+         attachSurface
+           -m   $attachMethodOV -du 0 -rpo 1
+           -kmk $kpMultipleKnotsOV
+           -bki $blendKnotInsertOV
+           $from $to;
+         delete $f[$j]; $j++;
+
+         $maxV = `getAttr ($me[0]  + ".mxv")`;
+         $minV = `getAttr ($me[$k] + ".mnv")`;
+         $from = ($me[0]  + ".v[" + $maxV + "]");
+         $to   = ($me[$k] + ".v[" + $minV + "]");
+         attachSurface
+           -m   $attachMethodOV -du 0 -rpo 1
+           -kmk $kpMultipleKnotsOV
+           -bki $blendKnotInsertOV
+           $from $to;
+         delete $me[$k]; $k++;
+       }
+       $mRing = `rename $me[0] "rB_middleRing#"`;
+       parent $mRing $rBox;
+       $mRingH = $rBox + "|" + $mRing;
+       xform -cp $mRingH;
+     }
+
+/*   =========================================================
+        create top ring
+     ========================================================= */
+     if ($createTopRingOV)
+     { // split first top corner
+       $maxV = `getAttr ($c[4] + ".mxv")`;
+       $minV = `getAttr ($c[4] + ".mnv")`;
+       $midV = $minV + (($maxV - $minV) / 2.0);
+       $tmp = `detachSurface -d 0 -p $midV -ch 0 -rpo 1 $c[4]`;
+       parent $tmp[0] $cGrp;
+
+       // fill top corner array
+       $tc[0] = $tmp[0];
+       $tc[4] = $c[4];
+       for ($i = 1; $i < 4; $i++ ) $tc[$i] = $c[($i + 4)];
+
+       $j = 8; $k = 1;
+       for ( $i = 0; $i < 4; $i++ )
+       {
+         $maxV = `getAttr ($tc[0] + ".mxv")`;
+         $minV = `getAttr ($e[$j] + ".mnv")`;
+         $from = ($tc[0] + ".v[" + $maxV + "]");
+         $to   = ($e[$j] + ".v[" + $minV + "]");
+         attachSurface
+           -m   $attachMethodOV -du 0 -rpo 1
+           -kmk $kpMultipleKnotsOV
+           -bki $blendKnotInsertOV
+           $from $to;
+         delete $e[$j]; $j++;
+
+         $maxV = `getAttr ($tc[0]  + ".mxv")`;
+         $minV = `getAttr ($tc[$k] + ".mnv")`;
+         $from = ($tc[0]  + ".v[" + $maxV + "]");
+         $to   = ($tc[$k] + ".v[" + $minV + "]");
+         attachSurface
+           -m   $attachMethodOV -du 0 -rpo 1
+           -kmk $kpMultipleKnotsOV
+           -bki $blendKnotInsertOV
+           $from $to;
+         delete $tc[$k]; $k++;
+       }
+       $tRing = `rename $tc[0] "rB_topRing#"`;
+       parent $tRing $rBox;
+       $tRingH = $rBox + "|" + $tRing;
+       xform -cp $tRingH;
+     }
+
+/*   =========================================================
+        connect rings
+     ========================================================= */
+     if (($connectBtmMidOV)&&(`objExists $bRingH`)&&(`objExists $mRingH`))
+     {
+       $maxU = `getAttr ($bRingH + ".mxu")`;
+       $minU = `getAttr ($mRingH + ".mnu")`;
+       $from = ($bRingH + ".u[" + $maxU + "]");
+       $to   = ($mRingH + ".u[" + $minU + "]");
+       attachSurface
+         -m   $attachMethodOV -du 1 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $mRingH;
+       xform -cp $bRingH;
+
+       rename $bRingH $mRing;
+     }
+
+     if (($connectMidTopOV)&&(`objExists $mRingH`)&&(`objExists $tRingH`))
+     {
+       $maxU = `getAttr ($mRingH + ".mxu")`;
+       $minU = `getAttr ($tRingH + ".mnu")`;
+       $from = ($mRingH + ".u[" + $maxU + "]");
+       $to   = ($tRingH + ".u[" + $minU + "]");
+       attachSurface
+         -m   $attachMethodOV -du 1 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $tRingH;
+       xform -cp $mRingH;
+
+       if ($connectBtmMidOV) rename $mRingH "rB_surface#";
+     }
+
+     // cleanup nodes
+     if ($createBtmRingOV && $createTopRingOV) delete $cGrp;
+     if ($createMidRingOV)                     delete $eGrp;
+   } // end "if attach mode A"
+
+/* =========================================================
+        attach mode B
+   ========================================================= */
+   if ($attachModeB)
+   {
+/*   =========================================================
+        create square caps
+     ========================================================= */
+     for ($i = 0; $i < 8; $i += 2)
+     { // connect corner-edge-corner;
+       // names of resulting surfaces will be in $c[0,2,4,6].
+       $j = $i + 4; $k = $i + 1;
+
+       $maxV = `getAttr ($c[$i] + ".mxv")`;
+       $minV = `getAttr ($e[$j] + ".mnv")`;
+       $from = ($c[$i] + ".v[" + $maxV + "]");
+       $to   = ($e[$j] + ".v[" + $minV + "]");
+       attachSurface
+         -m   $attachMethodOV -du 0 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $e[$j];
+
+       $maxV = `getAttr ($c[$i] + ".mxv")`;
+       $minV = `getAttr ($c[$k] + ".mnv")`;
+       $from = ($c[$i] + ".v[" + $maxV + "]");
+       $to   = ($c[$k] + ".v[" + $minV + "]");
+       attachSurface
+         -m   $attachMethodOV -du 0 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $c[$k];
+     }
+
+     for ($i = 0; $i < 4; $i += 2)
+     { // connect edge-face-edge;
+       // names of resulting surfaces will be in $e[0,2].
+       $j = $i; $k = $i + 1;
+
+       $maxV = `getAttr ($e[$i] + ".mxv")`;
+       $minV = `getAttr ($f[$j] + ".mnv")`;
+       $from = ($e[$i] + ".v[" + $maxV + "]");
+       $to   = ($f[$j] + ".v[" + $minV + "]");
+       attachSurface
+         -m   $attachMethodOV -du 0 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $f[$j];
+
+       $maxV = `getAttr ($e[$i] + ".mxv")`;
+       $minV = `getAttr ($e[$k] + ".mnv")`;
+       $from = ($e[$i] + ".v[" + $maxV + "]");
+       $to   = ($e[$k] + ".v[" + $minV + "]");
+       attachSurface
+         -m   $attachMethodOV -du 0 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $e[$k];
+     }
+
+     for ($i = 0; $i < 4; $i += 2)
+     { // connect the partial surfaces;
+       // names of resulting surfaces will be in $c[0,2].
+       $j = $i; $k = $i + 4;
+
+       $maxU = `getAttr ($c[$i] + ".mxu")`;
+       $minU = `getAttr ($e[$j] + ".mnu")`;
+       $from = ($c[$i] + ".u[" + $maxU + "]");
+       $to   = ($e[$j] + ".u[" + $minU + "]");
+       attachSurface
+         -m   $attachMethodOV -du 1 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $e[$j];
+
+       $maxU = `getAttr ($c[$i] + ".mxu")`;
+       $minU = `getAttr ($c[$k] + ".mnu")`;
+       $from = ($c[$i] + ".u[" + $maxU + "]");
+       $to   = ($c[$k] + ".u[" + $minU + "]");
+       attachSurface
+         -m   $attachMethodOV -du 1 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $c[$k];
+
+       // rename and re-parent the surfaces in $c[0,2].
+       $tmp[0] = `rename $c[$i] "rB_squareCap#"`;
+       $c[$i] = $tmp[0];
+       parent $tmp[0] $rBox;
+       $c[$i] = $rBox + "|" + $c[$i];
+       xform -cp $c[$i];
+     }
+
+/*   =========================================================
+        create "u" caps
+     ========================================================= */
+     for ($i = 5; $i < 9; $i += 2)
+     { // connect the partial surfaces;
+       // names of resulting surfaces will be in $e[5,7].
+       $j = $i - 4; $k = $i + 4;
+
+       $maxU = `getAttr ($e[$i] + ".mxu")`;
+       $minU = `getAttr ($f[$j] + ".mnu")`;
+       $from = ($e[$i] + ".u[" + $maxU + "]");
+       $to   = ($f[$j] + ".u[" + $minU + "]");
+       attachSurface
+         -m   $attachMethodOV -du 1 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $f[$j];
+
+       $maxU = `getAttr ($e[$i] + ".mxu")`;
+       $minU = `getAttr ($e[$k] + ".mnu")`;
+       $from = ($e[$i] + ".u[" + $maxU + "]");
+       $to   = ($e[$k] + ".u[" + $minU + "]");
+       attachSurface
+         -m   $attachMethodOV -du 1 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $e[$k];
+
+       // rename and re-parent the surfaces in $e[5,7].
+       $tmp[0] = `rename $e[$i] "rB_uCap#"`;
+       $e[$i] = $tmp[0];
+       parent $tmp[0] $rBox;
+       $e[$i] = $rBox + "|" + $e[$i];
+       xform -cp $e[$i];
+     }
+
+     // clean up nodes
+     delete $cGrp;
+     delete $eGrp;
+
+     if ($connectSurfsOV)
+     { // connect the square caps and u caps;
+       // the resulting surface will be in $c[0];
+       $maxV = `getAttr ($c[0] + ".mxv")`;
+       $minV = `getAttr ($e[5] + ".mnv")`;
+       $from = ($c[0] + ".v[" + $maxV + "]");
+       $to   = ($e[5] + ".v[" + $minV + "]");
+       attachSurface
+         -m   $attachMethodOV -du 0 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $e[5];
+
+       $maxV = `getAttr ($c[0] + ".mxv")`;
+       $minV = `getAttr ($c[2] + ".mnv")`;
+       $from = ($c[0] + ".v[" + $maxV + "]");
+       $to   = ($c[2] + ".v[" + $minV + "]");
+       attachSurface
+         -m   $attachMethodOV -du 0 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $c[2];
+
+       $maxV = `getAttr ($c[0] + ".mxv")`;
+       $minV = `getAttr ($e[7] + ".mnv")`;
+       $from = ($c[0] + ".v[" + $maxV + "]");
+       $to   = ($e[7] + ".v[" + $minV + "]");
+       attachSurface
+         -m   $attachMethodOV -du 0 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $e[7];
+
+       // rename the surface in $c[0].
+       $c[0] = `rename $c[0] "rB_surface#"`;
+       xform -cp $c[0];
+
+     } // close "connect surfs"
+
+   } // end "if attach mode B"
+
+
+/* =========================================================
+         attach mode C
+   ========================================================= */
+   if ($attachModeC)
+   {
+/*   =========================================================
+        split corners and edges, and fill corresponding arrays
+     ========================================================= */
+     $j = 0;
+     for ($i = 0; $i < 4; $i++)
+     { // split bottom corners
+       $k = $j + 1;
+       $maxV = `getAttr ($c[$i] + ".mxv")`;
+       $minV = `getAttr ($c[$i] + ".mnv")`;
+       $midV = $minV + (($maxV - $minV) / 2.0);
+       $tmp = `detachSurface -d 0 -p $midV -ch 0 -rpo 1 $c[$i]`;
+       parent $tmp[0] $cGrp;
+
+       // fill bottom corner array
+       $bc[$j] = $c[$i]; $j += 2;
+       $bc[$k] = $cGrp + "|" + $tmp[0];
+     }
+
+     $j = 0;
+     for ($i = 0; $i < 4; $i++)
+     { // split pole bevels
+       $k = $j + 1;
+       $maxV = `getAttr ($e[$i] + ".mxv")`;
+       $minV = `getAttr ($e[$i] + ".mnv")`;
+       $midV = $minV + (($maxV - $minV) / 2.0);
+       $tmp = `detachSurface -d 0 -p $midV -ch 0 -rpo 1 $e[$i]`;
+       parent $tmp[0] $eGrp;
+
+       // fill middle edge array
+       $me[$j] = $e[$i]; $j += 2;
+       $me[$k] = $eGrp + "|" + $tmp[0];
+     }
+
+     $j = 0;
+     for ($i = 4; $i < 8; $i++)
+     { // split top corners
+       $k = $j + 1;
+       $maxV = `getAttr ($c[$i] + ".mxv")`;
+       $minV = `getAttr ($c[$i] + ".mnv")`;
+       $midV = $minV + (($maxV - $minV) / 2.0);
+       $tmp = `detachSurface -d 0 -p $midV -ch 0 -rpo 1 $c[$i]`;
+       parent $tmp[0] $cGrp;
+
+       // fill top corner array
+       $tc[$j] = $c[$i]; $j += 2;
+       $tc[$k] = $cGrp + "|" + $tmp[0];
+     }
+
+/*   =========================================================
+       attach corners, edges, and faces to form quarter slices
+     ========================================================= */
+     for ($i = 0; $i < 8; $i++)
+     { // attach corners and pole bevels;
+       // names of resulting surfaces will be in $bc[0-7].
+       $maxU = `getAttr ($bc[$i] + ".mxu")`;
+       $minU = `getAttr ($me[$i] + ".mnu")`;
+       $from = ($bc[$i] + ".u[" + $maxU + "]");
+       $to   = ($me[$i] + ".u[" + $minU + "]");
+       attachSurface
+         -m   $attachMethodOV -du 1 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $me[$i];
+
+       $maxU = `getAttr ($bc[$i] + ".mxu")`;
+       $minU = `getAttr ($tc[$i] + ".mnu")`;
+       $from = ($bc[$i] + ".u[" + $maxU + "]");
+       $to   = ($tc[$i] + ".u[" + $minU + "]");
+       attachSurface
+         -m   $attachMethodOV -du 1 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $tc[$i];
+       xform -cp $bc[$i];
+     }
+
+     $j = 4; $k = 8;
+     for ($i = 0; $i < 4; $i++)
+     { // attach edges and faces;
+       // names of resulting surfaces will be in $e[4-7].
+       $maxU = `getAttr ($e[$j] + ".mxu")`;
+       $minU = `getAttr ($f[$i] + ".mnu")`;
+       $from = ($e[$j] + ".u[" + $maxU + "]");
+       $to   = ($f[$i] + ".u[" + $minU + "]");
+       attachSurface
+         -m   $attachMethodOV -du 1 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $f[$i];
+
+       $maxU = `getAttr ($e[$j] + ".mxu")`;
+       $minU = `getAttr ($e[$k] + ".mnu")`;
+       $from = ($e[$j] + ".u[" + $maxU + "]");
+       $to   = ($e[$k] + ".u[" + $minU + "]");
+       attachSurface
+         -m   $attachMethodOV -du 1 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $e[$k];
+       xform -cp $e[$j];
+       $j++; $k++;
+     }
+
+     $j = 4;
+     for ($i = 1; $i < 9; $i+= 2)
+     { // attach corner pieces to centers;
+       // names of resulting surfaces will be in $bc[1,3,5,7].
+       $maxV = `getAttr ($bc[$i] + ".mxv")`;
+       $minV = `getAttr ( $e[$j] + ".mnv")`;
+       $from = ($bc[$i] + ".v[" + $maxV + "]");
+       $to   = ( $e[$j] + ".v[" + $minV + "]");
+       attachSurface
+         -m   $attachMethodOV -du 0 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $e[$j]; $j++;
+
+       $k = ($i + 1) % 8;
+       $maxV = `getAttr ($bc[$i] + ".mxv")`;
+       $minV = `getAttr ($bc[$k] + ".mnv")`;
+       $from = ($bc[$i] + ".v[" + $maxV + "]");
+       $to   = ($bc[$k] + ".v[" + $minV + "]");
+       attachSurface
+         -m   $attachMethodOV -du 0 -rpo 1
+         -kmk $kpMultipleKnotsOV
+         -bki $blendKnotInsertOV
+         $from $to;
+       delete $bc[$k];
+       xform -cp $bc[$i];
+     }
+     // rename and collect result in wedge array
+     $j = 1;
+     for ($i = 0; $i < 4; $i++)
+     { $tmp[0] = `rename $bc[$j] "rB_semiWedge#"`;
+       parent $tmp[0] $rBox;
+       $mWedge[$i] = $rBox + "|" + $tmp[0];
+       $j += 2;
+     }
+
+     // clean up nodes
+     delete $cGrp;
+     delete $eGrp;
+
+/*   =========================================================
+     delete pole faces, and create wedges from quarter pieces
+     =========================================================
+     Note that we have used "rebuildSurface" to implement the wedge spans,
+     rather than the loft command (which had been used to create the wedges in the first place).
+     One of the design goals of this project was that it should work with Maya 1.0;
+     which had not allowed setting spans with the loft command.
+
+     We had later given up on that design goal,
+     but haven't bothered to come back to this and re-write it.
+*/
+     if ($createWedgesOV)
+     {
+       delete $fGrp;
+
+       for ($i = 0; $i < 4; $i++)
+       { // duplicate edge curves
+         $minU = `getAttr ($mWedge[$i] + ".mnu")`;
+         $maxU = `getAttr ($mWedge[$i] + ".mxu")`;
+         $tmp = `duplicateCurve -ch 0 -rn 0 -l 0 ($mWedge[$i] + ".u[" + $minU + "]")`; $bCrvs[$i] = $tmp[0];
+         $tmp = `duplicateCurve -ch 0 -rn 0 -l 0 ($mWedge[$i] + ".u[" + $maxU + "]")`; $tCrvs[$i] = $tmp[0];
+         $tmp = `duplicate $bCrvs[$i]`; $dbCrvs[$i] = $tmp[0];
+         $tmp = `duplicate $tCrvs[$i]`; $dtCrvs[$i] = $tmp[0];
+       }
+        $bCrvsGrp = `group  $bCrvs`;
+       $dbCrvsGrp = `group $dbCrvs`; scale -cp -a 0 0 0 $dbCrvsGrp;
+        $tCrvsGrp = `group  $tCrvs`;
+       $dtCrvsGrp = `group $dtCrvs`; scale -cp -a 0 0 0 $dtCrvsGrp;
+
+       for ($i = 0; $i < 4; $i++)
+       { // create bottom and top wedges
+         $tmp = `loft -ch 0 $dbCrvs[$i] $bCrvs[$i]`; $bWedge[$i] = $tmp[0];
+         rebuildSurface -ch 0 -rpo 1 -rt 0 -dir 0 // rebuild U
+          -du 0 -su $wedgeSpansOV -dv 0 -sv 0 $bWedge[$i];
+
+         $tmp = `loft -ch 0 $tCrvs[$i] $dtCrvs[$i]`; $tWedge[$i] = $tmp[0];
+         rebuildSurface -ch 0 -rpo 1 -rt 0 -dir 0 // rebuild U
+          -du 0 -su $wedgeSpansOV -dv 0 -sv 0 $tWedge[$i];
+       }
+       // delete the curves used to construct the bottom and top wedges
+       delete $bCrvsGrp $tCrvsGrp $dbCrvsGrp $dtCrvsGrp;
+
+       for ($i = 0; $i < 4; $i++)
+       { // attach bottom wedges to middle wedges;
+         // names of resulting surfaces will be in $bWedge
+         $maxU = `getAttr ($bWedge[$i] + ".mxu")`;
+         $minU = `getAttr ($mWedge[$i] + ".mnu")`;
+         $from = ($bWedge[$i] + ".u[" + $maxU + "]");
+         $to   = ($mWedge[$i] + ".u[" + $minU + "]");
+         attachSurface
+           -m   $attachMethodOV -du 1 -rpo 1
+           -kmk $kpMultipleKnotsOV
+           -bki $blendKnotInsertOV
+           $from $to;
+         delete $mWedge[$i];
+
+         // attach middle wedges to top wedges
+         // names of resulting surfaces will be in $bWedge
+         $maxU = `getAttr ($bWedge[$i] + ".mxu")`;
+         $minU = `getAttr ($tWedge[$i] + ".mnu")`;
+         $from = ($bWedge[$i] + ".u[" + $maxU + "]");
+         $to   = ($tWedge[$i] + ".u[" + $minU + "]");
+         attachSurface
+           -m   $attachMethodOV -du 1 -rpo 1
+           -kmk $kpMultipleKnotsOV
+           -bki $blendKnotInsertOV
+           $from $to;
+         delete $tWedge[$i];
+
+         xform -cp $bWedge[$i];
+       }
+
+       // clean up nodes
+       parent $bWedge $rBox;
+
+       // rename and collect result in wedge array
+       for ($i = 0; $i < 4; $i++)
+       { $tmp[0] = `rename $bWedge[$i] "rB_wedge#"`;
+         $bWedge[$i] = ($rBox + "|" + $tmp[0]);
+       }
+
+       if ($connectWedgesOV)
+       {
+         for ($i = 1; $i < 4; $i++)
+         { // attach wedges into single surface
+           $maxV = `getAttr ($bWedge[0]  + ".mxv")`;
+           $minV = `getAttr ($bWedge[$i] + ".mnv")`;
+           $from = ($bWedge[0]  + ".v[" + $maxV + "]");
+           $to   = ($bWedge[$i] + ".v[" + $minV + "]");
+           attachSurface
+             -m   $attachMethodOV -du 0 -rpo 1
+             -kmk $kpMultipleKnotsOV
+             -bki $blendKnotInsertOV
+             $from $to;
+           delete $bWedge[$i];
+         }
+         // cleanup nodes
+         $bWedge[0] = `rename $bWedge[0] "rB_surface#"`;
+         xform -cp $bWedge[0];
+
+       } // close "connect wedges"
+     } // close "create wedges"
+   } // close "attach mode C"
+} // end procedure do_nRB_attachSurfaces
+
+
+/* ==================================================================================
+                          ATTACH ROUNDED BOX SURFACES
+   ==================================================================================
+   Attach rounded box surfaces will work with the rounded box geometry and hierarchy,
+   even if controls had been deleted.
+
+   If the controls *are* still active, they *need* to be deleted.
+*/
+
+global proc nRB_attachSurfaces ()
+{
+  string $rBoxArray[30];
+
+  string $list[] = `ls -sl`;
+  for ($node in $list)
+  {
+    $rBoxArray[0] = $node;
+    if (`nRB_testHierarchy $rBoxArray`)
+    { // hierarchy tests out
+      // delete controls if necessary
+      if (`isRoundedBox $node`) do_nRB_deleteControls $node;
+
+      // delete history and do attach surfaces
+      doDeleteRoundedBoxHistory  $node;
+      do_nRB_attachSurfaces $rBoxArray;
+    }
+    else
+    { print ("\n"
+      + "Some hierarchy error has been encountered with " + $node + ".\n"
+      + "Hopefully there is additional information in the lines above.\n"
+      + "\n"
+      + "nRB_attachSurfaces has failed -- look in the Script Editor Window for more information.\n");
+    }
+  }
+
+  // restore original selection
+  select -r $list;
+
+} // end procedure nRB_attachSurfaces

@@ -1,0 +1,38 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icQRremoveJointRadius.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jun 16, 2011
+//					created: Jun 16, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// remove the joint radius attribute from the channel box of all joints
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRremoveJointRadius ( string $charName )
+{
+	string $allJoints[] = `ls -type joint`;
+	for ($j in $allJoints)
+	{
+		if (`gmatch $j ("*" + $charName + "*")`)
+		{
+			setAttr ($j + ".radius") 1;
+			setAttr -cb 0 ($j + ".radius");
+		}
+	}
+}

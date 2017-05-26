@@ -1,0 +1,119 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icQRbuildMM.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jun 30, 2011
+//					created: Jun 30, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// build the marking menu
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRsetRotateOrder ( int $id, string $obj )
+{
+	setAttr ($obj + ".rotateOrder") $id;
+}
+
+global proc icQRbuildMM ()
+{
+	string $sel[] = `ls -sl -tr`;
+
+	string $poseLabel[];
+	string $dirContent[];
+	string $workDir;
+	string $command;
+
+	if( `popupMenu -exists tempMM` )
+    {
+        deleteUI tempMM;
+    }
+
+	//get the rotation order of the selection and prepare the menu content
+	string $orderArray[] = {"xyz","yzx","zxy","xzy","yxz","zyx"};
+	int $rotOrder;
+	string $rotOrderString;
+	if (size($sel) != 0)
+	{
+		$rotOrder = `getAttr ($sel[0] + ".rotateOrder")`;
+		$rotOrderString = "* " + $orderArray[$rotOrder];
+		stringArrayRemoveAtIndex($rotOrder, $orderArray);
+		stringArrayInsertAtIndex($rotOrder, $orderArray, $rotOrderString);
+	}
+
+	popupMenu -mm 1 -b 1 -aob 1 -sh 1 -p viewPanes tempMM;
+
+			if (size($sel) != 0)
+			{
+				menuItem
+				-label "Rotation Order"
+				-sm 1
+				-radialPosition "E";
+
+				menuItem
+				-label $orderArray[0]
+				-command ("icQRsetRotateOrder 0 " + $sel[0])
+				-radialPosition "NE";
+						
+				menuItem
+				-label $orderArray[1]
+				-command ("icQRsetRotateOrder 1 " + $sel[0])
+				-radialPosition "SE";
+						
+				menuItem
+				-label $orderArray[2]
+				-command ("icQRsetRotateOrder 2 " + $sel[0])
+				-radialPosition "E";
+						
+				menuItem
+				-label $orderArray[3]
+				-command ("icQRsetRotateOrder 3 " + $sel[0])
+				-radialPosition "W";
+						
+				menuItem
+				-label $orderArray[4]
+				-command ("icQRsetRotateOrder 4 " + $sel[0])
+				-radialPosition "NW";
+						
+				menuItem
+				-label $orderArray[5]
+				-command ("icQRsetRotateOrder 5 " + $sel[0])
+				-radialPosition "SW";
+
+				setParent -menu ..;
+			}
+
+			setParent -menu ..;
+
+			menuItem
+				-label "Switch to Main Character Set"
+				-command "icCRswitchCharSet \"main\";"
+				-radialPosition "N";
+
+			menuItem
+				-label "Switch to Sub Character Set"
+				-command "icCRswitchCharSet \"sub\";"
+				-radialPosition "S";
+
+			menuItem
+				-label "Defaults For Selected"
+				-command "icCRreadDefaultAttr" 
+				-radialPosition "W";
+
+	setParent -m ..;
+
+}

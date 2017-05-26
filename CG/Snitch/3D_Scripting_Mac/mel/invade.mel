@@ -1,0 +1,1031 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: invade
+''    Author:  
+''    Last Updated: Apr 14, 2009
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/modeling/poly_tools/5307.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+ /*
+--------------------
+
+invade.mel V 1.1  (By George Nakhle) - 2008
+
+
+--------------------
+
+LICENSE:
+
+YOU MAY MAKE MODIFICATIONS AT YOUR OWN RISK FOR YOUR OWN PURPOSES. PLEASE
+CONTACT THE AUTHOR FIRST IF YOU WANT THE MODIFICATIONS/ADD-ONS TO BE INCLUDED
+IN THIS DISTRIBUTION.
+
+This program is free software and is distributed in the hope that it will 
+be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+
+--------------------
+
+
+For any questions, suggestions or help don't hesitate to contact me @: 
+
+georges.nakhle@geonak.com
+
+visit my webpage : www.geonak.com
+
+
+Last Modified 22/07/2008
+
+*/
+
+
+
+
+
+
+ global proc invade()
+{
+
+
+string $window;
+
+{
+$window="Invade";
+		
+if (`window -exists $window`)
+		
+{
+			
+deleteUI $window;
+		
+}
+
+window -title "Invade" -mxb false -rtf true -wh 450 360 $window;
+
+	
+		
+columnLayout;
+separator -height 10 -st none;
+radioButtonGrp -numberOfRadioButtons 2 -label "Geometry Type:" -labelArray2 "Instance" "Copy" -select 1 copyOrInstance;
+separator -height 10 -st none;
+button -l"" -w 500 -h 1  ;
+separator -height 10 -st none;
+textFieldButtonGrp -label "invader" -text "select the invader then click Set." -buttonLabel "  Set  " -ed 0 -bc "setinvader" invaderName;
+textFieldButtonGrp -label "invaded" -text "select the invaded then click Set. (optional)" -buttonLabel "  Set  " -ed 0 -bc "setInvaded" invadedName;
+separator -height 3 -st none;  
+radioButtonGrp -numberOfRadioButtons 3 -en 0 -label "Surface invasion Mode" -labelArray3 "define direction" "absolute" "combined" -select 1 -cc "hideShowDir" directionOrAbsolute;
+separator -height 3 -st none;
+floatFieldGrp -numberOfFields 3 -en 0 -label "Surface invasion Direction" -value1 0 -value2 -1 -value3 0 stickToSurfaceDir;
+                              
+separator -height 10 -st none;
+button -l"" -w 500 -h 1  ;
+separator -height 10 -st none;
+intFieldGrp -numberOfFields 3 -label "Number" -value1 10 -value2 10 -value3 10 xyzNbr;
+separator -height 5 -st none; 
+rowLayout -numberOfColumns 2 -columnWidth2 140 150;
+text -label "";
+checkBox -label "Empty Inside" emptyInside;
+setParent ..;
+separator -height 6 -st none;
+button -l"" -w 500 -h 1  ;
+separator -height 10 -st none;
+floatFieldGrp -numberOfFields 3 -label "Translate" -value1 10 -value2 10 -value3 10 Tr;
+floatFieldGrp -numberOfFields 3 -label "Tr. Rand min" -value1 0 -value2 0 -value3 0 randTrMin;
+floatFieldGrp -numberOfFields 3 -label "Tr. Rand max" -value1 0 -value2 0 -value3 0 randTrMax;
+separator -height 10 -st none;
+button -l"" -w 500 -h 1  ;
+separator -height 10 -st none;
+floatFieldGrp -numberOfFields 3 -label "Rotate" -value1 0 -value2 0 -value3 0 Rot;
+floatFieldGrp -numberOfFields 3 -label "Rot. Rand min" -value1 0 -value2 0 -value3 0 randRotMin;
+floatFieldGrp -numberOfFields 3 -label "Rot. Rand max" -value1 0 -value2 0 -value3 0 randRotMax;
+separator -height 10 -st none;
+button -l"" -w 500 -h 1  ;
+separator -height 10 -st none;
+floatFieldGrp -numberOfFields 3 -label "Scale" -value1 1 -value2 1 -value3 1 Scale;
+floatFieldGrp -numberOfFields 3 -label "Scale Rand min" -value1 1 -value2 1 -value3 1 randScaleMin;
+floatFieldGrp -numberOfFields 3 -label "Scale Rand max" -value1 1 -value2 1 -value3 1 randScaleMax;
+separator -height 5 -st none; 
+rowLayout -numberOfColumns 2 -columnWidth2 140 150;
+text -label "";
+checkBox -label "Constrain Proportions" -onc "constrainScale" -ofc "unconstrainScale" constrainProportions;
+setParent ..;
+setParent ..;
+		
+separator -height 2 -st none;
+		
+columnLayout -w 330;
+separator -height 10 -st none;
+button -l"" -w 500 -h 1  ;
+separator -height 10 -st none;		
+rowColumnLayout -numberOfRows 1 -rowHeight 1 23 -cat 1 "left" 7;
+text -label "                                              ";		
+button -l "invade" -bgc 0.7 0.7 0.5 -w 150 -c"invadeCode" InvadeButt;
+setParent ..;
+separator -height 3 -st none;	
+rowColumnLayout -numberOfRows 1 -rowHeight 1 23 -cat 1 "left" 7;
+text -label "                                              ";		
+button -l "close" -bgc 1 0.7 0.7 -w 150 -c"close" CloseWindow;
+setParent ..;	
+separator -height 10 -st "none";
+button -l"" -w 500 -h 1  ;
+separator -height 10 -st none;		
+rowColumnLayout -numberOfRows 1 -rowHeight 1 23 -cat 1 "left" 7;
+text -label "                                                   ";					
+text -label "By Georges Nakhle - 2008" -w 330;
+setParent ..;	
+rowColumnLayout -numberOfRows 1 -rowHeight 1 23 -cat 1 "left" 7;
+text -label "                            ";		
+text -label "For any questions or suggestions Please contact me @ : " -w 330;
+setParent ..;	
+rowColumnLayout -numberOfRows 1 -rowHeight 1 23 -cat 1 "left" 7;
+text -label "                                                ";		
+text -label "georges.nakhle@geonak.com" -w 330;
+setParent ..;	
+
+showWindow $window;
+
+
+}
+
+}
+
+
+
+
+global proc invadeCode()
+
+{
+// numbers to set
+// -----------------
+
+int $intersectionNotFound = 0;
+int $emptyInside = 0;
+string $tempPolyName[];
+
+int $nearestPointOnMeshLoaded = 0;
+int  $nearestPointOnMeshNodeCreated = 0;
+string $nearestPointOnMeshNodeName;
+
+int $closestPointOnSurfaceNodeCreated = 0;
+string $closestPointOnSurfaceNodeName;
+
+int $rayIntersectLoaded = 0;
+int  $rayIntersectNodeCreated = 0;
+string $rayIntersectNodeName;
+
+
+int $xNbr = `intFieldGrp -q -value1 xyzNbr`;
+int $yNbr = `intFieldGrp -q -value2 xyzNbr`;
+int $zNbr = `intFieldGrp -q -value3 xyzNbr`;
+
+
+float $TrX =`floatFieldGrp -q -value1 Tr`;
+float $TrY =`floatFieldGrp -q -value2 Tr`;
+float $TrZ =`floatFieldGrp -q -value3 Tr`;
+float $randTrMinX = `floatFieldGrp -q -value1 randTrMin`;
+float $randTrMaxX = `floatFieldGrp -q -value1 randTrMax`;
+float $randTrMinY = `floatFieldGrp -q -value2 randTrMin`;
+float $randTrMaxY = `floatFieldGrp -q -value2 randTrMax`;
+float $randTrMinZ = `floatFieldGrp -q -value3 randTrMin`;
+float $randTrMaxZ = `floatFieldGrp -q -value3 randTrMax`;
+
+
+float $RotX =`floatFieldGrp -q -value1 Rot`;
+float $RotY =`floatFieldGrp -q -value2 Rot`;
+float $RotZ =`floatFieldGrp -q -value3 Rot`;
+float $randRotMinX = `floatFieldGrp -q -value1 randRotMin`;
+float $randRotMaxX = `floatFieldGrp -q -value1 randRotMax`;
+float $randRotMinY = `floatFieldGrp -q -value2 randRotMin`;
+float $randRotMaxY = `floatFieldGrp -q -value2 randRotMax`;
+float $randRotMinZ = `floatFieldGrp -q -value3 randRotMin`;
+float $randRotMaxZ = `floatFieldGrp -q -value3 randRotMax`;
+
+
+float $ScaleX =`floatFieldGrp -q -value1 Scale`;
+float $ScaleY =`floatFieldGrp -q -value2 Scale`;
+float $ScaleZ =`floatFieldGrp -q -value3 Scale`;
+float $randScaleMinX = `floatFieldGrp -q -value1 randScaleMin`;
+float $randScaleMaxX = `floatFieldGrp -q -value1 randScaleMax`;
+float $randScaleMinY = `floatFieldGrp -q -value2 randScaleMin`;
+float $randScaleMaxY = `floatFieldGrp -q -value2 randScaleMax`;
+float $randScaleMinZ = `floatFieldGrp -q -value3 randScaleMin`;
+float $randScaleMaxZ = `floatFieldGrp -q -value3 randScaleMax`;
+
+// =====================
+
+float $newTrX, $newTrY, $newTrZ;
+float $newRotX, $newRotY, $newRotZ;
+float $newScaleX, $newScaleY, $newScaleZ;
+float $prevTrX, $prevTrY, $prevTrZ;
+float $prevRotX, $prevRotY, $prevRotZ;
+float $prevScaleX, $prevScaleY, $prevScaleZ;
+string $Z;
+string $X;
+string $Y;
+string $name,$origName;;
+float $randTrX, $randTrY, $randTrZ;
+float $randRotX, $randRotY, $randRotZ;
+float $randScaleX, $randScaleY, $randScaleZ;
+
+
+
+string $invadedName = `textFieldButtonGrp -q -text invadedName`;
+if ($invadedName != "select the invaded then click Set. (optional)")
+{
+
+string $shp[] = `listRelatives -shapes $invadedName`;
+
+string $id = `nodeType $shp[0]`;
+
+
+
+if ($id == "mesh") {
+
+if ( !catch( `loadPlugin nearestPointOnMesh`)) $nearestPointOnMeshLoaded = 1;
+else { warning "nearestPointOnMesh plugin  not found or Could not be loaded. Attempting to duplicate without using invaded object.\n";}
+
+if ( $nearestPointOnMeshLoaded == 1 && catch( `createNode -n invade_nearestPointOnMesh nearestPointOnMesh` ) ) {
+warning "Could not create nearestPointOnMesh node, Attempting to duplicate without using invaded object.\n";
+} else {
+    $selected = `ls -sl`;
+    $nearestPointOnMeshNodeName = $selected[0];
+    $nearestPointOnMeshNodeCreated = 1;
+    
+    connectAttr -f ($shp[0]+".worldMesh[0]") ($nearestPointOnMeshNodeName+".inMesh");
+}
+
+
+
+
+if ( !catch( `loadPlugin rayIntersect`)) $rayIntersectLoaded = 1;
+else { warning "rayIntersect plugin not found or Could not be loaded. Attempting to duplicate without using invaded object.\n";}
+
+if ( $rayIntersectLoaded == 1 && catch( `createNode -n invade_rayIntersect rayIntersect` ) ) {
+warning "Could not create rayIntersect node, Attempting to duplicate without using invaded object.\n";
+} else {
+    $selected = `ls -sl`;
+    $rayIntersectNodeName = $selected[0];
+    $rayIntersectNodeCreated = 1;
+    
+    connectAttr -f ($shp[0]+".worldMesh[0]") ($rayIntersectNodeName+".inMesh");
+}
+
+
+
+
+
+}
+
+
+
+else if ($id == "nurbsSurface") {
+
+if (catch( `createNode -n invade_closestPointOnSurface closestPointOnSurface` ) ) {
+warning "Could not create closestPointOnSurface node, Attempting to duplicate without using invaded object.\n";
+} else {
+    $selected = `ls -sl`;
+    $closestPointOnSurfaceNodeName = $selected[0];
+    $closestPointOnSurfaceNodeCreated = 1;
+    connectAttr -f ($shp[0]+".worldSpace[0]") ($closestPointOnSurfaceNodeName+".inputSurface");
+}
+
+$tempPolyName = `nurbsToPoly -ch 1 -f 1 -pt 1 -chr 0.9 -ut 1 -un 9 -vt 1 -vn 1 -ucr 0 -ntr 0 -mrt 0 -uss 1 $shp[0]`;
+
+
+if ( !catch( `loadPlugin rayIntersect`)) $rayIntersectLoaded = 1;
+else { warning "rayIntersect plugin not found or Could not be loaded. Attempting to duplicate without using invaded object.\n";}
+
+if ( $rayIntersectLoaded == 1 && catch( `createNode -n invade_rayIntersect rayIntersect` ) ) {
+warning "Could not create rayIntersect node, Attempting to duplicate without using invaded object.\n";
+} else {
+    $selected = `ls -sl`;
+    $rayIntersectNodeName = $selected[0];
+    $rayIntersectNodeCreated = 1;
+    
+    string $tempPolyNameArray[] = `listRelatives -shapes $tempPolyName[0]`;
+
+    
+    connectAttr -f ($tempPolyNameArray[0]+".worldMesh[0]") ($rayIntersectNodeName+".inMesh");
+}
+
+
+
+}
+
+
+else 
+{
+warning ("invaded surfaceType error, Attempting to duplicate without using invaded object.\n");
+$closestPointOnSurfaceNodeCreated = 0;
+$nearestPointOnMeshNodeCreated = 0;
+$rayIntersectNodeCreated = 0;
+}
+}
+
+$name = `textFieldButtonGrp -q -text invaderName`;
+if ($name == "" || $name == "select the invader then click Set.") { warning "please select an invader"; return;}
+select $name;
+$origName = $name;
+rename $name ($name + "_0"); 
+$name = ($name + "_0");
+
+
+
+
+float $relativePos[]	= `xform -a -ws -q -t $name`;
+move -rpr 0 0 0;
+float $absolutePos[]	= `xform -a -ws -q -t $name`;
+float $pos[];
+$pos[0]	=  $relativePos[0] - $absolutePos[0];
+$pos[1]	=  $relativePos[1] - $absolutePos[1];
+$pos[2]	=  $relativePos[2] - $absolutePos[2];
+makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $name;		
+xform -a -ws -t $pos[0] $pos[1] $pos[2] $name;
+setAttr ($name + ".opposite") 0;
+
+
+
+
+
+
+$X = $name+".translateX";
+float  $initTrX     = `getAttr $X`;
+$Y = $name+".translateY";
+float  $initTrY     = `getAttr $Y`;
+$Z = $name+".translateZ";
+float  $initTrZ     = `getAttr $Z`;
+
+
+$X = $name+".rotateX";
+float  $initRotX     = `getAttr $X`;
+$Y = $name+".rotateY";
+float  $initRotY     = `getAttr $Y`;
+$Z = $name+".rotateZ";
+float  $initRotZ     = `getAttr $Z`;
+
+
+$X = $name+".scaleX";
+float  $initScaleX     = `getAttr $X`;
+$Y = $name+".scaleY";
+float  $initScaleY     = `getAttr $Y`;
+$Z = $name+".scaleZ";
+float  $initScaleZ     = `getAttr $Z`;
+
+
+if ( $nearestPointOnMeshNodeCreated != 0 || $closestPointOnSurfaceNodeCreated != 0 || $rayIntersectNodeCreated != 0) {
+
+float $px,$py,$pz;
+
+$X = $name+".tx";
+float  $attrX = `getAttr $X`;
+$Y = $name+".ty";
+float  $attrY = `getAttr $Y`;
+$Z = $name+".tz";
+float  $attrZ = `getAttr $Z`;
+
+
+if ( $nearestPointOnMeshNodeCreated == 1 && (2 == `radioButtonGrp -query -select directionOrAbsolute`)) 
+ {
+
+  setAttr ($nearestPointOnMeshNodeName+".inPositionX") $attrX ;
+  setAttr ($nearestPointOnMeshNodeName+".inPositionY") $attrY ;
+  setAttr ($nearestPointOnMeshNodeName+".inPositionZ") $attrZ ;
+  
+  $px = `getAttr ($nearestPointOnMeshNodeName+".positionX")`;
+  $py = `getAttr ($nearestPointOnMeshNodeName+".positionY")`;
+  $pz = `getAttr ($nearestPointOnMeshNodeName+".positionZ")`;
+
+ }
+
+if ( $closestPointOnSurfaceNodeCreated == 1 && (2 == `radioButtonGrp -query -select directionOrAbsolute`)) 
+ {
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionX") $attrX ;
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionY") $attrY ;
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionZ") $attrZ ;
+  
+  $px = `getAttr ($closestPointOnSurfaceNodeName+".positionX")`;
+  $py = `getAttr ($closestPointOnSurfaceNodeName+".positionY")`;
+  $pz = `getAttr ($closestPointOnSurfaceNodeName+".positionZ")`;
+ }
+
+
+if ( $rayIntersectNodeCreated == 1 && ((1 == `radioButtonGrp -query -select directionOrAbsolute`) || (3 == `radioButtonGrp -query -select directionOrAbsolute`))) 
+ {
+  setAttr ($rayIntersectNodeName+".inPositionX") $attrX ;
+  setAttr ($rayIntersectNodeName+".inPositionY") $attrY ;
+  setAttr ($rayIntersectNodeName+".inPositionZ") $attrZ ;
+  
+  setAttr ($rayIntersectNodeName+".directionX") (`floatFieldGrp -q -value1 stickToSurfaceDir`) ;
+  setAttr ($rayIntersectNodeName+".directionY") (`floatFieldGrp -q -value2 stickToSurfaceDir`) ;
+  setAttr ($rayIntersectNodeName+".directionZ") (`floatFieldGrp -q -value3 stickToSurfaceDir`) ;
+  
+ if (getAttr ($rayIntersectNodeName+".entryIntersect") == 1)
+ {
+  $px = `getAttr ($rayIntersectNodeName+".entryPositionX")`;
+  $py = `getAttr ($rayIntersectNodeName+".entryPositionY")`;
+  $pz = `getAttr ($rayIntersectNodeName+".entryPositionZ")`;
+ }
+ else 
+ {
+  $intersectionNotFound = 1;
+  if ((3 == `radioButtonGrp -query -select directionOrAbsolute`) && $nearestPointOnMeshNodeCreated == 1)
+  {
+    setAttr ($nearestPointOnMeshNodeName+".inPositionX") $attrX ;
+    setAttr ($nearestPointOnMeshNodeName+".inPositionY") $attrY ;
+    setAttr ($nearestPointOnMeshNodeName+".inPositionZ") $attrZ ;
+  
+    $px = `getAttr ($nearestPointOnMeshNodeName+".positionX")`;
+    $py = `getAttr ($nearestPointOnMeshNodeName+".positionY")`;
+    $pz = `getAttr ($nearestPointOnMeshNodeName+".positionZ")`;
+  }
+  else if ((3 == `radioButtonGrp -query -select directionOrAbsolute`) && $closestPointOnSurfaceNodeCreated == 1)
+  {
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionX") $attrX ;
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionY") $attrY ;
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionZ") $attrZ ;
+  
+    $px = `getAttr ($closestPointOnSurfaceNodeName+".positionX")`;
+    $py = `getAttr ($closestPointOnSurfaceNodeName+".positionY")`;
+    $pz = `getAttr ($closestPointOnSurfaceNodeName+".positionZ")`;
+  }
+  else
+  {
+  $px = $attrX;
+  $py = $attrY;
+  $pz = $attrZ;
+  }
+ }
+ }
+
+
+
+setAttr $X $px;
+setAttr $Y $py;
+setAttr $Z $pz;
+
+
+}
+
+
+$prevTrX = $initTrX;
+$prevTrY = $initTrY;
+$prevTrZ = $initTrZ;
+
+$prevRotX = $initRotX;
+$prevRotY = $initRotY;
+$prevRotZ = $initRotZ;
+
+$prevScaleX = $initScaleX;
+$prevScaleY = $initScaleY;
+$prevScaleZ = $initScaleZ;
+
+
+
+for($i=0;$i<$zNbr;$i++)
+{
+for($k=0;$k<$yNbr;$k++)
+{
+for($j=0;$j<$xNbr;$j++)
+{
+$randTrX = rand($randTrMinX,$randTrMaxX);
+$randTrY = rand($randTrMinY,$randTrMaxY);
+$randTrZ = rand($randTrMinZ,$randTrMaxZ);
+
+$randRotX = rand($randRotMinX,$randRotMaxX);
+$randRotY = rand($randRotMinY,$randRotMaxY);
+$randRotZ = rand($randRotMinZ,$randRotMaxZ);
+
+$randScaleX = rand($randScaleMinX,$randScaleMaxX);
+$randScaleY = rand($randScaleMinY,$randScaleMaxY);
+$randScaleZ = rand($randScaleMinZ,$randScaleMaxZ);
+
+$emptyInside = `checkBox -q -v emptyInside`;
+
+if (2 == `radioButtonGrp -query -select copyOrInstance`) {
+		if ( $emptyInside !=1 ) duplicate;
+		else if ( $j == 0 || $k == 0 || $i == 0 || $j == $xNbr-1 || $k == $yNbr-1 || $i == $zNbr-1 ) duplicate;
+}
+else {
+    if ( $emptyInside !=1 ) instance;
+		else if ( $j == 0 || $k == 0 || $i == 0 || $j == $xNbr-1 || $k == $yNbr-1 || $i == $zNbr-1 ) instance;
+}
+
+$selected = `ls -sl`;
+$name = $selected[0];
+
+$newTrX = $prevTrX + $TrX + $randTrX;
+$newTrY = $prevTrY + $randTrY;
+$newTrZ = $prevTrZ + $randTrZ;
+$X = $name+".translateX";
+$Y = $name+".translateY";
+$Z = $name+".translateZ";
+setAttr $X $newTrX;
+setAttr $Y $newTrY;
+setAttr $Z $newTrZ;
+$prevTrX     = `getAttr $X`;
+
+$newRotX = $prevRotX + $RotX + $randRotX;
+$newRotY = $prevRotY + $randRotY;
+$newRotZ = $prevRotZ + $randRotZ;
+$X = $name+".rotateX";
+$Y = $name+".rotateY";
+$Z = $name+".rotateZ";
+setAttr $X $newRotX;
+setAttr $Y $newRotY;
+setAttr $Z $newRotZ;
+$prevRotX     = `getAttr $X`;
+
+if($ScaleX == 1 && (`checkBox -q -v constrainProportions` != 1)) $prevScaleX = $initScaleX; 
+if($ScaleY == 1 && (`checkBox -q -v constrainProportions` != 1)) $prevScaleY = $initScaleY; 
+if($ScaleZ == 1 && (`checkBox -q -v constrainProportions` != 1)) $prevScaleZ = $initScaleZ; 
+if($ScaleX == 1 && (`checkBox -q -v constrainProportions` == 1)) { $prevScaleX = $initScaleX; $prevScaleY = $initScaleY; $prevScaleZ = $initScaleZ; }
+
+$newScaleX = $prevScaleX * $ScaleX * $randScaleX;
+if (`checkBox -q -v constrainProportions` == 1) 
+{ 
+  $newScaleY = $prevScaleY * $ScaleX * $randScaleX;
+  $newScaleZ = $prevScaleZ * $ScaleX * $randScaleX;
+}
+else 
+{ 
+  $newScaleY = $prevScaleY * $randScaleY;
+  $newScaleZ = $prevScaleZ * $randScaleZ;
+}
+$X = $name+".scaleX";
+$Y = $name+".scaleY";
+$Z = $name+".scaleZ";
+setAttr $X $newScaleX;
+setAttr $Y $newScaleY;
+setAttr $Z $newScaleZ;
+$prevScaleX     = `getAttr $X`;
+$prevScaleY     = `getAttr $Y`;
+$prevScaleZ     = `getAttr $Z`;
+
+if ( $nearestPointOnMeshNodeCreated != 0 || $closestPointOnSurfaceNodeCreated != 0 || $rayIntersectNodeCreated != 0) {
+
+float $px,$py,$pz;
+
+$X = $name+".tx";
+float  $attrX = `getAttr $X`;
+$Y = $name+".ty";
+float  $attrY = `getAttr $Y`;
+$Z = $name+".tz";
+float  $attrZ = `getAttr $Z`;
+
+
+if ( $nearestPointOnMeshNodeCreated == 1 && (2 == `radioButtonGrp -query -select directionOrAbsolute`)) 
+ {
+  setAttr ($nearestPointOnMeshNodeName+".inPositionX") $attrX ;
+  setAttr ($nearestPointOnMeshNodeName+".inPositionY") $attrY ;
+  setAttr ($nearestPointOnMeshNodeName+".inPositionZ") $attrZ ;
+  
+  $px = `getAttr ($nearestPointOnMeshNodeName+".positionX")`;
+  $py = `getAttr ($nearestPointOnMeshNodeName+".positionY")`;
+  $pz = `getAttr ($nearestPointOnMeshNodeName+".positionZ")`;
+ }
+
+if ( $closestPointOnSurfaceNodeCreated == 1 && (2 == `radioButtonGrp -query -select directionOrAbsolute`)) 
+ {
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionX") $attrX ;
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionY") $attrY ;
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionZ") $attrZ ;
+  
+  $px = `getAttr ($closestPointOnSurfaceNodeName+".positionX")`;
+  $py = `getAttr ($closestPointOnSurfaceNodeName+".positionY")`;
+  $pz = `getAttr ($closestPointOnSurfaceNodeName+".positionZ")`;
+ }
+
+
+if ( $rayIntersectNodeCreated == 1 && ((1 == `radioButtonGrp -query -select directionOrAbsolute`) || (3 == `radioButtonGrp -query -select directionOrAbsolute`))) 
+ {
+  setAttr ($rayIntersectNodeName+".inPositionX") $attrX ;
+  setAttr ($rayIntersectNodeName+".inPositionY") $attrY ;
+  setAttr ($rayIntersectNodeName+".inPositionZ") $attrZ ;
+  
+  setAttr ($rayIntersectNodeName+".directionX") (`floatFieldGrp -q -value1 stickToSurfaceDir`) ;
+  setAttr ($rayIntersectNodeName+".directionY") (`floatFieldGrp -q -value2 stickToSurfaceDir`) ;
+  setAttr ($rayIntersectNodeName+".directionZ") (`floatFieldGrp -q -value3 stickToSurfaceDir`) ;
+  
+ if (getAttr ($rayIntersectNodeName+".entryIntersect") == 1)
+ {
+  $px = `getAttr ($rayIntersectNodeName+".entryPositionX")`;
+  $py = `getAttr ($rayIntersectNodeName+".entryPositionY")`;
+  $pz = `getAttr ($rayIntersectNodeName+".entryPositionZ")`;
+ }
+ else 
+ {
+  $intersectionNotFound = 1;
+  if ((3 == `radioButtonGrp -query -select directionOrAbsolute`) && $nearestPointOnMeshNodeCreated == 1)
+  {
+    setAttr ($nearestPointOnMeshNodeName+".inPositionX") $attrX ;
+    setAttr ($nearestPointOnMeshNodeName+".inPositionY") $attrY ;
+    setAttr ($nearestPointOnMeshNodeName+".inPositionZ") $attrZ ;
+  
+    $px = `getAttr ($nearestPointOnMeshNodeName+".positionX")`;
+    $py = `getAttr ($nearestPointOnMeshNodeName+".positionY")`;
+    $pz = `getAttr ($nearestPointOnMeshNodeName+".positionZ")`;
+  }
+  else if ((3 == `radioButtonGrp -query -select directionOrAbsolute`) && $closestPointOnSurfaceNodeCreated == 1)
+  {
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionX") $attrX ;
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionY") $attrY ;
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionZ") $attrZ ;
+  
+    $px = `getAttr ($closestPointOnSurfaceNodeName+".positionX")`;
+    $py = `getAttr ($closestPointOnSurfaceNodeName+".positionY")`;
+    $pz = `getAttr ($closestPointOnSurfaceNodeName+".positionZ")`;
+  }
+  else
+  {
+  $px = $attrX;
+  $py = $attrY;
+  $pz = $attrZ;
+  }
+ }
+ }
+
+
+
+setAttr $X $px;
+setAttr $Y $py;
+setAttr $Z $pz;
+
+
+}
+
+
+
+
+}
+$X = $name+".translateX";
+$Y = $name+".translateY";
+$newTrX = $initTrX + $randTrX;
+setAttr $X $newTrX;
+$prevTrX     = `getAttr $X`;
+$newTrY = $prevTrY + $TrY + $randTrY;
+setAttr $Y $newTrY;
+$prevTrY     = `getAttr $Y`;
+
+$X = $name+".rotateX";
+$Y = $name+".rotateY";
+$newRotX = $initRotX + $randRotX;
+setAttr $X $newRotX;
+$prevRotX     = `getAttr $X`;
+$newRotY = $prevRotY + $RotY + $randRotY;
+setAttr $Y $newRotY;
+$prevRotY     = `getAttr $Y`;
+
+
+$X = $name+".scaleX"; 
+$Y = $name+".scaleY"; 
+$Z = $name+".scaleZ"; 
+
+
+
+if($ScaleY == 1 && (`checkBox -q -v constrainProportions` != 1)) $prevScaleY = $initScaleY; 
+
+if (`checkBox -q -v constrainProportions` == 1) 
+{ 
+  $newScaleX = $initScaleX * pow($ScaleX,($k+1)) * pow($ScaleX,($i+1)) * $randScaleX; 
+  setAttr $X $newScaleX; 
+  $prevScaleX     = `getAttr $X`; 
+  $newScaleY = $initScaleY * pow($ScaleX,($k+1)) * pow($ScaleX,($i+1)) * $randScaleX;
+  $newScaleZ = $initScaleZ * pow($ScaleX,($k+1)) * pow($ScaleX,($i+1)) * $randScaleX;
+  setAttr $Z $newScaleZ; 
+  $prevScaleZ     = `getAttr $Z`; 
+}
+else 
+{ 
+  $newScaleX = $initScaleX * $randScaleX; 
+  setAttr $X $newScaleX; 
+  $prevScaleX     = `getAttr $X`; 
+  $newScaleY = $prevScaleY * $ScaleY * $randScaleY;
+}
+setAttr $Y $newScaleY; 
+$prevScaleY     = `getAttr $Y`; 
+
+
+if ( $nearestPointOnMeshNodeCreated != 0 || $closestPointOnSurfaceNodeCreated != 0 || $rayIntersectNodeCreated != 0) {
+
+float $px,$py,$pz;
+
+$X = $name+".tx";
+float  $attrX = `getAttr $X`;
+$Y = $name+".ty";
+float  $attrY = `getAttr $Y`;
+$Z = $name+".tz";
+float  $attrZ = `getAttr $Z`;
+
+
+if ( $nearestPointOnMeshNodeCreated == 1 && (2 == `radioButtonGrp -query -select directionOrAbsolute`)) 
+ {
+  setAttr ($nearestPointOnMeshNodeName+".inPositionX") $attrX ;
+  setAttr ($nearestPointOnMeshNodeName+".inPositionY") $attrY ;
+  setAttr ($nearestPointOnMeshNodeName+".inPositionZ") $attrZ ;
+  
+  $px = `getAttr ($nearestPointOnMeshNodeName+".positionX")`;
+  $py = `getAttr ($nearestPointOnMeshNodeName+".positionY")`;
+  $pz = `getAttr ($nearestPointOnMeshNodeName+".positionZ")`;
+ }
+
+if ( $closestPointOnSurfaceNodeCreated == 1 && (2 == `radioButtonGrp -query -select directionOrAbsolute`)) 
+ {
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionX") $attrX ;
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionY") $attrY ;
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionZ") $attrZ ;
+  
+  $px = `getAttr ($closestPointOnSurfaceNodeName+".positionX")`;
+  $py = `getAttr ($closestPointOnSurfaceNodeName+".positionY")`;
+  $pz = `getAttr ($closestPointOnSurfaceNodeName+".positionZ")`;
+ }
+
+
+if ( $rayIntersectNodeCreated == 1 && ((1 == `radioButtonGrp -query -select directionOrAbsolute`) || (3 == `radioButtonGrp -query -select directionOrAbsolute`))) 
+ {
+  setAttr ($rayIntersectNodeName+".inPositionX") $attrX ;
+  setAttr ($rayIntersectNodeName+".inPositionY") $attrY ;
+  setAttr ($rayIntersectNodeName+".inPositionZ") $attrZ ;
+  
+  setAttr ($rayIntersectNodeName+".directionX") (`floatFieldGrp -q -value1 stickToSurfaceDir`) ;
+  setAttr ($rayIntersectNodeName+".directionY") (`floatFieldGrp -q -value2 stickToSurfaceDir`) ;
+  setAttr ($rayIntersectNodeName+".directionZ") (`floatFieldGrp -q -value3 stickToSurfaceDir`) ;
+  
+ if (getAttr ($rayIntersectNodeName+".entryIntersect") == 1)
+ {
+  $px = `getAttr ($rayIntersectNodeName+".entryPositionX")`;
+  $py = `getAttr ($rayIntersectNodeName+".entryPositionY")`;
+  $pz = `getAttr ($rayIntersectNodeName+".entryPositionZ")`;
+ }
+ else 
+ {
+  $intersectionNotFound = 1;
+  if ((3 == `radioButtonGrp -query -select directionOrAbsolute`) && $nearestPointOnMeshNodeCreated == 1)
+  {
+    setAttr ($nearestPointOnMeshNodeName+".inPositionX") $attrX ;
+    setAttr ($nearestPointOnMeshNodeName+".inPositionY") $attrY ;
+    setAttr ($nearestPointOnMeshNodeName+".inPositionZ") $attrZ ;
+  
+    $px = `getAttr ($nearestPointOnMeshNodeName+".positionX")`;
+    $py = `getAttr ($nearestPointOnMeshNodeName+".positionY")`;
+    $pz = `getAttr ($nearestPointOnMeshNodeName+".positionZ")`;
+  }
+  else if ((3 == `radioButtonGrp -query -select directionOrAbsolute`) && $closestPointOnSurfaceNodeCreated == 1)
+  {
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionX") $attrX ;
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionY") $attrY ;
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionZ") $attrZ ;
+  
+    $px = `getAttr ($closestPointOnSurfaceNodeName+".positionX")`;
+    $py = `getAttr ($closestPointOnSurfaceNodeName+".positionY")`;
+    $pz = `getAttr ($closestPointOnSurfaceNodeName+".positionZ")`;
+  }
+  else
+  {
+  $px = $attrX;
+  $py = $attrY;
+  $pz = $attrZ;
+  }
+ }
+ }
+
+
+
+setAttr $X $px;
+setAttr $Y $py;
+setAttr $Z $pz;
+
+
+}
+}
+
+$Y = $name+".translateY";
+$Z = $name+".translateZ";
+$newTrY = $initTrY + $randTrY;
+setAttr $Y $newTrY;
+$prevTrY     = `getAttr $Y`;
+$newTrZ = $prevTrZ + $TrZ + $randTrZ;
+setAttr $Z $newTrZ;
+$prevTrZ     = `getAttr $Z`;
+
+$Y = $name+".rotateY";
+$Z = $name+".rotateZ";
+$newRotY = $initRotY + $randRotY;
+setAttr $Y $newRotY;
+$prevRotY     = `getAttr $Y`;
+$newRotZ = $prevRotZ + $RotZ + $randRotZ;
+setAttr $Z $newRotZ;
+$prevRotZ     = `getAttr $Z`;
+
+$X = $name+".scaleX";
+$Y = $name+".scaleY"; 
+$Z = $name+".scaleZ"; 
+
+if($ScaleZ == 1 && (`checkBox -q -v constrainProportions` != 1)) $prevScaleZ = $initScaleZ; 
+
+if (`checkBox -q -v constrainProportions` == 1)  
+{ 
+  $newScaleX = $initScaleX * pow($ScaleX,($i+1)) * $randScaleX; 
+  setAttr $X $newScaleX; 
+  $prevScaleX     = `getAttr $X`; 
+  $newScaleY = $initScaleY * pow($ScaleX,($i+1)) * $randScaleX;
+  $newScaleZ = $initScaleZ * pow($ScaleX,($i+1)) * $randScaleX; 
+}
+else 
+{ 
+  $newScaleY = $initScaleY * $randScaleY;
+  $newScaleZ = $prevScaleZ * $ScaleZ * $randScaleZ;
+}
+
+setAttr $Y $newScaleY; 
+$prevScaleY     = `getAttr $Y`; 
+setAttr $Z $newScaleZ; 
+$prevScaleZ     = `getAttr $Z`; 
+
+
+if ( $nearestPointOnMeshNodeCreated != 0 || $closestPointOnSurfaceNodeCreated != 0 || $rayIntersectNodeCreated != 0) {
+
+float $px,$py,$pz;
+
+$X = $name+".tx";
+float  $attrX = `getAttr $X`;
+$Y = $name+".ty";
+float  $attrY = `getAttr $Y`;
+$Z = $name+".tz";
+float  $attrZ = `getAttr $Z`;
+
+
+if ( $nearestPointOnMeshNodeCreated == 1 && (2 == `radioButtonGrp -query -select directionOrAbsolute`)) 
+ {
+  setAttr ($nearestPointOnMeshNodeName+".inPositionX") $attrX ;
+  setAttr ($nearestPointOnMeshNodeName+".inPositionY") $attrY ;
+  setAttr ($nearestPointOnMeshNodeName+".inPositionZ") $attrZ ;
+  
+  $px = `getAttr ($nearestPointOnMeshNodeName+".positionX")`;
+  $py = `getAttr ($nearestPointOnMeshNodeName+".positionY")`;
+  $pz = `getAttr ($nearestPointOnMeshNodeName+".positionZ")`;
+ }
+
+if ( $closestPointOnSurfaceNodeCreated == 1 && (2 == `radioButtonGrp -query -select directionOrAbsolute`)) 
+ {
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionX") $attrX ;
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionY") $attrY ;
+  setAttr ($closestPointOnSurfaceNodeName+".inPositionZ") $attrZ ;
+  
+  $px = `getAttr ($closestPointOnSurfaceNodeName+".positionX")`;
+  $py = `getAttr ($closestPointOnSurfaceNodeName+".positionY")`;
+  $pz = `getAttr ($closestPointOnSurfaceNodeName+".positionZ")`;
+ }
+
+
+if ( $rayIntersectNodeCreated == 1 && ((1 == `radioButtonGrp -query -select directionOrAbsolute`) || (3 == `radioButtonGrp -query -select directionOrAbsolute`))) 
+ {
+  setAttr ($rayIntersectNodeName+".inPositionX") $attrX ;
+  setAttr ($rayIntersectNodeName+".inPositionY") $attrY ;
+  setAttr ($rayIntersectNodeName+".inPositionZ") $attrZ ;
+  
+  setAttr ($rayIntersectNodeName+".directionX") (`floatFieldGrp -q -value1 stickToSurfaceDir`) ;
+  setAttr ($rayIntersectNodeName+".directionY") (`floatFieldGrp -q -value2 stickToSurfaceDir`) ;
+  setAttr ($rayIntersectNodeName+".directionZ") (`floatFieldGrp -q -value3 stickToSurfaceDir`) ;
+  
+ if (getAttr ($rayIntersectNodeName+".entryIntersect") == 1)
+ {
+  $px = `getAttr ($rayIntersectNodeName+".entryPositionX")`;
+  $py = `getAttr ($rayIntersectNodeName+".entryPositionY")`;
+  $pz = `getAttr ($rayIntersectNodeName+".entryPositionZ")`;
+ }
+ else 
+ {
+  $intersectionNotFound = 1;
+  if ((3 == `radioButtonGrp -query -select directionOrAbsolute`) && $nearestPointOnMeshNodeCreated == 1)
+  {
+    setAttr ($nearestPointOnMeshNodeName+".inPositionX") $attrX ;
+    setAttr ($nearestPointOnMeshNodeName+".inPositionY") $attrY ;
+    setAttr ($nearestPointOnMeshNodeName+".inPositionZ") $attrZ ;
+  
+    $px = `getAttr ($nearestPointOnMeshNodeName+".positionX")`;
+    $py = `getAttr ($nearestPointOnMeshNodeName+".positionY")`;
+    $pz = `getAttr ($nearestPointOnMeshNodeName+".positionZ")`;
+  }
+  else if ((3 == `radioButtonGrp -query -select directionOrAbsolute`) && $closestPointOnSurfaceNodeCreated == 1)
+  {
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionX") $attrX ;
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionY") $attrY ;
+    setAttr ($closestPointOnSurfaceNodeName+".inPositionZ") $attrZ ;
+  
+    $px = `getAttr ($closestPointOnSurfaceNodeName+".positionX")`;
+    $py = `getAttr ($closestPointOnSurfaceNodeName+".positionY")`;
+    $pz = `getAttr ($closestPointOnSurfaceNodeName+".positionZ")`;
+  }
+  else
+  {
+  $px = $attrX;
+  $py = $attrY;
+  $pz = $attrZ;
+  }
+ }
+ }
+
+
+
+setAttr $X $px;
+setAttr $Y $py;
+setAttr $Z $pz;
+
+
+}
+
+
+}
+
+if ( $nearestPointOnMeshNodeCreated == 1 ) select -add $nearestPointOnMeshNodeName;
+if ( `objExists $tempPolyName[0]`) select -add $tempPolyName[0];
+if ( $closestPointOnSurfaceNodeCreated == 1 ) select -add $closestPointOnSurfaceNodeName;
+if ( $rayIntersectNodeCreated == 1 ) select -add $rayIntersectNodeName;
+doDelete;
+
+int $num = 0;
+$name = `textFieldButtonGrp -q -text invaderName`;
+for($i=0;$i<$zNbr;$i++)
+{
+for($k=0;$k<$yNbr;$k++)
+{
+for($j=0;$j<$xNbr;$j++)
+{
+  if ( $emptyInside !=1 ) { select - add ($origName+"_"+$num); $num++; }
+	else if ( $j == 0 || $k == 0 || $i == 0 || $j == $xNbr-1 || $k == $yNbr-1 || $i == $zNbr-1 ) { select - add ($origName+"_"+$num); $num++; }
+}
+}
+}
+group -n ("invade_"+$name+"_group");
+select -cl;
+}
+
+global proc close()
+{
+$window="Invade";
+
+deleteUI $window;
+
+select -cl;
+warning "By Georges Nakhle";
+
+}
+
+global proc setinvader()
+{
+$obj = `ls -sl`;
+if (size($obj) > 1) {textFieldButtonGrp -e -text "Please select only one object, then click Set"  invaderName ; warning "Please select only one object"; return;}
+if (size($obj) < 1) {textFieldButtonGrp -e -text "Please select the invader object, then click Set"  invaderName ;warning "Please select the invader object"; return;}
+textFieldButtonGrp -e -text $obj[0]  invaderName ;
+}
+
+global proc setInvaded()
+{
+if (`textFieldButtonGrp -q -buttonLabel invadedName` == "  Set  ")
+{
+$obj = `ls -sl`;
+if (size($obj) > 1) {textFieldButtonGrp -e -text "Please select only one object, then click Set"  invadedName ; warning "Please select only one object"; return;}
+if (size($obj) < 1) {textFieldButtonGrp -e -text "Please select the invaded object, then click Set"  invadedName ; warning "Please select the invaded object"; return;}
+textFieldButtonGrp -e -text $obj[0]  invadedName ;
+textFieldButtonGrp -e -buttonLabel "ReSet" invadedName;
+radioButtonGrp -e -en 1 directionOrAbsolute;
+floatFieldGrp  -e -en 1 stickToSurfaceDir;
+}
+else 
+{
+textFieldButtonGrp -e -text "select the invaded then click Set. (optional)"  invadedName ;
+textFieldButtonGrp -e -buttonLabel "  Set  " invadedName;
+radioButtonGrp -e -en 0 directionOrAbsolute;
+floatFieldGrp  -e -en 0 stickToSurfaceDir;
+}
+}
+
+global proc hideShowDir()
+{
+if (2 == `radioButtonGrp -query -select directionOrAbsolute`) floatFieldGrp  -e -en 0 stickToSurfaceDir;
+else floatFieldGrp  -e -en 1 stickToSurfaceDir;
+}
+
+global proc constrainScale()
+{
+  
+    floatFieldGrp -e -en1 1 -en2 0 -en3 0 Scale;
+    floatFieldGrp -e -en1 1 -en2 0 -en3 0 randScaleMin;
+    floatFieldGrp -e -en1 1 -en2 0 -en3 0 randScaleMax;
+
+}
+
+global proc unconstrainScale()
+{
+  
+    floatFieldGrp -e -en1 1 -en2 1 -en3 1 Scale;
+    floatFieldGrp -e -en1 1 -en2 1 -en3 1 randScaleMin;
+    floatFieldGrp -e -en1 1 -en2 1 -en3 1 randScaleMax;
+
+}

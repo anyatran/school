@@ -1,0 +1,35 @@
+//
+//			           noiseDeformCreateUI.mel
+//
+// Usage : None.
+// Automatically run by plugin, creates menu item in Deformers menu. 
+// 
+// Copyright (c)2002 Adam Martinez, Mantron Corporation
+///////////////////////////////////////////////////////////////////////////////////
+global proc noiseDeformCreateUI()
+{
+	global string $gMainDeformationsMenu;;
+	int $numItems = `menu -q -ni $gMainDeformationsMenu`;
+	if ($numItems == 0) { 
+		// Try to build the menu
+		string $pmCmd = `menu -q -pmc $gMainDeformationsMenu`;
+		catch(eval($pmCmd));
+		$numItems = `menu -q -ni $gMainDeformationsMenu`;
+	}
+	if( $numItems == 0 )
+	{
+		print "can't find primitives menu, creating new menu";
+		menu -l "NewDeformers" -aob 1 -p "MayaWindow" primMenu;
+	}
+	else
+	{
+		string $items[] = `menu -q -ia $gMainDeformationsMenu`;
+		setParent -m $gMainDeformationsMenu;
+	}
+	menuItem -divider true;
+	menuItem -l "Noise Deformer" -c "noiseDeformer"
+            -annotation "Create a noise deformer"
+            noiseDeformMenuItem;
+	setParent ..;
+	
+}

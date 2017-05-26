@@ -1,0 +1,746 @@
+///////////////////////////////////////////////////////////////////////
+// HERDS: Relational Motion Tool
+// Version 2.5
+// Rob O'Neill (oneill@parsons.edu)
+// http://www.morphometric.com/research/herds/
+// Kevin Mannens (kevin_mannens@yahoo.com)
+//
+// Updated: 	10/04/2005
+// Description:	A small application for Maya to simulate the
+//		herding behaviors of some large terrestrial animals.
+//		At this stage it still looks like flocking.
+//
+//------------------------------------------------------------------------
+// New in 2.5:
+//
+//  - major UI overhaul
+//  - Make leader dynamic: clicking this button will “parent” the
+//    herd leader to a particle. This will enable you to apply fields
+//    and expressions to the herd leader to control its motion.
+//  - Some minor dummy proofing
+//------------------------------------------------------------------------
+//
+// Thanks:	James Parks (www.arcsecond.net) for a fresh set of eyes on some
+//		namespace debugging.
+//
+///////////////////////////////////////////////////////////////////////
+
+//////////////////////////DEFINES//////////////////////////////////////
+// Application Information
+global string $herdsversion = "H E R D S  v2.0";
+
+// Constants for "StartFrame" and "Total Frames"
+global int $MIN_FRAMES = 1;
+global int $MAX_FRAMES = 3600;		// 2 Minutes Worth of Animation (30fps)
+global int $DEF_FRAMES = 90;		// 30 Seconds of Animation (30fps)
+
+// Constants for "Number of Herd Members"
+// Defines the number of members in the simulated herd.
+global int $MIN_MEMB = 0;
+global int $MAX_MEMB = 100;
+global int $DEF_MEMB = 10;
+
+// Constants for "Stray"
+// Defines the variables for amount that nodes stray from the herd.
+global float $MIN_STRAY = 0.0;
+global float $MAX_STRAY = 100.0;
+global float $DEF_STRAY = 10.0;
+
+// Constants for "Frame Offset"
+// Defines the amount of frame offset that objects in relation to the leader.
+global float $MIN_OFF = 0.0;
+global float $MAX_OFF = 10.0; //each node starts 10 frames after the one before it
+global float $DEF_OFF = 1.0;
+
+// Constants for "Leader Focus"
+// Defines the amount in which the herd attempts to maintain the leaders xyz position
+global float $MIN_FOCUS = 0.0;
+global float $MAX_FOCUS = 1.0;
+global float $DEF_FOCUS = 0.5;
+
+// Constants for "Randomness"
+// Defines the degree of time based randomness in the herd.
+global float $MIN_RANDOMNESS = 0.0;
+global float $MAX_RANDOMNESS = 1.0;
+global float $DEF_RANDOMNESS = 0.5;
+
+
+///////////////////////////editAnimation Function///////////////////////////////
+// editAnimation is called when the adjusts the startFrame and totalFrames 
+// 	
+// These resize the frame start and stop of the timeline.  Pretty basic stuff.	
+// 
+////////////////////////////////////////////////////////////////////////////////
+
+global proc editAnimation() 
+	{	
+	int $startFrame = `intSliderGrp -query -value sStartFrame`;
+	int $totalFrames = `intSliderGrp -query -value sTotalFrames`;
+	int $endFrame = $startFrame + $totalFrames - 1;
+	
+	// Setup Playback Options
+	playbackOptions -minTime $startFrame -maxTime $endFrame;
+};
+
+
+////////////////////////Populate Herd - createHerd function///////////////////
+// createHerd is called when the user presses the "Run Herds!" button.
+// 
+// Generates herd members based on 'number of members' slider value.  The object 
+// selected is used as a herd object and duplicated. If nothing
+// is selected cones are put in place of the user-defined objects.  This
+// portion of the script also creates a manipulator button set to keyframe 
+// a small set of attributes (translate x, y, z).  
+//
+///////////////////////////////////////////////////////////////////////////////
+
+global proc createHerd()
+{
+string $confirmDialog =`confirmDialog 	-title "Just Checking..." 
+				-message "Is the nose of your selection pointing in +X?\nDid you freeze all transformations on it?"
+		 		-button "Yes" 
+				-button "No" 
+				-defaultButton "Yes"
+				-cancelButton "No" 
+				-dismissString "No"`;
+
+if 	($confirmDialog =="Yes")
+{	
+int $i;
+int $j = 1; 
+int $memb = `intSliderGrp -query -value membcapacity`;
+string $userObj[] = `ls -sl`;
+
+sphere -ch off -n herdmaster;
+scale -a 1.2 1.2 1.2;
+
+
+for ($i = 1; $i <= $memb; $i++)
+	{
+	if (size($userObj))
+		{
+		string $object[] = `duplicate -ic -n herdmemb $userObj`;
+		} 
+		else 
+		{
+		string $object[] = `cone -ch off -n herdmemb`;
+		}
+	}	
+
+
+////////////////////////////Add Motion to Herd - herdmotion function////////////////////
+// herdmotion is called when the user hits the "Run Motion" button.  This used to 
+// be a distinct function before I rolled it into createHerd().  This is highly
+// inspired by the work done in motherGoose.mel
+//
+// The motion of the herd is based on an expression which offsets the group's motions
+// in relation to the leader.  This is not the optimal method of doing this kind of
+// work (mainly because it throws up some errors and is dependant on a specified
+// object naming structure), but it gets the job done.  As would be expected this is
+// where most of the work needs to be done to create a more dynamic system of group
+// interaction and environmental response.  At this point, the use of expressions allows
+// for a great deal of keying ability which fits well into the workflow of most animators.
+//
+// Current variables created by the expression include:
+// 	Stray: Randomly offsets the node's position from the path of others 
+//		and ultimatly the leader. (float from 0.0 to 100.0)
+//	
+//	Leader Focus: Decreases the Stray for children with less of a time offset 
+//		making the herd more centered around the leader. (float from 0.0 to 1.0)
+//		
+//	Frame Offset: Controls the time interval of separation.  Basically how many frames
+//		after the last object moved toward the leader does the next one go.  I
+//		tend to set this way low for best results. (floats from 0.0 to 10.0).
+//						 
+//	Randomness: Controls the randomization of the time offset for each node. 1.0 
+//		is as totally random as Maya can be.  The changes here are subtle. 
+//		(float from 0.0 to 1.0)
+//
+////////////////////////////////////////////////////////////////////////////////////////
+
+
+string 	$objs[], $obj, $leader;
+int    	$objnum, $i, $numObjs;
+int    	$hasTimeOffset, $hasTranslateParameter;
+int    	$hasFrameAdjust;
+float	$posrand = `floatSliderGrp -query -value stray`;
+float	$frameoffset = `floatSliderGrp -query -value offset`;
+float	$leaderfocus = `floatSliderGrp -query -value focus`;
+float	$randomness = `floatSliderGrp -query -value randomness`;
+
+
+select -allDagObjects "*herdmemb*";
+select -add "herdmaster";
+//select -d "Manipulator*";
+
+
+$objs = `ls -sl`;
+$numObjs = size( $objs );
+
+	$leader = $objs[$numObjs - 1];
+	//attributeQuery returns information about the 
+	//configuration of an attribute
+	//-node: use all attributes from node named NAME
+	$hasTranslateParameter = `attributeQuery -node $leader -exists  translate`;
+	if( $numObjs < 2 )
+	{
+		print("herds: Select at least two objects.");
+	}
+	if( !$hasTranslateParameter )
+	{
+		print("herds: HerdMaster object does not have a translate parameter.\n"
+				+ " (The herdmaster object should be selected in green)" );
+		return;
+	}
+
+	$hasTimeOffset = `attributeQuery -n $leader -ex frameOffset`;
+	if( !$hasTimeOffset )
+	{
+		// Control parameters to the leader node	
+		addAttr -sn stry -ln stray -dv $posrand $leader;
+		setAttr -keyable on ($leader + ".stray");
+		addAttr -sn lf -ln leaderFocus -dv $leaderfocus $leader;
+		setAttr -keyable on ($leader + ".leaderFocus");
+		addAttr -sn fo -ln frameOffset -dv $frameoffset $leader;
+		setAttr -keyable on ($leader + ".frameOffset");
+		addAttr -sn rnds -ln randomness -dv $randomness $leader;
+		setAttr -keyable on ($leader + ".randomness");	
+	}
+	$objnum = 1;
+    for($i = 0; $i < $numObjs - 1; $i++)
+    		{
+		$obj = $objs[$i];
+		$hasTranslateParameter = `attributeQuery -n $obj -ex translate`;
+		if($hasTranslateParameter) // skip over any inappropriate selections
+		{
+			$hasFrameAdjust = `attributeQuery -n $obj -ex frameAdjust`;
+			if(!$hasFrameAdjust)
+			{
+				addAttr -sn fad -ln frameAdjust -dv 0 -min -100  -max 100 $obj;
+				setAttr -keyable on ($obj + ".frameAdjust");
+			}
+
+			expression -s ("$herdvar = "+ (rand(1) - 0.5) +" * "+$leader+".rnds + "+$objnum+";\n"
+						+ "$randfac = " + $leader + ".stry;\n"
+						+ "$foc = "+$leader+".lf;\n"
+						+ "if( $foc != 0 ) {\n"
+						+ "$randfac *= min( 1.0,abs($herdvar)*(1-$foc)/($foc*"+$numObjs+") );}\n"
+						+ "$herdvar = $herdvar * -" + $leader + ".frameOffset + frame +" + $obj + ".frameAdjust;\n"
+						+ "$offset = " + (rand(1) - 0.45) + " * $randfac;\n"
+						+ $obj + ".tx = $offset + `getAttr -time $herdvar " + $leader + ".tx`;\n" 
+						+ "$offset = " + (rand(1) - 0.45) + " * $randfac;\n"
+						+ $obj + ".ty = $offset + `getAttr -time $herdvar " + $leader + ".ty`;\n" 
+						+ "$offset = " + (rand(1) - 0.45) + " * $randfac;\n"
+						+ $obj + ".tz = $offset + `getAttr -time $herdvar " + $leader + ".tz`;\n" );
+			$objnum = $objnum + 1;
+		}
+	}
+	herdpoint;
+}
+};
+
+//KM-------------------------------------------------------------------
+
+global proc followParticle ()
+{	
+
+float $translateX = `getAttr herdmaster.tx`; 
+float $translateY = `getAttr herdmaster.ty`; 
+float $translateZ = `getAttr herdmaster.tz`; 
+
+particle -p $translateX  $translateY $translateZ;
+xform -cp;
+
+expression -s ("vector $position= `getAttr particle1.position`;\n" +
+			"herdmaster.translateX = $position.x;\n" +
+			"herdmaster.translateY = $position.y;\n" +
+			"herdmaster.translateZ = $position.z;")  -o herdmaster -ae 1 -uc all ;
+}			
+
+//KM-------------------------------------------------------------------
+
+
+///////////////////////////////Face Forward///////////////////////////////////////////
+// This section handles the turning of the herd objects as they move through space.
+// Like the way in which the members are offset in the herdmotion section above this
+// section also handles the steering through expressions placed on the members of
+// the herd.  Much of this code was inspired by faceForward.mel
+//
+// The function gets the name of the objects (and splits them from any group names
+// that they may be a part of at the "|" symbol.  A space locator is then created
+// for each object.  An aim constraint is created for each object that always aims 
+// away from the locator (which is why the node look strange at first).  The 
+// expression is then enacted on the nodes.  The expression basically rotates each
+// object so that it points at the invisible locator in front of which is following
+// the path.  This causes them to always point in the direction of their motion.
+// Notice that once you've set key frames and have the herd in motion that if you
+// drag the time slider backwards in time and the herds moves backwards that the
+// the nodes will face backwards and appear to be pointing correctly.
+//////////////////////////////////////////////////////////////////////////////////////
+
+global proc herdnodepoint(string $object)
+{
+
+string $temp[];
+tokenize($object, "|", $temp);
+string $name = $temp[size($temp) - 1];
+float $trans[] = `getAttr ($object + ".translate")`;
+float $pivot[] = `getAttr ($object + ".transMinusRotatePivot")`;
+float $pos[] = {$trans[0] - $pivot[0], $trans[0] - $pivot[0], $trans[0] - $pivot[0]};
+
+// Create a hidden space locator.
+
+$temp = `spaceLocator -name ($name + "Direction")`;
+string $locator = "|" + $temp[0];
+    hide $locator;
+    parent $locator $object;
+$locator = $object + $locator;
+    setAttr ($locator + ".inheritsTransform") false;
+    
+float $aim[] = {1.0, 0.0, 0.0};		//Notice I have predefined the aim for x
+float $localUp[] = {0.0, 1.0, 0.0};	//Notice I have predefined the localup direction for y
+float $worldUp[] = {0.0, 1.0, 0.0};	//Notice I have predefined the worldup direction for y
+
+// Create an aim constraint on the object that always aims away from the locator.
+// aimConstraint constrains an object's orientation to point at a target object 
+    
+aimConstraint 
+	-weight 1 
+        -aimVector (-$aim[0]) (-$aim[1]) (-$aim[2])
+        -upVector $localUp[0] $localUp[1] $localUp[2]
+        -worldUpVector $worldUp[0] $worldUp[1] $worldUp[2] 
+        -name directionConstraint $locator $object;
+
+// Add attributes to the object for its last x, y, and z positions and an
+// attribute to turn on and off the face forward command for each node.
+    
+    addAttr -ln faceForward -at bool -dv true $object;
+    setAttr -keyable on ($object + ".faceForward");
+    addAttr -ln lastX -at double -dv $pos[0] $object;
+    addAttr -ln lastY -at double -dv $pos[1] $object;
+    addAttr -ln lastZ -at double -dv $pos[2] $object;
+
+// The expression that controls all the turning 
+    
+expression -s (
+        "// For some reason the world space position of the object is\n" +
+        "// the translation minus the transMinusRotatePivot attributes.\n" +
+        "//\n" +
+        "float $positionX = translateX - transMinusRotatePivotX;\n" +
+        "float $positionY = translateY - transMinusRotatePivotY;\n" +
+        "float $positionZ = translateZ - transMinusRotatePivotZ;\n" +
+        "\n" +
+        "// If the faceForward attribute is off then short circuit the\n" +
+        "// aim constraint by putting the locator right on top of the\n" +
+        "// object.\n" +
+        "//\n" +
+        "if (! faceForward)\n" +
+        "{\n" +
+        "    lastX = $positionX;\n" +
+        "    lastY = $positionY;\n" +
+        "    lastZ = $positionZ;\n" +
+        "}\n" +
+        "\n" +
+        "// Update the locator to the last world space position of the\n" +
+        "// object.\n" +
+        "//\n" +
+        $locator + ".tx = lastX;\n" +
+        $locator + ".ty = lastY;\n" +
+        $locator + ".tz = lastZ;\n" +
+        "// Update the last position attributes with the current\n" +
+        "// position.\n" +
+        "//\n" +
+        "lastX = $positionX;\n" +
+        "lastY = $positionY;\n" +
+        "lastZ = $positionZ;\n"
+        ) -o $object -name ($name + "FaceForwardExpr") -ae 0 -uc all;   
+};
+
+//////////////////////////herdpoint/////////////////////////////////////
+// herdpoint runs the herdnodepoint function on all the selected members of
+// the herd.  Adding the expression to all of them takes awaile which is
+// why the "waitCursor" function is called.
+////////////////////////////////////////////////////////////////////////
+
+global proc herdpoint()
+{
+	waitCursor -state on;
+	string $objects[] = `ls -l -sl`;
+	string $object;
+
+	for ($object in $objects)
+	herdnodepoint($object);
+
+	select -r $objects;
+	waitCursor -state off;
+	
+	select -r herdmaster;	
+};
+
+/////////////////////////Edit Herd Motion Attributes//////////////////////////////////
+// Before any keys are set these variables can be configured through the UI.  They
+// will then update automatically.  Once a key frame is set for the herd (with say
+// the default settings of the "s" key) all will be keyed and you would need to break
+// the connections to edit them again.  I would suggest keying them individually for
+// the desired result.  I have added a manipulator button to the herdmaster which
+// is set to only key the translatation parameters of x, y and z, and nothing else thus
+// leaving the herd attributes free to be keyed later for stray and other effects.
+//////////////////////////////////////////////////////////////////////////////////////
+ 
+global proc editmotion() 
+{
+		
+float $posrand = `floatSliderGrp -query -value stray`;
+float $frameoffset = `floatSliderGrp -query -value offset`;
+float $leaderfocus = `floatSliderGrp -query -value focus`;
+float $randomness = `floatSliderGrp -query -value randomness`;
+
+setAttr "herdmaster.frameOffset" $frameoffset;
+setAttr "herdmaster.stray" $posrand;
+setAttr "herdmaster.leaderFocus" $leaderfocus;
+setAttr "herdmaster.randomness" $randomness;
+	
+};
+
+///////////////////////////////Select Herdmaster/////////////////////////////////////
+// In the course of using the plugin I often lost track of where the leader was.
+// This function is called when the user pushes the Select Leader Button. Boring.
+/////////////////////////////////////////////////////////////////////////////////////
+
+global proc selectLeader()
+{
+	select herdmaster;
+};
+
+
+/////////////////////////////////////////////////////////////////////////////////////	
+///////////////////////////Built-in Help File Loader/////////////////////////////////
+
+global proc loadHelpTextFile()
+{
+	string $textfieldSize = `scrollField -query -text helpScrollField`;
+	string $scriptsDir = `internalVar -userScriptDir`;
+	string $helpFile = "HerdsHelpFile.txt";
+	int $fileId = fopen( ($scriptsDir + $helpFile), "r+");
+	
+	if ($fileId == 0){
+		string $helpMsg = "Help File \"" + $helpFile + "\" does not exist.\n";
+		$helpMsg = $helpMsg + "Make sure it exits in the following directory: ";
+		$helpMsg = $helpMsg +  $scriptsDir;
+		scrollField -edit -text $helpMsg helpScrollField;
+	} else {
+		while (!`feof $fileId`)
+			{
+			string $nextLine = `fgetline $fileId`;
+    			while ( size( $nextLine ) > 0 ) 
+    				{
+    				$nextLine = `fgetline $fileId`;
+    				scrollField 
+				-edit 
+				-insertText $nextLine 
+				-insertionPosition 0 
+				helpScrollField;
+    				}
+		}
+	}
+	fclose $fileId;
+};
+
+global proc unloadHelpTextFile()
+{
+	scrollField -edit -clear helpScrollField;
+};
+
+
+
+///////////////////////////////////////////////////////////////////////////	
+///////////////////////Main Application and Interface//////////////////////
+///////////////////////////////////////////////////////////////////////////
+
+global proc herds()  
+{
+
+global string $herdsversion;
+global int $MIN_FRAMES, $MAX_FRAMES, $DEF_FRAMES;
+int $minTime = `playbackOptions -q -minTime`;
+int $maxTime = `playbackOptions -q -maxTime`;
+global int $MIN_MEMB, $MAX_MEMB, $DEF_MEMB;
+global float $MIN_STRAY, $MAX_STRAY, $DEF_STRAY;
+global float $MIN_OFF, $MAX_OFF, $DEF_OFF;
+global float $MIN_FOCUS, $MAX_FOCUS, $DEF_FOCUS;
+global float $MIN_RANDOMNESS, $MAX_RANDOMNESS, $DEF_RANDOMNESS;
+int $width = 380;
+int $height = 300;
+
+
+if (`window -exists herdsWin`)
+deleteUI -window herdsWin;
+window -title "HERDS 2.5" -mxb off herdsWin;
+
+formLayout mainForm;
+tabLayout tab;
+	
+formLayout -e
+		-af tab top 5
+		-af tab left 5
+		-af tab right 5
+		-af tab bottom 5
+		mainForm;
+
+//--------------------------------------------------------------------------------
+// FIRST TAB: herds tab
+//--------------------------------------------------------------------------------
+frameLayout -labelVisible 0 -collapsable 0 -borderStyle "etchedIn" firstTab;
+
+columnLayout
+		-adjustableColumn 0
+		-columnAttach "left" 0
+		-rowSpacing 0
+		-columnWidth $width
+		-columnAlign "left"
+		mainColumnLayout;
+
+
+//-----------------------------------------------------
+// Duration tab
+//-----------------------------------------------------
+frameLayout
+		-label "  Duration"
+		-labelVisible true
+		-labelAlign "center"
+		-labelIndent 0
+		-borderVisible false
+		-borderStyle "etchedOut"
+		-collapsable true
+		-collapse false
+		durationFrameLayout;
+		
+columnLayout
+		-adjustableColumn 1
+		-columnAttach "left" 0
+		-rowSpacing 0
+		-columnWidth $width
+		-columnAlign "left"
+		durationColumnLayout;
+	
+// Define Animation Frame Start
+intSliderGrp
+		-field true 
+		-label "Start Frame" 
+		-min $MIN_FRAMES 
+		-max $MAX_FRAMES 
+		-value $minTime 
+		-ct3 "left" "both" "left"
+		-cw3 100 40 200
+		-columnOffset3  8 0 0
+		-changeCommand editAnimation 
+		sStartFrame;
+	
+	// Duration of Herding Simulation
+intSliderGrp 
+		-field true 
+		-label "Total Frames" 
+		-min $MIN_FRAMES 
+		-max $MAX_FRAMES 
+		-value $maxTime 
+		-ct3 "left" "both" "left"
+		-cw3 100 40 200
+		-columnOffset3  8 0 0
+		-changeCommand editAnimation 
+		sTotalFrames;
+
+separator;
+setParent mainColumnLayout;
+
+
+//-----------------------------------------------------
+// Herd Variables tab
+//-----------------------------------------------------
+frameLayout
+		-label "  Herd Variables"
+		-labelVisible true
+		-labelAlign "center"
+		-labelIndent 0
+		-borderVisible false
+		-borderStyle "etchedOut"
+		-collapsable true
+		-collapse false
+		variableFrameLayout;
+
+
+columnLayout
+		-adjustableColumn 1
+		-columnAttach "both" 0
+		-rowSpacing 0
+		-columnWidth $width
+		-columnAlign "left"
+		variableColumnLayout;
+		
+rowLayout -numberOfColumns 4 -columnAttach4 "both" "both" "both" "both";
+setParent ..;	
+
+intSliderGrp
+		-label "Nr of Members"
+		-field true
+		-value $DEF_MEMB
+		-minValue $MIN_MEMB
+		-maxValue $MAX_MEMB
+		-sliderStep $DEF_MEMB
+		-fieldStep $DEF_MEMB
+		-fieldMinValue $MIN_MEMB
+		-fieldMaxValue $MAX_MEMB
+		-ct3 "left" "both" "left"
+		-cw3 100 40 200
+		-columnOffset3  8 0 0
+		membcapacity;
+
+floatSliderGrp
+		-label "Stray"
+		-field true
+		-precision 1
+		-value $DEF_STRAY
+		-minValue $MIN_STRAY
+		-maxValue $MAX_STRAY
+		-sliderStep 1
+		-ct3 "left" "both" "left"
+		-cw3 100 40 200
+		-columnOffset3  8 0 0
+		-changeCommand editmotion
+		stray;
+
+floatSliderGrp
+		-label "Leader Focus"
+		-field true
+		-precision 1
+		-value $DEF_FOCUS
+		-minValue $MIN_FOCUS
+		-maxValue $MAX_FOCUS
+		-sliderStep 0.1
+		-fieldStep 0.1
+		-fieldMinValue $MIN_FOCUS
+		-fieldMaxValue $MAX_FOCUS
+		-ct3 "left" "both" "left"
+		-cw3 100 40 200
+		-columnOffset3  8 0 0
+		-changeCommand editmotion
+		focus;
+
+floatSliderGrp
+		-label "Frame Offset"
+		-field true
+		-precision 1
+		-value $DEF_OFF
+		-minValue $MIN_OFF
+		-maxValue $MAX_OFF
+		-sliderStep 0.1
+		-ct3 "left" "both" "left"
+		-cw3 100 40 200
+		-columnOffset3  8 0 0
+		-changeCommand editmotion
+		offset;
+		
+floatSliderGrp
+		-label "Randomness"
+		-field true
+		-precision 1
+		-value $DEF_RANDOMNESS
+		-minValue $MIN_RANDOMNESS
+		-maxValue $MAX_RANDOMNESS
+		-sliderStep 0.1
+		-fieldStep 0.1
+		-fieldMinValue $MIN_RANDOMNESS
+		-fieldMaxValue $MAX_RANDOMNESS
+		-ct3 "left" "both" "left"
+		-cw3 100 40 200
+		-columnOffset3  8 0 0
+		-changeCommand editmotion
+		randomness;		
+
+columnLayout
+		-adjustableColumn 1
+		-columnAttach "both" 0
+		-rowSpacing 0
+		-columnWidth $width
+		-columnAlign "center"
+		variableColumnLayout;
+button
+		-label "Run Herds!"
+		//-width 100
+		-align "center"
+		-command "createHerd" herdsButton;
+
+separator;
+setParent mainColumnLayout;
+
+//-----------------------------------------------------
+// Post Creation tab
+//-----------------------------------------------------
+frameLayout
+		-label "  Post Creation"
+		-labelVisible true
+		-labelAlign "center"
+		-labelIndent 0
+		-borderVisible false
+		-borderStyle "etchedOut"
+		-collapsable true
+		-collapse false
+		postCreationFrameLayout;
+		
+columnLayout
+		-adjustableColumn 1
+		-columnAttach "both" 0
+		-rowSpacing 0
+		-columnWidth $width
+		-columnAlign "center"
+		postCreationColumnLayout;
+
+button
+		-label "Find Leader"
+		-align "center"
+		-command "selectLeader";	
+	
+button
+		-label "Make Leader Dynamic"
+		-align "center"
+		-w 300
+		-command "followParticle";	
+
+setParent firstTab;
+setParent ..;
+
+
+//--------------------------------------------------------------------------------
+// SECOND TAB: help tab
+//--------------------------------------------------------------------------------
+
+frameLayout -labelVisible 0 -collapsable 0 -borderStyle "etchedIn" secondTab;
+//
+string $form=`formLayout`;
+
+		string $browser;
+		string $path="file:///";
+		$path+=fromNativePath(`internalVar -userScriptDir`);
+		$path+="herds/";
+		$browser = `webBrowser -width 350 -height 250  -url ($path+"herds_help.htm")`;
+
+	formLayout -e
+		-af $browser left 5
+		-af $browser top 5
+		-af $browser right 5
+		-af $browser bottom 5
+		$form;
+//
+setParent secondTab;
+setParent ..;
+
+//set tab labels
+tabLayout -e -tabLabelIndex   1 "Herds" -tli 2 "Help" tab;
+
+cycleCheck -e off;
+showWindow herdsWin;
+	
+};
+
+herds();
+
+

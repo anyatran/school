@@ -1,0 +1,1335 @@
+/* NURBS_RoundedBox.mel
+
+   NURBS_RoundedBox.mel v.1.2
+   CyberArts Script File
+   Creation Date: 5/21/02
+   Update: 8/31/06
+   Author: Robert Rusick
+
+
+   See "NURBS_RoundedBox_Notes.txt" for details
+   ( or read HTML documentation )
+   -----------------------------------------
+   Related scripts:
+
+     NURBS_RoundedBox.mel
+       Create a rounded box.
+
+     nRB_createUI.mel
+       Create a UI box to set rounded box options.
+
+     nRB_testHierarchy.mel
+       Test the hierarchy of an group
+       to see if it is an unaltered rounded box group.
+
+     nRB_deleteControls.mel
+       Selectively delete controls and history from a rounded box.
+
+     nRB_deleteControlsUI.mel
+       Create a UI box to set rounded box delete controls options.
+
+     nRB_attachSurfaces.mel
+       Attach rounded box surfaces.
+
+     nRB_attachSurfacesUI.mel
+       Create a UI box to set rounded box attach surfaces options.
+
+     getHelpDocs.mel
+       Used to call up HTML documentation.
+
+   ---------------------------------------------
+   History:
+   v.1.02 -- 11/28/03
+
+   v.1.1  -- 8/4/05
+      Isolated a bug ( face lofts not sectioned in U )
+      which occurred when 'Create with controls' was off,
+      and construction history was on.
+
+   v.1.2  -- 8/31/06
+      No change to this file,
+      but disabled menu bar help in nRB_createUI,
+      nRB_deleteControlsUI, and nRB_attachSurfacesUI
+      to avoid problems with Maya 8
+*/
+
+
+global proc NURBS_RoundedBox ()
+{
+/* =========================================================
+         initialize option vars if necessary
+   =========================================================
+   Test for one of the optionVars;
+   if it does not exist,
+   source the script used to create them,
+   and set them up as their default values.
+*/
+
+if (! `optionVar -ex nRB_Axis`)
+{ source nRB_createUI.mel;
+  nRB_SetOptionVars 1;
+}
+
+/* =========================================================
+         set variables from optionVars
+   =========================================================
+*/
+
+// Axis
+string $axis           = (`optionVar -q nRB_Axis`);
+
+// Bevel
+float $bevelRadiusOV   = (`optionVar -q nRB_BevelRadius`);
+int   $bevelSpansOV    = (`optionVar -q nRB_BevelSpans`);
+int   $bevelSectionsOV = (`optionVar -q nRB_BevelSections`);
+
+// Size
+float $sizeX_OV        = (`optionVar -q nRB_SizeX`);
+float $sizeY_OV        = (`optionVar -q nRB_SizeY`);
+float $sizeZ_OV        = (`optionVar -q nRB_SizeZ`);
+
+// Spans
+int $spanX_OV          = (`optionVar -q nRB_SpanX`);
+int $spanY_OV          = (`optionVar -q nRB_SpanY`);
+int $spanZ_OV          = (`optionVar -q nRB_SpanZ`);
+
+// Feature switches
+int   $boxLockOV       = (`optionVar -q nRB_BoxLock`);
+int $wedgeLockOV       = (`optionVar -q nRB_WedgeLock`);
+int  $edgeLockOV       = (`optionVar -q nRB_EdgeLock`);
+
+  // Feature factors
+float  $bevelFactorOV  = (`optionVar -q nRB_BevelFactor`);
+float $sizeFactorA_OV  = (`optionVar -q nRB_SizeFactorA`);
+float $sizeFactorB_OV  = (`optionVar -q nRB_SizeFactorB`);
+float   $edgeAdjustOV  = (`optionVar -q nRB_EdgeAdjust`);
+
+// CreateControls
+int $controls          = (`optionVar -q nRB_CreateControls`);
+
+// Attach modes
+int $attach            = (`optionVar -q nRB_Attach`);
+
+/* =========================================================
+         prepare other variables
+   =========================================================
+*/
+int $history;
+int $replace = 1;
+
+int $i;
+int $index;
+int $count;
+int $count0;
+int $count1;
+int $count2;
+int $offset;
+
+string $tmpA[];
+string $tmpB[];
+string $tmpC[];
+
+// if controls or construction history are on, set history variable on.
+if (($controls)||(`constructionHistory -q -tgl`)) $history = 1;
+else                                              $history = 0;
+
+/* =========================================================
+         prepare component naming based on pole axis
+   =========================================================
+   We will use a position code to name component parts as they are created.
+   This will be relative to the world axes:
+
+     R = right = +x     L = left  = -x
+     U = up    = +y     D = down  = -y
+     F = front = +z     B = back  = -z
+
+   We will use the "xyz" convention of ordering in the labeling:
+     3 labels identify a corner: cRUF = corner right up front
+     2 labels identify an edge:  eRF  = edge right front
+     1 label identifies a face:  fB   = face back
+
+   rB (for rounded Box) will be used as a prefix to further identify component parts.
+
+   The "pivot array" is used to reposition the pivots of the sphere sections.
+   Note that the values in the pivot array are also related to the name code:
+   RUF = +x+y+z = 1,1,1
+
+   The "span value array" is used to set the number of spans of the lofts between corners and edges,
+   based on the "spanX,Y,Z" variables.
+
+   The "span attribute array" is used in constructing the control expression.
+
+   ------------------------------------
+   Later, arrays are created to hold the names of loft nodes
+   (when controls and/or history is on).
+
+   "setSpan0" will hold the names of lofts parallel to the pole axis;
+   in the '+/-y' cases, these will get the 'ySpan' setting for loft span sections.
+   "setSpan1" and "setSpan2" will also be dependant on the pole axis setting.
+
+*/
+
+string $poleAxis[3];
+
+int    $pA[24];       // pivot array
+int    $spVal[3];     // span values array
+string $spAttr[3];    // span attributes array
+
+string $cLabels[8];   // cornerLabels
+string $eLabels[12];  //   edgeLabels
+string $fLabels[6];   //   faceLabels
+
+switch ($axis)
+{
+  case "+x":
+    $poleAxis = { " 1", " 0", " 0" };
+    $pA       = { -1, -1, -1, -1, -1,  1, -1,  1,  1, -1,  1, -1,
+                   1, -1, -1,  1, -1,  1,  1,  1,  1,  1,  1, -1 };
+    $cLabels  = { "rB_cLDB#", "rB_cLDF#", "rB_cLUF#", "rB_cLUB#",
+                  "rB_cRDB#", "rB_cRDF#", "rB_cRUF#", "rB_cRUB#" };
+    $eLabels  = { "rB_eDF#", "rB_eUF#", "rB_eUB#", "rB_eDB#",
+                  "rB_eLF#", "rB_eLU#", "rB_eLB#", "rB_eLD#",
+                  "rB_eRF#", "rB_eRU#", "rB_eRB#", "rB_eRD#" };
+    $fLabels  = { "rB_fF#", "rB_fU#", "rB_fB#", "rB_fD#",
+                  "rB_fR#", "rB_fL#" };
+    $spVal    = { $spanX_OV, $spanZ_OV, $spanY_OV };
+    $spAttr   = { ".xSpan", ".zSpan", ".ySpan" };
+    break;
+
+  case "+y":
+    $poleAxis = { " 0", " 1", " 0" };
+    $pA       = {  1, -1,  1, -1, -1,  1, -1, -1, -1,  1, -1, -1,
+                   1,  1,  1, -1,  1,  1, -1,  1, -1,  1,  1, -1 };
+    $cLabels  = { "rB_cRDF#", "rB_cLDF#", "rB_cLDB#", "rB_cRDB#",
+                  "rB_cRUF#", "rB_cLUF#", "rB_cLUB#", "rB_cRUB#" };
+    $eLabels  = { "rB_eRF#", "rB_eLF#", "rB_eLB#", "rB_eRB#",
+                  "rB_eDF#", "rB_eLD#", "rB_eDB#", "rB_eRD#",
+                  "rB_eUF#", "rB_eLU#", "rB_eUB#", "rB_eRU#" };
+    $fLabels  = { "rB_fF#", "rB_fL#", "rB_fB#", "rB_fR#",
+                  "rB_fD#", "rB_fU#" };
+    $spVal    = { $spanY_OV, $spanX_OV, $spanZ_OV };
+    $spAttr   = { ".ySpan", ".xSpan", ".zSpan" };
+    break;
+
+  case "+z":
+    $poleAxis = { " 0", " 0", " 1" };
+    $pA       = {  1, -1, -1, -1, -1, -1, -1,  1, -1,  1,  1, -1,
+                   1, -1,  1, -1, -1,  1, -1,  1,  1,  1,  1,  1 };
+    $cLabels  = { "rB_cRDB#", "rB_cLDB#", "rB_cLUB#", "rB_cRUB#",
+                  "rB_cRDF#", "rB_cLDF#", "rB_cLUF#", "rB_cRUF#" };
+    $eLabels  = { "rB_eRD#", "rB_eLD#", "rB_eLU#", "rB_eRU#",
+                  "rB_eDB#", "rB_eLB#", "rB_eUB#", "rB_eRB#",
+                  "rB_eDF#", "rB_eLF#", "rB_eUF#", "rB_eRF#" };
+    $fLabels  = { "rB_fD#", "rB_fL#", "rB_fU#", "rB_fR#",
+                  "rB_fF#", "rB_fB#" };
+    $spVal    = { $spanZ_OV, $spanX_OV, $spanY_OV };
+    $spAttr   = { ".zSpan", ".xSpan", ".ySpan" };
+    break;
+
+  case "-x":
+    $poleAxis = { "-1", " 0", " 0" };
+    $pA       = {  1, -1,  1,  1, -1, -1,  1,  1, -1,  1,  1,  1,
+                  -1, -1,  1, -1, -1, -1, -1,  1, -1, -1,  1,  1  };
+    $cLabels  = { "rB_cRDF#", "rB_cRDB#", "rB_cRUB#", "rB_cRUF#",
+                  "rB_cLDF#", "rB_cLDB#", "rB_cLUB#", "rB_cLUF#" };
+    $eLabels  = { "rB_eUF#", "rB_eDF#", "rB_eDB#", "rB_eUB#",
+                  "rB_eLF#", "rB_eLD#", "rB_eLB#", "rB_eLU#",
+                  "rB_eRF#", "rB_eRD#", "rB_eRB#", "rB_eRU#" };
+    $fLabels  = { "rB_fF#", "rB_fD#", "rB_fB#", "rB_fU#",
+                  "rB_fL#", "rB_fR#" };
+    $spVal    = { $spanX_OV, $spanZ_OV, $spanY_OV };
+    $spAttr   = { ".xSpan", ".zSpan", ".ySpan" };
+    break;
+
+  case "-y":
+    $poleAxis = { " 0", "-1", " 0" };
+    $pA       = {  1,  1, -1, -1,  1, -1, -1,  1,  1,  1,  1,  1,
+                   1, -1, -1, -1, -1, -1, -1, -1,  1,  1, -1,  1 };
+    $cLabels  = { "rB_cRUB#", "rB_cLUB#", "rB_cLUF#", "rB_cRUF#",
+                  "rB_cRDB#", "rB_cLDB#", "rB_cLDF#", "rB_cRDF#" };
+    $eLabels  = { "rB_eRB#", "rB_eLB#", "rB_eLF#", "rB_eRF#",
+                  "rB_eUB#", "rB_eLU#", "rB_eUF#", "rB_eRU#",
+                  "rB_eDB#", "rB_eLD#", "rB_eDF#", "rB_eRD#" };
+    $fLabels  = { "rB_fB#", "rB_fL#", "rB_fF#", "rB_fR#",
+                  "rB_fU#", "rB_fD#" };
+    $spVal    = { $spanY_OV, $spanX_OV, $spanZ_OV };
+    $spAttr   = { ".ySpan", ".xSpan", ".zSpan" };
+    break;
+
+  case "-z":
+    $poleAxis = { " 0", " 0", "-1" };
+    $pA       = {  1,  1,  1, -1,  1,  1, -1, -1,  1,  1, -1,  1,
+                   1,  1, -1, -1,  1, -1, -1, -1, -1,  1, -1, -1 };
+    $cLabels  = { "rB_cRUF#", "rB_cLUF#", "rB_cLDF#", "rB_cRDF#",
+                  "rB_cRUB#", "rB_cLUB#", "rB_cLDB#", "rB_cRDB#" };
+    $eLabels  = { "rB_eRU#", "rB_eLU#", "rB_eLD#", "rB_eRD#",
+                  "rB_eUF#", "rB_eLF#", "rB_eDF#", "rB_eRF#",
+                  "rB_eUB#", "rB_eLB#", "rB_eDB#", "rB_eRB#" };
+    $fLabels  = { "rB_fU#", "rB_fL#", "rB_fD#", "rB_fR#",
+                  "rB_fB#", "rB_fL#" };
+    $spVal    = { $spanZ_OV, $spanX_OV, $spanY_OV };
+    $spAttr   = { ".zSpan", ".xSpan", ".ySpan" };
+    break;
+
+  default: // set as +y axis, use ABC name scheme
+    $poleAxis = { " 0", " 1", " 0" };
+    $pA       = { -1,  1,  1, -1, -1,  1, -1, -1, -1, -1,  1, -1,
+                   1,  1,  1,  1, -1,  1,  1, -1, -1,  1,  1, -1 };
+    $cLabels  = { "rB_cA#", "rB_cB#", "rB_cC#", "rB_cD#",
+                  "rB_cE#", "rB_cF#", "rB_cG#", "rB_cH#" };
+    $eLabels  = { "rB_eA#", "rB_eB#", "rB_eC#", "rB_eD#",
+                  "rB_eE#", "rB_eF#", "rB_eG#", "rB_eH#",
+                  "rB_eI#", "rB_eJ#", "rB_eK#", "rB_eL#" };
+    $fLabels  = { "rB_fA#", "rB_fB#", "rB_fC#", "rB_fD#",
+                  "rB_fE#", "rB_fF#" };
+    $spVal    = { $spanY_OV, $spanX_OV, $spanZ_OV };
+    $spAttr   = { ".ySpan", ".xSpan", ".zSpan" };
+}
+
+// prepare for rebuilding surfaces
+string $reBldCorners[8];
+
+// used to keep track of which lofted surfaces
+// get assigned what section span values
+string $setSpan0[8];
+string $setSpan1[6];
+string $setSpan2[4];
+
+/* ==============================================================
+     create a default sphere, and slice it into 8 corner pieces
+   ============================================================== */
+string $c[8];
+string $cShape[8];
+string $cutU[4];
+
+string $axisString = ($poleAxis[0] + " " + $poleAxis[1] + " " + $poleAxis[2]);
+
+$tmpA = `eval("sphere -ax " + $axisString + " -ch " + $history)`;
+
+// Cut the sphere on V (makes the "periodic" surface a "closed" surface)
+detachSurface -d 0 -p 0.0 -rpo $replace -ch $history $tmpA[0];
+
+// Make three more V cuts
+$tmpB = `detachSurface -d 0 -rpo $replace -ch $history -p 2.0 -p 4.0 -p 6.0 $tmpA[0]`;
+
+// Copy resulting names (in a particular order)
+for ($i = 0; $i < 3; $i++ ) $tmpA[($i + 1)] = $tmpB[$i];
+$tmpA[0] = $tmpB[3];
+
+// Make four U cuts (and save names in a particular order)
+for ($i = 0; $i < 4; $i++ )
+{ $tmpB = `detachSurface -d 1 -rpo $replace -ch $history -p 2.0 $tmpA[$i]`;
+  $tmpC[($i + 4)] = $tmpB[0]; // save name of first piece
+  $tmpC[ $i     ] = $tmpB[1]; // save name of second piece
+
+  // If history is on, save the name of the detachSurface node too.
+  if ($history) $cutU[$i] = $tmpB[2];
+}
+
+// Rename the detached corner pieces,
+// and save the final result in the corner array;
+// create an array of corner shapes.
+for ($i = 0; $i < 8; $i++ )
+{ $c[$i] = `rename $tmpC[$i] $cLabels[$i]`;
+  $tmpA = `listRelatives -f -s $c[$i]`;
+  $cShape[$i] = $tmpA[0];
+}
+
+// If history is on, rename the detachSurface nodes too.
+if ($history)
+{ for ($i = 0; $i < 4; $i++ )
+  { $tmpA[0] = `rename $cutU[$i] "dS_cutCornerU#"`;
+    $cutU[$i] = $tmpA[0];
+
+    /* (11/29/03) ---
+       Chain the parameter values of the detach surface nodes together.
+       A control expression will use 'setAttr' to control parameter[0] of the first node,
+       which in turn will feed the rest.
+
+       This is a bit of a work-around for a minor bug.
+       The expression originally connected to all 4 of the dS nodes .p[0] attributes;
+       when the expression was deleted, those attributes also disappeared,
+       and error messages resulted (no change in the actual geometry, however).
+
+       Although direct connections are preferred to 'setAttrs' in expressions,
+       this seemed to be the only way around the problem.
+       Since all four nodes used the same value,
+       using 'setAttr' for the first, and chaining the rest to it,
+       seemed a reasonable compromise.
+    */
+    if ($i > 0) connectAttr ($cutU[($i - 1)] + ".p[0]") ($cutU[($i)] + ".p[0]");
+
+  }
+}
+
+/* ==============================================================
+                  rebuild surfaces for span control
+   ==============================================================
+   With rebuild surfaces, we are collecting the name of the rebuild surface nodes,
+   rather than the names of the surfaces (hence "$tmpA[1]" rather than "$tmpA[0]").
+   If "create controls" is active, these nodes will be referred to
+   by the control expression.
+
+   On the corners, we mean "spans" and "sections" to have the same meaning as with spheres:
+     bevelSpans    = U spans
+     bevelSections = V spans
+
+   The MEL command "rebuildSurface" takes "-du 0" and "-dv 0" to mean "rebuild with the current degree",
+   and "-su 0" and "-sv 0" to mean "rebuild with the current number of spans".
+
+*/
+
+// rebuild corners
+for ($i = 0; $i < 8; $i++ )
+{
+  $tmpA = `rebuildSurface -ch $history -rpo $replace -rt 0 -dir 2 // rebuild U & V
+    -du 0 -su $bevelSectionsOV
+    -dv 0 -sv $bevelSpansOV
+    $c[$i]`;
+  if ($history) // if history is on, save the name of the rebuild surfaces node
+  { $tmpB[0] = `rename $tmpA[1] ("reBld_" + $c[$i])`;
+    $reBldCorners[$i] = $tmpB[0];
+  }
+}
+
+/* ================================================================
+            prepare size variables for coord system
+   ================================================================
+   The size variables control the size of the rounded box
+   by controlling where the sphere sections are moved.
+   The points are moved symmetrically out from the origin,
+   so we half the "sizes" so that the sum of movements
+   (plus and minus) add up the the whole "size".
+*/
+$sizeX_OV *= 0.5; $sizeY_OV *= 0.5; $sizeZ_OV *= 0.5;
+
+// We determine the coord system so we can
+// offset the cube to sit on the groundplane
+float  $yOff, $zOff;
+
+int $Yup    = ("y" == `upAxis -q -ax`);
+
+if ($Yup) { $yOff = $sizeY_OV; $zOff = 0; }
+else      { $zOff = $sizeZ_OV; $yOff = 0; }
+
+// test and adjust bevel relative to size
+if ( $bevelRadiusOV> $sizeX_OV ) $bevelRadiusOV = $sizeX_OV;
+if ( $bevelRadiusOV> $sizeY_OV ) $bevelRadiusOV = $sizeY_OV;
+if ( $bevelRadiusOV> $sizeZ_OV ) $bevelRadiusOV = $sizeZ_OV;
+
+
+/* ==============================================================
+                 scale and move the corner pieces
+   ============================================================== */
+
+// this counteracts the effect of moving the pivots (next section)
+$sizeX_OV -= 1.0; $sizeY_OV -= 1.0; $sizeZ_OV -= 1.0;
+
+for ($i = 0; $i < 8; $i++ )
+{ $offset = $i * 3;
+  // move the scale pivots of the sphere sections
+  // to the corresponding corners of a surrounding cube
+  xform -piv
+    $pA [ $offset     ]
+    $pA [($offset + 1)]
+    $pA [($offset + 2)]
+    $c[$i];
+  // scale the sphere sections from those new pivot locations
+  scale
+    $bevelRadiusOV
+    $bevelRadiusOV
+    $bevelRadiusOV
+    $c[$i];
+  // move the corner sections to the defined corners of the box
+  move -r
+     ($sizeX_OV * $pA[ $offset     ])
+    (($sizeY_OV * $pA[($offset + 1)]) + $yOff)
+    (($sizeZ_OV * $pA[($offset + 2)]) + $zOff)
+    $c[$i];
+}
+
+/* ==============================================================
+            create edges with lofts between corner pieces
+   ==============================================================
+   Note that the top and bottom sets of lofts get their UVs swapped by reverseSurface.
+   This is not necessary for the pole bevel lofts;
+   their parameterization already matches that of the sphere sections.
+
+   If "Create Controls" is off (and history is off),
+   we can use the loft command and specify surface isoparms as the input curves.
+
+   However, if "Create Controls" is on (and history is on),
+   we need to get the names of the "curveFromSurfaceIso" nodes,
+   so we can control the parameters of the curves input into the loft nodes.
+
+   This explains why the portion of the script creating lofts with history
+   looks so much more complicated than creating lofts with no history.
+
+   We manually re-create the network of curveFromSurfaceIco nodes,
+   loft nodes, nurbsSurface nodes, and transform nodes;
+   capturing the names of the nodes as they are created.
+
+   An alternative solution would have been to create the lofts with history on,
+   and trace back along the upstream nodes which get created,
+   storing the names of these nodes (and renaming them as desired).
+   It seemed that simply re-creating the network
+   would be a simpler approach.
+*/
+
+string $e[12];
+string $eShape[12];
+
+string $curveFC[12]; // curve from corner array
+string $curveTC[12]; // curve to corner array
+string $eLoft[12];
+string $eReverse[8];
+
+float  $fromVal,  $toVal;
+string $loftFrom, $loftTo;
+
+$count = 0;
+
+// These count variables are used to track the loft section span assignments
+$count0 = 0;
+$count1 = 0;
+$count2 = 0;
+
+int $sectionSpans;
+
+
+for ($i = 0; $i < 12; $i++)
+{ // loop through lofting edges
+
+  // prepare variables needed to find loft edges
+  switch($i)
+  {
+    case 0: case 1: case 2: case 3:   // prepare for upright lofts
+      $offset = $i + 4;
+      break;
+
+    case 4: case 5: case 6: case 7:   // prepare bottom ring of lofts
+      $index  = $i % 4;
+      $offset = ($i + 1) % 4;
+      break;
+
+    case 8: case 9: case 10: case 11: // prepare top ring of lofts
+      $index  = ($i % 4) + 4;
+      $offset = (($i + 1) % 4) + 4;
+      break;
+  }
+
+  // prepare variables needed to set loft section spans
+  switch($i)
+  {
+    case 0: case 1: case 2: case 3:    // prepare for span0 lofts (upright)
+      $sectionSpans = $spVal[0];
+      break;
+
+    case 4: case 6: case 8: case 10:   // prepare for span1 lofts
+      $sectionSpans = $spVal[1];
+      break;
+
+    case 5: case 7: case 9: case 11:   // prepare for span2 lofts
+      $sectionSpans = $spVal[2];
+      break;
+  }
+
+  if ($history)
+  {
+    // create some nodes to wire up a little later
+    $curveFC[$i] = `createNode curveFromSurfaceIso`;
+    $curveTC[$i] = `createNode curveFromSurfaceIso`;
+
+    $eLoft[$i]   = `createNode loft         -n ("loft_" + $eLabels[$i])`;
+    $e[$i]       = `createNode transform    -n ($eLabels[$i])`;
+    $eShape[$i]  = `createNode nurbsSurface -n ($eLabels[$i] + "Shape") -p $e[$i]`;
+
+    // set loft section spans
+    setAttr ($eLoft[$i] + ".ss") $sectionSpans;
+
+    if ($i < 4)
+    { // create upright lofts
+      $tmpA[0] = `rename $curveFC[$i] ("cFSI_" + $c[$i     ] + "_MXU")`; $curveFC[$i] = $tmpA[0];
+      $tmpA[0] = `rename $curveTC[$i] ("cFSI_" + $c[$offset] + "_MNU")`; $curveTC[$i] = $tmpA[0];
+
+      // set isoparm direction for both nodes (1 = V direction)
+      // [note: U isoparms are being picked in the V direction]
+      setAttr ($curveFC[$i] + ".idr") 1;
+      setAttr ($curveTC[$i] + ".idr") 1;
+
+      // get isoparm values to use from surfaces
+      connectAttr ($cShape[$i     ] + ".mxu") ($curveFC[$i] + ".iv");
+      connectAttr ($cShape[$offset] + ".mnu") ($curveTC[$i] + ".iv");
+
+      // connect the corners to the input surfaces
+      connectAttr ($cShape[$i     ] + ".ws")  ($curveFC[$i] + ".is");
+      connectAttr ($cShape[$offset] + ".ws")  ($curveTC[$i] + ".is");
+
+      // Attach the "curve from surface isoparm" nodes as inputs to the loft node
+      connectAttr ($curveFC[$i] + ".oc") ($eLoft[$i] + ".ic[0]");
+      connectAttr ($curveTC[$i] + ".oc") ($eLoft[$i] + ".ic[1]");
+
+      // attach loft node as input to nurbs surface
+      connectAttr ($eLoft[$i] + ".os") ($eShape[$i] + ".cr");
+    }
+    else
+    { // create rings of lofts
+      $tmpA[0] = `rename $curveFC[$i] ("cFSI_" + $c[$index ] + "_MXV")`; $curveFC[$i] = $tmpA[0];
+      $tmpA[0] = `rename $curveTC[$i] ("cFSI_" + $c[$offset] + "_MNV")`; $curveTC[$i] = $tmpA[0];
+
+      // set isoparm direction for both nodes (0 = U direction)
+      // [note: V isoparms are being picked in the U direction]
+      setAttr ($curveFC[$i] + ".idr") 0;
+      setAttr ($curveTC[$i] + ".idr") 0;
+
+      // get isoparm values to use from surfaces
+      connectAttr ($cShape[$index ] + ".mxv") ($curveFC[$i] + ".iv");
+      connectAttr ($cShape[$offset] + ".mnv") ($curveTC[$i] + ".iv");
+
+      // connect the corners to the input surfaces
+      connectAttr ($cShape[$index ] + ".ws")  ($curveFC[$i] + ".is");
+      connectAttr ($cShape[$offset] + ".ws")  ($curveTC[$i] + ".is");
+
+      // Attach the "curve from surface isoparm" nodes as inputs to the loft node.
+      connectAttr ($curveFC[$i] + ".oc") ($eLoft[$i] + ".ic[0]");
+      connectAttr ($curveTC[$i] + ".oc") ($eLoft[$i] + ".ic[1]");
+
+      // create a reverse surface node, and attach the loft node as an input.
+      $eReverse[$count] = `createNode reverseSurface -n ("rv_" + $eLabels[$i])`;
+      setAttr ($eReverse[$count] + ".d") 3; // 3 = swap
+      connectAttr ($eLoft[$i] + ".os") ($eReverse[$count] + ".is");
+
+      // attach reverse node as input to nurbs surface
+      connectAttr -f ($eReverse[$count] + ".os") ($eShape[$i] + ".cr");
+
+      $count++ ; // increment counter
+    }
+    // assign surface to default shading group
+    sets -e -forceElement initialShadingGroup $e[$i];
+
+    // store names of lofts sorted by span values
+    switch($i)
+    {
+      case 0: case 1: case 2: case 3:    // store names of span0 lofts (upright)
+        $setSpan0[$count0] = $eLoft[$i];
+        $count0++;
+        break;
+
+      case 4: case 6: case 8: case 10:   // store names of span1 lofts
+        $setSpan1[$count1] = $eLoft[$i];
+        $count1++;
+        break;
+
+      case 5: case 7: case 9: case 11:   // store names of span2 lofts
+        $setSpan2[$count2] = $eLoft[$i];
+        $count2++;
+        break;
+    }
+  }
+  else // construct rounded box without history
+  {
+    if ($i < 4)
+    { // create upright lofts
+      $fromVal = `getAttr ($cShape[$i     ] + ".mxu")`;
+      $toVal   = `getAttr ($cShape[$offset] + ".mnu")`;
+      $loftFrom = ($cShape[$i     ] + ".u[" + $fromVal + "]");
+      $loftTo   = ($cShape[$offset] + ".u[" +   $toVal + "]");
+      $tmpA = `loft -ch 0 -ss $sectionSpans $loftFrom $loftTo`;
+    }
+    else
+    { // create rings of lofts
+      $fromVal = `getAttr ($cShape[$index ] + ".mxv")`;
+      $toVal   = `getAttr ($cShape[$offset] + ".mnv")`;
+      $loftFrom = ($cShape[$index ] + ".v[" + $fromVal + "]");
+      $loftTo   = ($cShape[$offset] + ".v[" +   $toVal + "]");
+      $tmpA = `loft -ch 0 -ss $sectionSpans $loftFrom $loftTo`;
+      reverseSurface -d 3 -rpo $replace -ch 0 $tmpA[0];
+    }
+    // rename and save lofts
+    $e[$i] = `rename $tmpA[0] $eLabels[$i]`;
+    $tmpA = `listRelatives -f -s $e[$i]`;
+    $eShape[$i] = $tmpA[0];
+  }
+} // close lofting edges loop
+
+
+/* ==============================================================
+           create faces with lofts between edges
+   ============================================================== */
+string $f[6];
+string $fShape[6];
+string $fLoft[6];
+
+for ($i = 0; $i < 6; $i++)
+{ // loop through lofting faces
+
+  // prepare variables needed to set loft section spans
+  switch($i)
+  {
+    case 0: case 1: case 2: case 3:    // prepare for span0 lofts (upright)
+      $sectionSpans = $spVal[0];
+      break;
+
+    case 4: case 5:                    // prepare for span1 lofts
+      $sectionSpans = $spVal[1];
+      break;
+  }
+
+  if ($history)
+  {
+    // create "curve from surface isoparm" nodes from the edge geometry
+    $curveFC[$i] = `createNode curveFromSurfaceIso`;
+    $curveTC[$i] = `createNode curveFromSurfaceIso`;
+
+    // set isoparm direction for both nodes (1 = V direction)
+    // [note: U isoparms are being picked in the V direction]
+    setAttr ($curveFC[$i] + ".idr") 1;
+    setAttr ($curveTC[$i] + ".idr") 1;
+
+    switch ($i)
+    {
+      case 0: case 1: case 2: case 3: // create faces between top and bottom set of edges
+        $tmpA[0] = `rename $curveFC[$i] ("cFSI_" + $e[$i + 4] + "_MXU")`; $curveFC[$i] = $tmpA[0];
+        $tmpA[0] = `rename $curveTC[$i] ("cFSI_" + $e[$i + 8] + "_MNU")`; $curveTC[$i] = $tmpA[0];
+
+        // get isoparm values to use from surfaces
+        connectAttr ($eShape[$i + 4] + ".mxu") ($curveFC[$i] + ".iv");
+        connectAttr ($eShape[$i + 8] + ".mnu") ($curveTC[$i] + ".iv");
+
+        // connect the corners to the input surfaces
+        connectAttr ($eShape[$i + 4] + ".ws")  ($curveFC[$i] + ".is");
+        connectAttr ($eShape[$i + 8] + ".ws")  ($curveTC[$i] + ".is");
+        break;
+
+      case 4: // bottom pole face
+        $tmpA[0] = `rename $curveFC[$i] ("cFSI_" + $e[$i + 1] + "_MNU")`; $curveFC[$i] = $tmpA[0];
+        $tmpA[0] = `rename $curveTC[$i] ("cFSI_" + $e[$i + 3] + "_MNU")`; $curveTC[$i] = $tmpA[0];
+
+        // get isoparm values to use from surfaces
+        connectAttr ($eShape[$i + 1] + ".mnu") ($curveFC[$i] + ".iv");
+        connectAttr ($eShape[$i + 3] + ".mnu") ($curveTC[$i] + ".iv");
+
+        // connect the corners to the input surfaces
+        connectAttr ($eShape[$i + 1] + ".ws")  ($curveFC[$i] + ".is");
+        connectAttr ($eShape[$i + 3] + ".ws")  ($curveTC[$i] + ".is");
+        break;
+
+      case 5: // top pole face
+        $tmpA[0] = `rename $curveFC[$i] ("cFSI_" + $e[$i + 4] + "_MXU")`; $curveFC[$i] = $tmpA[0];
+        $tmpA[0] = `rename $curveTC[$i] ("cFSI_" + $e[$i + 6] + "_MXU")`; $curveTC[$i] = $tmpA[0];
+
+        // get isoparm values to use from surfaces
+        connectAttr ($eShape[$i + 4] + ".mxu") ($curveFC[$i] + ".iv");
+        connectAttr ($eShape[$i + 6] + ".mxu") ($curveTC[$i] + ".iv");
+
+        // connect the corners to the input surfaces
+        connectAttr ($eShape[$i + 4] + ".ws")  ($curveFC[$i] + ".is");
+        connectAttr ($eShape[$i + 6] + ".ws")  ($curveTC[$i] + ".is");
+        break;
+    }
+    // create a loft node, and attach the "curve from surface isoparm" nodes as inputs.
+    $fLoft[$i] = `createNode loft -n ("loft_" + $fLabels[$i])`;
+    connectAttr ($curveFC[$i] + ".oc") ($fLoft[$i] + ".ic[0]");
+    connectAttr ($curveTC[$i] + ".oc") ($fLoft[$i] + ".ic[1]");
+
+    // create a transform node
+    $f[$i] = `createNode transform -n ($fLabels[$i])`;
+
+    // create a nurbs surface node, and parent to transform node
+    $fShape[$i] = `createNode nurbsSurface -n ($fLabels[$i] + "Shape") -p $f[$i]`;
+
+    // attach loft node as input to nurbs surface
+    connectAttr ($fLoft[$i] + ".os") ($fShape[$i] + ".cr");
+
+    // assign loft to default shading group
+    sets -e -forceElement initialShadingGroup $f[$i];
+
+    // store names of lofts sorted by span values
+    switch($i)
+    {
+      case 0: case 1: case 2: case 3:
+        $setSpan0[$count0] = $fLoft[$i]; $count0++;  // store names of span0 lofts
+        setAttr ($fLoft[$i] + ".ss") $spVal[0];      // set span0 section value for loft
+        break;
+
+      case 4: case 5:
+        $setSpan1[$count1] = $fLoft[$i]; $count1++;   // store names of span1 lofts
+        setAttr ($fLoft[$i] + ".ss") $spVal[1];       // set span1 section value for loft
+        break;
+    }
+  }
+  else // no history
+  {
+    switch ($i)
+    {
+      case 0: case 1: case 2: case 3:
+        $fromVal = `getAttr ($eShape[$i + 4] + ".mxu")`;
+        $toVal   = `getAttr ($eShape[$i + 8] + ".mnu")`;
+        $loftFrom = ($eShape[$i + 4] + ".u[" + $fromVal + "]");
+        $loftTo   = ($eShape[$i + 8] + ".u[" +   $toVal + "]");
+        break;
+
+      case 4: // bottom pole face
+        $fromVal = `getAttr ($eShape[$i + 1] + ".mnu")`;
+        $toVal   = `getAttr ($eShape[$i + 3] + ".mnu")`;
+        $loftFrom = ($eShape[$i + 1] + ".u[" + $fromVal + "]");
+        $loftTo   = ($eShape[$i + 3] + ".u[" +   $toVal + "]");
+        break;
+
+      case 5: // top pole face
+        $fromVal = `getAttr ($eShape[$i + 4] + ".mxu")`;
+        $toVal   = `getAttr ($eShape[$i + 6] + ".mxu")`;
+        $loftFrom = ($eShape[$i + 4] + ".u[" + $fromVal + "]");
+        $loftTo   = ($eShape[$i + 6] + ".u[" +   $toVal + "]");
+        break;
+    }
+    $tmpA = `loft -ch 0 -ss $sectionSpans $loftFrom $loftTo`;
+    $tmpB[$i] = $tmpA[0];
+
+    //rename and save faces
+    $f[$i] = `rename $tmpB[$i] $fLabels[$i]`;
+    $tmpA = `listRelatives -f -s $f[$i]`;
+    $fShape[$i] = $tmpA[0];
+  }
+} // close lofting faces loop
+
+
+/* ==============================================================
+                  group all surfaces together
+   ============================================================== */
+string $cGrp, $eGrp, $fGrp, $rBox;
+
+// Put all the surfaces into a grouped object.
+// If history is on, turn off "inherit transforms" for the edge and face group nodes.
+$cGrp = `group -n "rB_corners#" $c`;
+$eGrp = `group -n "rB_edges#"   $e`; if ($history) setAttr ($eGrp + ".it") 0;
+$fGrp = `group -n "rB_faces#"   $f`; if ($history) setAttr ($fGrp + ".it") 0;
+
+// want the pivot of the box to be centered from face on the ground plane
+$rBox = `group -n "roundedBox#"	$cGrp $eGrp $fGrp`;
+xform -os -piv 0 0 0 $rBox;
+
+// want to center the pivots of the individual edges and faces,
+// but not the corners.
+select -r -hi ($rBox + "|" + $eGrp); xform -cp;
+select -r -hi ($rBox + "|" + $fGrp); xform -cp;
+
+/* ==============================================================
+                  create control expression
+   ==============================================================
+   If the "Create Controls" box had been checked,
+   add the control attributes to the "roundedBox" node,
+   and create the expression which links the attributes to the appropriate nodes.
+*/
+
+if( $controls == 1 )
+{
+  addAttr -sn br  -ln bevelRadius             -dv $bevelRadiusOV   -min 0.001 $rBox;
+  addAttr -sn bsp -ln bevelSpans    -at short -dv $bevelSpansOV    -min 2     $rBox;
+  addAttr -sn bsc -ln bevelSections -at short -dv $bevelSectionsOV -min 2     $rBox;
+
+  addAttr -sn xsz -ln xSize  -dv (($sizeX_OV + 1)* 2) -min 0.001 $rBox;
+  addAttr -sn ysz -ln ySize  -dv (($sizeY_OV + 1)* 2) -min 0.001 $rBox;
+  addAttr -sn zsz -ln zSize  -dv (($sizeZ_OV + 1)* 2) -min 0.001 $rBox;
+
+  addAttr -sn xsn -ln xSpan -at short -dv $spanX_OV -min 1 $rBox;
+  addAttr -sn ysn -ln ySpan -at short -dv $spanY_OV -min 1 $rBox;
+  addAttr -sn zsn -ln zSpan -at short -dv $spanZ_OV -min 1 $rBox;
+
+  addAttr -sn bl  -ln   boxLock -at bool $rBox;
+  addAttr -sn wl  -ln wedgeLock -at bool $rBox;
+  addAttr -sn el  -ln  edgeLock -at bool $rBox;
+
+  addAttr -sn bf  -ln bevelFactor -at double -dv $bevelFactorOV -min 0.001 $rBox;
+
+  addAttr -sn sfa -ln sizeFactorA -at double -dv $sizeFactorA_OV  -min 0.001 $rBox;
+  addAttr -sn sfb -ln sizeFactorB -at double -dv $sizeFactorB_OV  -min 0.001 $rBox;
+
+  addAttr -sn ea  -ln edgeAdjust  -at double -dv $edgeAdjustOV  -min 0.001 -max 0.999 $rBox;
+
+  addAttr -sn rbd -ln roundedBoxDummy -at short -dv 0 -min 0 $rBox;
+
+  setAttr -k on ($rBox + ".bevelRadius");
+  setAttr -k on ($rBox + ".bevelSpans");
+  setAttr -k on ($rBox + ".bevelSections");
+
+  setAttr -k on  ($rBox + ".xSize");
+  setAttr -k on  ($rBox + ".ySize");
+  setAttr -k on  ($rBox + ".zSize");
+
+  setAttr -k on  ($rBox + ".xSpan");
+  setAttr -k on  ($rBox + ".ySpan");
+  setAttr -k on  ($rBox + ".zSpan");
+
+  setAttr -k on  ($rBox +   ".boxLock");
+  setAttr -k on  ($rBox + ".wedgeLock");
+  setAttr -k on  ($rBox +  ".edgeLock");
+
+  setAttr -k on  ($rBox + ".bevelFactor");
+
+  setAttr -k on  ($rBox + ".sizeFactorA");
+  setAttr -k on  ($rBox + ".sizeFactorB");
+
+  setAttr -k on  ($rBox + ".edgeAdjust");
+
+  setAttr -k off ($rBox + ".roundedBoxDummy");
+
+  // turn on all of the "lock" attributes
+  setAttr -e ($rBox +   ".boxLock") on;
+  setAttr -e ($rBox + ".wedgeLock") on;
+  setAttr -e ($rBox +  ".edgeLock") on;
+
+  // Create an control expression to drive the position and
+  // scale of the box corners using the control attributes.
+  // First, construct an expressionString.
+
+  string $exprString =
+  ( "\n"
+  + "int   $boxLock = " + $rBox + ".boxLock;\n"
+  + "int $wedgeLock = " + $rBox + ".wedgeLock;\n"
+  + "int  $edgeLock = " + $rBox + ".edgeLock;\n"
+  + "\n"
+
+  + "int $bevelSpans    = " + $rBox + ".bevelSpans;\n"
+  + "int $bevelSections = " + $rBox + ".bevelSections;\n"
+  + "\n"
+
+  + "float $bevelRadius_btm = " + $rBox + ".bevelRadius;\n"
+  + "float $bevelRadius_top = $bevelRadius_btm;\n"
+  + "float $bevelFactor = 1;\n"
+  + "\n"
+
+  + "float $sizeX_btm = " + $rBox + ".xSize * 0.5;\n"
+  + "float $sizeY_btm = " + $rBox + ".ySize * 0.5;\n"
+  + "float $sizeZ_btm = " + $rBox + ".zSize * 0.5;\n"
+  + "float $sizeX_top = $sizeX_btm;\n"
+  + "float $sizeY_top = $sizeY_btm;\n"
+  + "float $sizeZ_top = $sizeZ_btm;\n"
+  + "float $sizeFactorA = 1;\n"
+  + "float $sizeFactorB = 1;\n"
+  + "float $tmp;\n"
+  + "\n"
+
+  + "//Scale pole bevel tangent edge value for original sphere's U range.\n"
+  + "float $edgeAdjust = " + $rBox + ".edgeAdjust * 4.0;\n"
+  + "\n");
+
+  $count = 0;
+  string $planeN[2];
+  string  $poleN;
+
+  if ($poleAxis[0] == " 0") { $planeN[$count] = "$sizeX_"; $count++; }
+  else                         $poleN         = "$sizeX_";
+
+  if ($poleAxis[1] == " 0") { $planeN[$count] = "$sizeY_"; $count++; }
+  else                         $poleN         = "$sizeY_";
+
+  if ($poleAxis[2] == " 0") { $planeN[$count] = "$sizeZ_"; $count++; }
+  else                         $poleN         = "$sizeZ_";
+
+  $exprString += (""
+  + "if ($boxLock)\n"
+  + "{ $bevelFactor = 1;\n"
+  + "  $sizeFactorA = 1;\n"
+  + "  $sizeFactorB = 1;\n"
+  + "  $wedgeLock   = 0;\n"
+  + "  $edgeLock    = 0;\n"
+  + "  $edgeAdjust  = 2.0;\n"
+  + "}\n"
+  + "else \n"
+  + "{ $bevelFactor     = " + $rBox + ".bevelFactor;\n"
+  + "  $sizeFactorA     = " + $rBox + ".sizeFactorA;\n"
+  + "  $sizeFactorB     = " + $rBox + ".sizeFactorB;\n"
+  + "  $bevelRadius_top = $bevelRadius_btm * $bevelFactor;\n"
+  + "  $wedgeLock       = " + $rBox + ".wedgeLock;\n"
+  + "\n"
+
+  + "  if ($wedgeLock)\n"
+  + "  { if ( " + $planeN[0] + "btm > " + $planeN[1] + "btm )\n"
+  + "    {\n"
+  + "      $tmp = " + $planeN[1] + "btm * $sizeFactorA;\n"
+  + "      if ($bevelRadius_top > $tmp) " + $planeN[1] + "top = $bevelRadius_top;\n"
+  + "      else                         " + $planeN[1] + "top = $tmp;\n"
+  + "\n"
+  + "      if (" + $planeN[1] + "btm > $bevelRadius_top) " + $planeN[0] + "top = " + $planeN[0] + "btm"
+  +                                                 " - (" + $planeN[1] + "btm - " + $planeN[1] + "top);\n"
+  + "      else                               "            + $planeN[0] + "top = " + $planeN[0] + "btm;\n"
+  + "    }\n"
+  + "    else\n"
+  + "    {\n"
+  + "      $tmp = " + $planeN[0] + "btm * $sizeFactorA;\n"
+  + "      if ($bevelRadius_top > $tmp) " + $planeN[0] + "top = $bevelRadius_top;\n"
+  + "      else                         " + $planeN[0] + "top = $tmp;\n"
+  + "\n"
+  + "      if (" + $planeN[0] + "btm > $bevelRadius_top) " + $planeN[1] + "top = " + $planeN[1] + "btm"
+  +                                                 " - (" + $planeN[0] + "btm - " + $planeN[0] + "top);\n"
+  + "      else                               "            + $planeN[1] + "top = " + $planeN[1] + "btm;\n"
+  + "    }\n"
+  + "    $edgeLock = 1;\n"
+  + "  }\n"
+  + "  else\n"
+  + "  { $sizeFactorB = " + $rBox + ".sizeFactorB;\n"
+  + "    " + $planeN[0] + "top = " + $planeN[0] + "btm * $sizeFactorA;\n"
+  + "    " + $planeN[1] + "top = " + $planeN[1] + "btm * $sizeFactorB;\n"
+  + "    $edgeLock = " + $rBox + ".edgeLock;\n"
+  + "  }\n"
+  + "  " + $poleN + "top = " + $poleN + "btm;\n"
+  + "}\n"
+  + "\n"
+
+  + "float $factorBtm = 0.0001;\n"
+  + "float $factorTop = $factorBtm;\n"
+  + "\n"
+
+  + "if ( $sizeX_btm <= $bevelRadius_btm ) {$sizeX_btm = $bevelRadius_btm + $factorBtm;}\n"
+  + "if ( $sizeY_btm <= $bevelRadius_btm ) {$sizeY_btm = $bevelRadius_btm + $factorBtm;}\n"
+  + "if ( $sizeZ_btm <= $bevelRadius_btm ) {$sizeZ_btm = $bevelRadius_btm + $factorBtm;}\n"
+  + "\n"
+
+  + "if ( $sizeX_top <= $bevelRadius_top ) {$sizeX_top = $bevelRadius_top + $factorTop;}\n"
+  + "if ( $sizeY_top <= $bevelRadius_top ) {$sizeY_top = $bevelRadius_top + $factorTop;}\n"
+  + "if ( $sizeZ_top <= $bevelRadius_top ) {$sizeZ_top = $bevelRadius_top + $factorTop;}\n"
+  + "\n");
+
+  if ($Yup)
+  { $exprString += (""
+    + "float $yoff = $sizeY_btm;\n"
+    + "float $zoff = 0;\n"
+    + "\n");
+  }
+  else
+  { $exprString += (""
+    + "float $yoff = 0;\n"
+    + "float $zoff = $sizeZ_btm;\n"
+    + "\n");
+  }
+
+  // set up corner scale, and position the corners using the size and pivot arrays.
+  string $pivX, $pivY, $pivZ;
+
+  string $h = ($rBox + "|" + $cGrp + "|"); // h = hierarchy
+
+  for ($i = 0; $i < 4; $i++ )
+  {
+    $offset = $i * 3;
+    if (($pA[$offset    ]) == 1) $pivX = " 1"; else $pivX = "-1";
+    if (($pA[$offset + 1]) == 1) $pivY = " 1"; else $pivY = "-1";
+    if (($pA[$offset + 2]) == 1) $pivZ = " 1"; else $pivZ = "-1";
+
+    $exprString +=
+    ( ($h + $c[$i]) + ".sx = $bevelRadius_btm;\n"
+    + ($h + $c[$i]) + ".sy = $bevelRadius_btm;\n"
+    + ($h + $c[$i]) + ".sz = $bevelRadius_btm;\n"
+    + "\n"
+
+    + ($h + $c[$i]) + ".tx =         (" + $pivX + " * $sizeX_btm) + " + ($h + $c[$i]) + ".tmrp.tmrx;\n"
+    + ($h + $c[$i]) + ".ty = $yoff + (" + $pivY + " * $sizeY_btm) + " + ($h + $c[$i]) + ".tmrp.tmry;\n"
+    + ($h + $c[$i]) + ".tz = $zoff + (" + $pivZ + " * $sizeZ_btm) + " + ($h + $c[$i]) + ".tmrp.tmrz;\n"
+    + "\n");
+  }
+
+  for ($i = 4; $i < 8; $i++ )
+  {
+    $offset = $i * 3;
+    if (($pA[$offset    ]) == 1) $pivX = " 1"; else $pivX = "-1";
+    if (($pA[$offset + 1]) == 1) $pivY = " 1"; else $pivY = "-1";
+    if (($pA[$offset + 2]) == 1) $pivZ = " 1"; else $pivZ = "-1";
+
+    $exprString +=
+    ( ($h + $c[$i]) + ".sx = $bevelRadius_top;\n"
+    + ($h + $c[$i]) + ".sy = $bevelRadius_top;\n"
+    + ($h + $c[$i]) + ".sz = $bevelRadius_top;\n"
+    + "\n"
+
+    + ($h + $c[$i]) + ".tx =         (" + $pivX + " * $sizeX_top) + " + ($h + $c[$i]) + ".tmrp.tmrx;\n"
+    + ($h + $c[$i]) + ".ty = $yoff + (" + $pivY + " * $sizeY_top) + " + ($h + $c[$i]) + ".tmrp.tmry;\n"
+    + ($h + $c[$i]) + ".tz = $zoff + (" + $pivZ + " * $sizeZ_top) + " + ($h + $c[$i]) + ".tmrp.tmrz;\n"
+    + "\n");
+  }
+
+  // make the connections for corner rebuild nodes
+  $exprString += "//Rebuild corner sphere slices in U\n";
+  for ($i = 0; $i < 8; $i++ ) $exprString += $reBldCorners[$i] + ".su = " + $rBox + ".bevelSpans;\n";
+  $exprString += "\n";
+
+  $exprString += "//Rebuild corner sphere slices in V\n";
+  for ($i = 0; $i < 8; $i++ ) $exprString += $reBldCorners[$i] + ".sv = " + $rBox + ".bevelSections;\n";
+  $exprString += "\n";
+
+  // make the connections for loft section spans
+  $exprString += "//Wire the edge lofts for span0\n";
+  for ($i = 0; $i < 4; $i++ ) $exprString += ($setSpan0[$i] + ".ss = " + $rBox + $spAttr[0] + ";\n");
+  $exprString += "\n";
+
+  $exprString += "//Wire the face lofts for span0\n";
+  for ($i = 4; $i < 8; $i++ ) $exprString += ($setSpan0[$i] + ".ss = " + $rBox + $spAttr[0] + ";\n");
+  $exprString += "\n";
+
+  $exprString += "//Wire the edge lofts for span1\n";
+  for ($i = 0; $i < 4; $i++ ) $exprString += ($setSpan1[$i] + ".ss = " + $rBox + $spAttr[1] + ";\n");
+  $exprString += "\n";
+
+  $exprString += "//Wire the face lofts for span1 (pole faces)\n";
+  for ($i = 4; $i < 6; $i++ ) $exprString += ($setSpan1[$i] + ".ss = " + $rBox + $spAttr[1] + ";\n");
+  $exprString += "\n";
+
+  $exprString += "//Wire the edge lofts for span2\n";
+  for ($i = 0; $i < 4; $i++ ) $exprString += ($setSpan2[$i] + ".ss = " + $rBox + $spAttr[2] + ";\n");
+  $exprString += "\n";
+
+  // add pole bevel tangency control
+  $exprString += (""
+  + "//----------------------------------------\n"
+  + "//   Create pole bevel tangency control   \n"
+  + "//----------------------------------------\n"
+
+  // need the value of pi for radian-based calculations
+  + "float $pi        = 3.14159265;\n"
+  + "float $radian360 = 2 * $pi;\n"
+  + "float $radian180 = $pi;\n"
+  + "float $radian90  = $pi/2.0;\n"
+  + "\n"
+
+  + "float $bRAx, $bRBx;\n"
+  + "float $bRAy, $bRBy;\n"
+  + "float $bRAz, $bRBz;\n"
+  + "\n"
+
+  + "float $wp_dcx, $wp_ucx, $wp_0x;\n"
+  + "float $wp_dcy, $wp_ucy, $wp_0y;\n"
+  + "float $wp_dcz, $wp_ucz, $wp_0z;\n"
+  + "\n"
+
+  + "vector $A, $B, $cornerAxis, $C, $D, $E;\n"
+  + "\n"
+
+  + "float $scaleB, $magB, $factorB, $cutAngle;\n"
+  + "\n"
+
+  + "float $cutAdjust;\n"
+  + "\n"
+
+  + "if ($edgeLock)\n"
+  + "{\n"
+  + "  // bevel radius is multiplied by values in the pivot array\n"
+  + "  // for the first corner and the opposite corner along the pole axis\n");
+
+  // although this scrap of code isn't in a loop,
+  // we use $i and $offset in a manner like some of the earlier looping code,
+  // to point out the similarity in the way the pivot array is being accessed.
+  // The value given to $i corresponds to the index number of the corner.
+
+  $i = 0; $offset = $i * 3;
+  if (($pA[$offset    ]) == 1) $pivX = " 1"; else $pivX = "-1";
+  if (($pA[$offset + 1]) == 1) $pivY = " 1"; else $pivY = "-1";
+  if (($pA[$offset + 2]) == 1) $pivZ = " 1"; else $pivZ = "-1";
+
+  $exprString += (""
+  + "  $bRAx = " + $pivX + " * $bevelRadius_btm;\n"
+  + "  $bRAy = " + $pivY + " * $bevelRadius_btm;\n"
+  + "  $bRAz = " + $pivZ + " * $bevelRadius_btm;\n"
+  + "\n");
+
+  $i = 4; $offset = $i * 3;
+  if (($pA[$offset    ]) == 1) $pivX = " 1"; else $pivX = "-1";
+  if (($pA[$offset + 1]) == 1) $pivY = " 1"; else $pivY = "-1";
+  if (($pA[$offset + 2]) == 1) $pivZ = " 1"; else $pivZ = "-1";
+
+  $exprString += (""
+  + "  $bRBx = " + $pivX + " * $bevelRadius_top;\n"
+  + "  $bRBy = " + $pivY + " * $bevelRadius_top;\n"
+  + "  $bRBz = " + $pivZ + " * $bevelRadius_top;\n"
+  + "\n"
+
+  // world space pivot (almost) = local pivot + translate value.
+  // The rest of the transform matrix, scale and rotate,
+  // should be factored in to find the *true* world space pivot;
+  // but for our purpose we can assume scale = 1 and rotate = 0.
+  // Get the original center of the sphere section by subtracting the radius value
+
+  + "  // \"down\" corner\n"
+  + "  $wp_dcx = " + $c[0] + ".rpx + " + $c[0] + ".tx - $bRAx;\n"
+  + "  $wp_dcy = " + $c[0] + ".rpy + " + $c[0] + ".ty - $bRAy;\n"
+  + "  $wp_dcz = " + $c[0] + ".rpz + " + $c[0] + ".tz - $bRAz;\n"
+  + "\n"
+
+  + "  // \"up\" corner\n"
+  + "  $wp_ucx = " + $c[4] + ".rpx + " + $c[4] + ".tx - $bRBx;\n"
+  + "  $wp_ucy = " + $c[4] + ".rpy + " + $c[4] + ".ty - $bRBy;\n"
+  + "  $wp_ucz = " + $c[4] + ".rpz + " + $c[4] + ".tz - $bRBz;\n"
+  + "\n"
+
+  + "  // Create an offset from the \"down\" corner\n"
+  + "  // based on the corner's pivot array values;\n"
+  + "  // except for the coord which cooresponds to the pole axis.\n"
+  + "  // This gets an offset of 0.\n");
+
+  $i = 0; $offset = $i * 3;
+  $exprString += "  $wp_0x = $wp_dcx - " + (($pA[$offset    ]) * ($poleAxis[0] == " 0")) + ";\n";
+  $exprString += "  $wp_0y = $wp_dcy - " + (($pA[$offset + 1]) * ($poleAxis[1] == " 0")) + ";\n";
+  $exprString += "  $wp_0z = $wp_dcz - " + (($pA[$offset + 2]) * ($poleAxis[2] == " 0")) + ";\n";
+
+  $exprString += ("\n"
+  + "  // vector between the center of the box and the bottom corner of the box\n"
+  + "  $A = << ($wp_dcx  - $wp_0x), ($wp_dcy  - $wp_0y), ($wp_dcz  - $wp_0z) >>;\n"
+  + "\n"
+
+  + "  // vector between the pivot points of bottom and top corner pair\n"
+  + "  $B = << ($wp_ucx - $wp_dcx), ($wp_ucy - $wp_dcy), ($wp_ucz - $wp_dcz) >>;\n"
+  + "\n"
+
+  + "  // the perpendicular to A and B will be their axis of rotation\n"
+  + "  $cornerAxis = `cross $A $B`;\n"
+  + "\n"
+
+  // Project the difference of the radius of corners A and B
+  // as an extension of vector B; save the projected vector as C.
+  // Rotate C so that it is perpendicular to B,
+  // while remaining in the same plane as A and B;
+  // save the rotated vector as D.
+
+  + "  float $scaleB = $bevelRadius_top - $bevelRadius_btm;\n"
+  + "  float $magB = `mag $B`;\n"
+  + "  float $factorB;\n"
+  + "\n"
+
+  // If magB were 0, we'd get a "division by zero" error.
+  // If scaleB were 0, there would be no displacement
+  // (and no need to calculate the perpendicular).
+
+  + "  if (($scaleB != 0) && ($magB != 0))\n"
+  + "  { $factorB = $scaleB/$magB;\n"
+  + "    $C = $factorB * $B;\n"
+  + "    $D = (`rot $C $cornerAxis (-1 * $radian90)`);\n"
+  + "  }\n"
+  + "  else $D = <<0,0,0>>;\n"
+  + "\n"
+
+  // Add D to B, to create a version of B "displaced" along its perpendicular
+  // by the difference in the corner radii.
+  // If there is no difference, the result will be a vector
+  // from the "center" of the bottom corner,
+  // to the "center" of the top corner
+  // (i.e., identical to the original B).
+
+  + "  $E = $B + $D;\n"
+  + "  $cutAngle  = `angle $A $E`;\n"
+  + "  $cutAdjust = (`linstep 0.0 $radian180 $cutAngle`) * 4.0;\n"
+  + "}\n"
+  + "else { $cutAdjust = $edgeAdjust; }\n"
+  + "\n"
+
+  + "if      ($cutAdjust < 0.001) $cutAdjust = 0.001;\n"
+  + "else if ($cutAdjust > 3.999) $cutAdjust = 3.999;\n"
+  + "\n");
+
+  // (11/29/03) --
+  // To get around a problem with errors from the detach surface nodes
+  // when the control expression was deleted,
+  // we're using 'setAttr' to control one node,
+  // and making direct connections to the other nodes
+  // from that master node
+  $exprString += "// Set tangent control for master detach surface node\n";
+  $exprString += ("setAttr " + $cutU[0] + ".p[0] $cutAdjust;\n");
+  $exprString += "\n";
+
+  // now create the control expression
+  string $roundedBoxExpr = `expression -ae 0 -s "" -n ($rBox + "_controlExpr")`;
+
+  expression -e -s
+    ( "// begin " + $roundedBoxExpr + "\n"
+    + $exprString
+    + "// end " + $roundedBoxExpr)
+    $roundedBoxExpr;
+
+  // Create another expression to lock and unlock attributes depending upon settings.
+
+  // This is a simple UI control;
+  // the "User Interface" being the Channel Box display of rounded box attributes.
+
+  // This is so the user knows that with settings such as "box lock on",
+  // other attributes such as "bevel factor" would not apply;
+  // these are then locked out to indicate there is no point in trying to change them.
+
+  // An "unkeyable" attribute of the rounded box node, "roundedBoxDummy",
+  // is written to so that the expression is forced to be evaluated.
+
+  $exprString =
+  ( "\n"
+  + "int   $boxLock = " + $rBox + ".boxLock;\n"
+  + "int $wedgeLock = " + $rBox + ".wedgeLock;\n"
+  + "int  $edgeLock = " + $rBox + ".edgeLock;\n"
+  + "\n"
+
+  + $rBox + ".roundedBoxDummy = 0;\n"
+  + "\n"
+
+// Direction connections in an expression are automatically updated;
+// if the name of the $rBox node is changed, this expression will reflect that change.
+// But the name is not automatically going to change in "setAttr" commands.
+// We need to pick up the name of the $rBox node from a currently active connection,
+// and use *that* string to create the "setAttr" commands.
+// If the name of the $rBox node changes later, this string will also change.
+
+  + "string $tmp[];\n"
+  + "string $boxName;\n"
+  + "if (`objExists " + $roundedBoxExpr + "`)\n"
+  + "{ $tmp = `listConnections -d off -s on " + $roundedBoxExpr + ".input[0]`;\n"
+  + "  $boxName = $tmp[0];\n"
+  + "}\n"
+  + "\n"
+
+  + "if      ($boxLock)\n"
+  + "{ setAttr -l on ($boxName + \".bevelFactor\");\n"
+  + "  setAttr -l on ($boxName + \".sizeFactorA\");\n"
+  + "  setAttr -l on ($boxName + \".sizeFactorB\");\n"
+  + "  setAttr -l on ($boxName + \".edgeAdjust\");\n"
+  + "  setAttr -l on ($boxName + \".wedgeLock\");\n"
+  + "  setAttr -l on ($boxName + \".edgeLock\");\n"
+  + "\n"
+
+  + "  " + $rBox + ".roundedBoxDummy = 1;\n"
+  + "}\n"
+  + "else\n"
+  + "{\n"
+  + "  setAttr -l off ($boxName + \".bevelFactor\");\n"
+  + "  setAttr -l off ($boxName + \".sizeFactorA\");\n"
+  + "  setAttr -l off ($boxName + \".wedgeLock\");\n"
+  + "\n"
+
+  + "  if ($wedgeLock)\n"
+  + "  { setAttr -l on  ($boxName + \".sizeFactorB\");\n"
+  + "    setAttr -l on  ($boxName + \".edgeAdjust\");\n"
+  + "    setAttr -l on  ($boxName + \".edgeLock\");\n"
+  + "  }\n"
+  + "  else\n"
+  + "  {\n"
+  + "    setAttr -l off ($boxName + \".sizeFactorB\");\n"
+  + "    setAttr -l off ($boxName + \".edgeLock\");\n"
+  + "\n"
+
+  + "    if ($edgeLock)  setAttr -l on  ($boxName + \".edgeAdjust\");\n"
+  + "    else            setAttr -l off ($boxName + \".edgeAdjust\");\n"
+  + "  }\n"
+  + "  " + $rBox + ".roundedBoxDummy = 2;\n"
+  + "}\n"
+  + "\n");
+
+  // now create the channel box control expression
+  string $channelBoxExpr = `expression -ae 0 -s "" -n ($rBox + "_channelBoxExpr")`;
+
+  expression -e -s
+  ( "// begin " + $channelBoxExpr + "\n"
+  + $exprString
+  + "// end " + $channelBoxExpr)
+  $channelBoxExpr;
+}
+
+// this seems to be a necessary step to "wake up" the Channel Box UI
+// after the creation of the expression.
+listHistory $rBox;
+
+// leave the procedure with the top node of the rounded box selected
+select -r $rBox;
+
+} // end procedure NURBS_RoundedBox

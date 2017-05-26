@@ -1,0 +1,33 @@
+/*
+
+    zeroFKControls.mel
+    
+    
+    zeroes out selected controls that match a string
+
+*/
+
+{
+	string $selection[] = `ls -sl`;
+	if (`size $selection` == 0)
+      	select -r "*FKControl";
+    
+    string $fk_control[] = `ls -sl`;
+    string $attributes[] = {"translate", "rotate"};
+    string $axes[] = {"X", "Y", "Z"};
+    for ($control in $fk_control)
+    {
+        for ($attribute in $attributes)
+        {
+            for($axis in $axes)
+            {
+                $attribute_name = ($control + "." + $attribute + $axis);
+                if (!`getAttr -l $attribute_name`)
+                {
+                    setAttr $attribute_name 0;
+                }
+            }
+        }
+    }
+
+}

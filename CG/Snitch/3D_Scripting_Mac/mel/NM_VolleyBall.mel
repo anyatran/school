@@ -1,0 +1,158 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: NM_VolleyBall
+''    Author: High3d 
+''    Last Updated: Sep 24, 2006
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/modeling/poly_tools/789.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+//Script created by Nonato Moreira (c). Brazil. 2006
+//Volley Ball 1.0 for Maya 6.0, 6.5, 7.0 and 8.0
+//How to use this Script.
+//In Command line type: "source NM_VolleyBall.mel" and after type "VoleyBall"
+//Wait and fun!
+
+
+global proc VolleyBall()
+{
+// Cria um Poly esfera com as divisões (Create a Poly Sphere with divisions)//
+polyCube -w 1 -h 1 -d 1 -sx 3 -sy 3 -sz 3 -ax 0 1 0 -tx 1 -ch 1;
+scale -r 1.413484 1.413484 1.413484 ;
+select -r pCube1.vtx[48:55] ;
+scale -r -p 0cm 2.10626e-008cm 2.10626e-008cm 1.399007 1 1 ;
+select -r pCube1.vtx[5:6] pCube1.vtx[9:10] pCube1.vtx[29:30] pCube1.vtx[33:34] ;
+scale -r -p 2.10626e-008cm 0cm 0cm 1 1 1.409005 ;
+select -r pCube1.vtx[17:18] pCube1.vtx[21:22] pCube1.vtx[41:42] pCube1.vtx[45:46] ;
+scale -r -p 2.10626e-008cm 0cm 0cm 1 1.405556 1 ;
+
+select -r pCube1.vtx[15] ;
+select -tgl pCube1.vtx[27] ;
+select -tgl pCube1.vtx[24] ;
+select -add pCube1.vtx[12] ;
+select -add pCube1.vtx[0] ;
+select -add pCube1.vtx[3] ;
+select -tgl pCube1.vtx[39] ;
+select -tgl pCube1.vtx[36] ;
+scale -r -p 0cm 0cm 0cm 0.828989 0.828989 0.828989 ;
+
+select -r pCube1.vtx[27] pCube1.vtx[31] pCube1.vtx[35] pCube1.vtx[39] ;
+select -tgl pCube1.vtx[24] pCube1.vtx[28] pCube1.vtx[32] pCube1.vtx[36] ;
+select -tgl pCube1.vtx[0] pCube1.vtx[4] pCube1.vtx[8] pCube1.vtx[12] ;
+select -tgl pCube1.vtx[3] pCube1.vtx[7] pCube1.vtx[11] pCube1.vtx[15] ;
+select -add pCube1.vtx[12:15] ;
+select -add pCube1.vtx[24:27] ;
+select -add pCube1.vtx[36:39] ;
+select -add pCube1.vtx[0:3] ;
+select -add pCube1.vtx[3] pCube1.vtx[39] pCube1.vtx[43] pCube1.vtx[47] ;
+select -add pCube1.vtx[15] pCube1.vtx[19] pCube1.vtx[23] pCube1.vtx[27] ;
+select -add pCube1.vtx[12] pCube1.vtx[16] pCube1.vtx[20] pCube1.vtx[24] ;
+select -add pCube1.vtx[0] pCube1.vtx[36] pCube1.vtx[40] pCube1.vtx[44] ;
+scale -r -p 0cm 0cm 0cm 1.019569 1.019569 1.019569 ;
+
+hilite pCube1.vtx[0] pCube1.vtx[3] pCube1.vtx[12] pCube1.vtx[15] pCube1.vtx[24] pCube1.vtx[27] pCube1.vtx[36] pCube1.vtx[39] ;
+select -d pCube1.vtx[0] pCube1.vtx[3] pCube1.vtx[12] pCube1.vtx[15] pCube1.vtx[24] pCube1.vtx[27] pCube1.vtx[36] pCube1.vtx[39] ;
+select -r pCube1 ;
+polySmooth  -mth 0 -dv 2 -c 1 -kb 1 -ksb 1 -khe 0 -kt 1 -kmb 1 -suv 1 -sl 1 -dpe 1 -ps 0.1 -ro 1 -ch 1 pCube1;
+
+rename "pCube1" "Volley_Ball";
+select -cl  ;
+select -r Volley_Ball ;
+
+performFreezeTransformations(0);
+DeleteHistory;
+
+// Cria Extrusão dos Gomos da Bola (Create Extrude of Ball Faces)//
+select -r Volley_Ball.f[10] Volley_Ball.f[13] Volley_Ball.f[16] Volley_Ball.f[28] Volley_Ball.f[31] Volley_Ball.f[34] Volley_Ball.f[36] Volley_Ball.f[38:39] Volley_Ball.f[41:42] Volley_Ball.f[44:45] Volley_Ball.f[47:48] Volley_Ball.f[50:51] Volley_Ball.f[53] Volley_Ball.f[84:86] Volley_Ball.f[93:95] Volley_Ball.f[102:104] Volley_Ball.f[138:140] Volley_Ball.f[147:149] Volley_Ball.f[156:158] Volley_Ball.f[162:164] Volley_Ball.f[168:173] Volley_Ball.f[177:182] Volley_Ball.f[186:191] Volley_Ball.f[195:200] Volley_Ball.f[204:209] Volley_Ball.f[213:215] Volley_Ball.f[246:248] Volley_Ball.f[255:257] Volley_Ball.f[264:266] Volley_Ball.f[300:302] Volley_Ball.f[309:311] Volley_Ball.f[318:320] Volley_Ball.f[324:326] Volley_Ball.f[330:335] Volley_Ball.f[339:344] Volley_Ball.f[348:353] Volley_Ball.f[357:362] Volley_Ball.f[366:371] Volley_Ball.f[375:377] Volley_Ball.f[468:476] Volley_Ball.f[495:503] Volley_Ball.f[522:530] Volley_Ball.f[630:638] Volley_Ball.f[657:665] Volley_Ball.f[684:692] Volley_Ball.f[702:710] Volley_Ball.f[720:737] Volley_Ball.f[747:764] Volley_Ball.f[774:791] Volley_Ball.f[801:818] Volley_Ball.f[828:845] Volley_Ball.f[855:863] ;
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.005;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+	setAttr ".ls" -type double3 0.866667 0.866667 0.866667;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.005;
+	setAttr ".ls" -type double3 0.25 0.25 0.25 ;
+	setAttr ".ltz" 0.0125647 ;
+
+select -r Volley_Ball.f[0:2] Volley_Ball.f[6:8] Volley_Ball.f[18:20] Volley_Ball.f[24:26] Volley_Ball.f[37] Volley_Ball.f[40] Volley_Ball.f[43] Volley_Ball.f[46] Volley_Ball.f[49] Volley_Ball.f[52] Volley_Ball.f[54:62] Volley_Ball.f[72:80] Volley_Ball.f[108:116] Volley_Ball.f[126:134] Volley_Ball.f[165:167] Volley_Ball.f[174:176] Volley_Ball.f[183:185] Volley_Ball.f[192:194] Volley_Ball.f[201:203] Volley_Ball.f[210:212] Volley_Ball.f[216:224] Volley_Ball.f[234:242] Volley_Ball.f[270:278] Volley_Ball.f[288:296] Volley_Ball.f[327:329] Volley_Ball.f[336:338] Volley_Ball.f[345:347] Volley_Ball.f[354:356] Volley_Ball.f[363:365] Volley_Ball.f[372:374] Volley_Ball.f[378:404] Volley_Ball.f[432:458] Volley_Ball.f[540:566] Volley_Ball.f[594:620] Volley_Ball.f[711:719] Volley_Ball.f[738:746] Volley_Ball.f[765:773] Volley_Ball.f[792:800] Volley_Ball.f[819:827] Volley_Ball.f[846:854];
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.005;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+	setAttr ".ls" -type double3 0.866667 0.866667 0.866667;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.005;
+	setAttr ".ls" -type double3 0.25 0.25 0.25 ;
+	setAttr ".ltz" 0.0125647 ;
+
+select -r Volley_Ball.f[3:5] Volley_Ball.f[9] Volley_Ball.f[11:12] Volley_Ball.f[14:15] Volley_Ball.f[17] Volley_Ball.f[21:23] Volley_Ball.f[27] Volley_Ball.f[29:30] Volley_Ball.f[32:33] Volley_Ball.f[35] Volley_Ball.f[63:71] Volley_Ball.f[81:83] Volley_Ball.f[87:92] Volley_Ball.f[96:101] Volley_Ball.f[105:107] Volley_Ball.f[117:125] Volley_Ball.f[135:137] Volley_Ball.f[141:146] Volley_Ball.f[150:155] Volley_Ball.f[159:161] Volley_Ball.f[225:233] Volley_Ball.f[243:245] Volley_Ball.f[249:254] Volley_Ball.f[258:263] Volley_Ball.f[267:269] Volley_Ball.f[279:287] Volley_Ball.f[297:299] Volley_Ball.f[303:308] Volley_Ball.f[312:317] Volley_Ball.f[321:323] Volley_Ball.f[405:431] Volley_Ball.f[459:467] Volley_Ball.f[477:494] Volley_Ball.f[504:521] Volley_Ball.f[531:539] Volley_Ball.f[567:593] Volley_Ball.f[621:629] Volley_Ball.f[639:656] Volley_Ball.f[666:683] Volley_Ball.f[693:701] ;
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.005;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.01;
+	setAttr ".ls" -type double3 0.866667 0.866667 0.866667;
+
+ExtrudeFace ; 
+	setAttr ".kft" 1;
+	setAttr ".ltz" 0.005;
+	setAttr ".ls" -type double3 0.25 0.25 0.25 ;
+	setAttr ".ltz" 0.0125647 ;
+	
+// Freeza Transformações e suaviza a malha (Freeze Transformations and Smooth the Mesh)//
+select -cl  ;
+select -r Volley_Ball ;
+rename "Volley_Ball" "VolleyBall_Ball";
+performFreezeTransformations(0);
+DeleteHistory;
+
+CenterPivot;
+select -cl  ;
+hilite -r VolleyBall_Ball ;
+hilite -u VolleyBall_Ball ;
+select -r VolleyBall_Ball ;
+
+setAttr "VolleyBall_Ball.scaleX" 1.54;
+setAttr "VolleyBall_Ball.scaleY" 1.54;
+setAttr "VolleyBall_Ball.scaleZ" 1.54;
+
+move -r 0 1.574559 0 ;
+
+performFreezeTransformations(0);
+
+polySmooth  -mth 0 -dv 1 -c 0 -kb 1 -ksb 1 -khe 0 -kt 1 -kmb 1 -suv 1 -sl 1 -dpe 1 -ps 0.1 -ro 1 -ch 1 VolleyBall_Ball;
+
+select -cl  ;
+select -r VolleyBall_Ball ;
+
+//Cria Shader Branco (Create White Shader)//
+
+string $Fblinn = `shadingNode -asShader blinn -n "Ball_white"` ; 
+	setAttr ".color" -type double3 1 1 1 ;
+
+select -r VolleyBall_Ball ;	
+	source "dagMenuProc";
+	assignSG Ball_white VolleyBall_Ball;
+
+string $str = "Bola de Volley criada com sucesso!";
+print ($str+"\n");
+};
+
+

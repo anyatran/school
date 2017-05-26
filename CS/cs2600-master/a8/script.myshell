@@ -1,0 +1,5 @@
+# This is a comment :)
+echo "This is something to display"
+echo "Short Line"   # With an inline comment
+echo $PATH          # Testing env expansion
+ls

@@ -1,0 +1,18 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: brainbugz
+''    Author:  
+''    Last Updated: Sep 10, 2008
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/plugins/dynamics/1952.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+global proc bbDeleteUI()
+{
+	deleteUI bbMenu;
+}

@@ -1,0 +1,129 @@
+//----------------------------------------------------------------------------------------------
+//
+//	icQRbuildEars
+//
+//	SCRIPT:			icQRbuildEars.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//					
+//	DATE:			Jul 03, 2011
+//					created: Jun 17, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// builds a neck based on the given joint chain
+//
+//----------------------------------------------------------------------------------------------
+
+
+global proc icQRbuildEars ( string $charName, string $side )
+{
+	string $leftEarRoot = `textFieldGrp -q -tx QRleftEarJoint`;
+	string $rightEarRoot = `textFieldGrp -q -tx QRrightEarJoint`;
+
+	string $rootJoint;
+	string $joints[];
+
+	if ($side == "L_")
+	{
+		$rootJoint = `rename $leftEarRoot ($side + "ear_jnt1" + $charName)`;
+	}
+	else
+	{
+		$rootJoint = `rename $rightEarRoot ($side + "ear_jnt1" + $charName)`;
+	}
+	$joints = `listRelatives -c -ad $rootJoint`;
+
+	int $counter = size($joints) + 1;
+	for ($j = 0; $j < size($joints); $j ++)
+	{
+		$joints[$j] = `rename $joints[$j] ($side + "ear_jnt" + $counter + $charName)`;
+		$counter --;
+	}
+	$joints[size($joints)] = $rootJoint;
+
+	//the shoulder follow visualizer
+	int $userScale = `intField -q -v QRheight`;
+	string $earCtrl = "ear_ctrl" + $charName;
+	if ($side == "L_")
+	{
+		$curve = `curve -d 1 -p 1 0 0 -p 0 -1 0 -p -1 0 0 -p 1 0 0 -k 0 -k 1 -k 2 -k 3`;
+		rename $curve $earCtrl;
+		scale -a ($userScale / 20) ($userScale / 20) ($userScale / 20) $earCtrl;
+		delete (`pointConstraint ("head_jnt" + $charName) $earCtrl`);
+		move -r 0 ($userScale / 5) 0 $earCtrl;
+		makeIdentity -t 1 -r 1 -s 1 -a 1 $earCtrl;
+
+		addAttr -ln "left" -k 1 -at "enum" -en "-:" $earCtrl;
+		setAttr -l 1 ($earCtrl + ".left");
+		addAttr -ln "L_curlX" -at "float" -dv 0 -k 1 $earCtrl;
+		addAttr -ln "L_curlY" -at "float" -dv 0 -k 1 $earCtrl;
+		addAttr -ln "L_curlZ" -at "float" -dv 0 -k 1 $earCtrl;
+
+		addAttr -ln "right" -k 1 -at "enum" -en "-:" $earCtrl;
+		setAttr -l 1 ($earCtrl + ".right");
+		addAttr -ln "R_curlX" -at "float" -dv 0 -k 1 $earCtrl;
+		addAttr -ln "R_curlY" -at "float" -dv 0 -k 1 $earCtrl;
+		addAttr -ln "R_curlZ" -at "float" -dv 0 -k 1 $earCtrl;
+	}
+
+	for ($j = 0; $j < size($joints) - 1; $j ++)
+	{
+		connectAttr -f ($earCtrl + "." + $side + "curlX") ($joints[$j] + ".rx");
+		connectAttr -f ($earCtrl + "." + $side + "curlY") ($joints[$j] + ".ry");
+		connectAttr -f ($earCtrl + "." + $side + "curlZ") ($joints[$j] + ".rz");
+	}
+
+	string $earCtrlGrp = "ear_const_grp" + $charName;
+	string $earJointsGrp = "earJoints_const_grp" + $charName;
+	if ($side == "L_")
+	{
+		rename (`CreateEmptyGroup`) $earCtrlGrp;
+		rename (`CreateEmptyGroup`) $earJointsGrp;
+		parent $earCtrlGrp ("animationControls_grp" + $charName);
+		parent $earJointsGrp ("dontTouchJoints_grp" + $charName);
+		parent $earCtrl $earCtrlGrp;
+	}
+	parent $rootJoint $earJointsGrp;
+
+	string $ctrlParentConst[] = `parentConstraint -mo ("head_jnt" + $charName) $earCtrlGrp`;
+	string $jointsParentConst[] = `parentConstraint -mo ("head_jnt" + $charName) $earJointsGrp`;
+
+	//cleanup
+	icCRlockHideAttr ( $earCtrl, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $earCtrlGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $earJointsGrp, "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+
+	icCRlockHideAttr ( $ctrlParentConst[0], "nodeState,int,w0" );
+	icCRlockHideAttr ( $jointsParentConst[0], "nodeState,int,w0" );
+	
+
+	string $objectsToLayer[] = {$earCtrl};
+	icQRcontrolSet ( $charName, ("controls_set_" + $charName), $objectsToLayer, 0, 1, 0 );
+	icCRdisplayOverride ( $objectsToLayer, 0, 1, 15);
+
+	icCRcreateCharSet ( $charName, "neck_cs", 1 , $objectsToLayer );
+
+	clear $objectsToLayer;
+	$objectsToLayer = $joints;
+	$objectsToLayer = stringArrayRemove ( {$joints[0]}, $objectsToLayer );
+	$objectsToLayer = `icQRreverseArray $objectsToLayer`;
+	icQRcontrolSet ( $charName, ("ear_skinJoints_set_" + $charName), $objectsToLayer, 2, 1, 3 );
+
+	if ($side == "L_")
+	{
+		icCRaddDefaultAttr $earCtrl;
+		icQRbuildEars $charName "R_";
+	}
+}

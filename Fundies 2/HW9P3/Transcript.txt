@@ -1,0 +1,16 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1265\cocoasubrtf190
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural
+
+\f0\fs24 \cf0 1) Who are you? - no one\
+2) what are you doing here? - nonsense\
+3) where are you from? - nowhere\
+4) how do you do this? - apparently that\'92s how it works\
+5) do you have a cat? - Why do you want to know?\
+6) when is summer? - today\
+7) when is next fundies exam? - never\
+8) where is Boston? - in Alaska\
+9) who is the president of US? - me\
+10)  what\'92s your name? - air}

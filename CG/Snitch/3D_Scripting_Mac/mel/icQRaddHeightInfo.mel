@@ -1,0 +1,89 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icQRaddHeightInfo.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jun 16, 2011
+//					created: Jun 16, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// add a measurement to the character
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icQRaddHeightInfo ( string $charName )
+{
+	string $heightLocator[];
+	string $heightTransNode[];
+	string $heightShapeName[];
+	string $heightNode;
+	float $heightEnd[];
+
+	//get the absolute position of the head top
+	if (`objExists ("shoulder_ctrl" + $charName)`)
+	{
+		$heightEnd = `xform -q -ws -t ("shoulder_ctrl" + $charName)`;
+	}
+	else
+	{
+		$heightEnd = {0,100,0};
+	}
+	//create distance node
+	$heightNode = `distanceDimension -sp 0 0 0 -ep 0 $heightEnd[1] 0`;
+	//get the distance locators
+	$heightLocator = `listConnections -s 1 -d 0 $heightNode`;
+	$heightLocator[0] = `rename $heightLocator[0] ("heightMeasureStart_loc" + $charName)`;
+	$heightLocator[1] = `rename $heightLocator[1] ("heightMeasureEnd_loc" + $charName)`;
+	//set the first locator back to 0
+	//marking the start point at 0 when creating the measure tool used a former locator at
+	//the world center as the starting point which is not meant to be
+	move -a -ws 0 0 0 $heightLocator[0];
+	//get the distance dimension transform node to hide its channels later
+	$heightTransNode = `pickWalk -d "up" $heightNode`;
+	//parent the distance node and locators to the don't touch group
+	parent $heightLocator[0] ("dontTouch_grp" + $charName);
+	parent $heightLocator[1] ("dontTouch_grp" + $charName);
+	parent $heightTransNode[0] ("dontTouch_grp" + $charName);
+	//rename the distance dimension node
+	$heightTransNode[0] = `rename $heightTransNode[0] ("heightMeasure_dist" + $charName)`;
+	$heightShapeName = `listRelatives -s $heightTransNode[0]`;
+	$heightNode = $heightShapeName[0];
+	//connect the distance info to a new attribute on the scale group
+	connectAttr -f ($heightNode + ".distance") ("characterScale_grp" + $charName + ".height");
+	setAttr -l 1 ("characterScale_grp" + $charName + ".height");
+
+	//----------------------------------------------------------------------------------------
+	//
+	//cleanup
+	//
+	//----------------------------------------------------------------------------------------
+
+	//
+	//set all control objects to invisible
+	//
+	setAttr ($heightLocator[0] + ".visibility") 0;
+	setAttr ($heightLocator[1] + ".visibility") 0;
+	setAttr ($heightTransNode[0] + ".visibility") 0;
+
+	//
+	//lock and hide unnecessary channels
+	//
+
+	//the distance nodes
+	icCRlockHideAttr ( $heightLocator[0], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $heightLocator[1], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+	icCRlockHideAttr ( $heightTransNode[0], "tx,ty,tz,rx,ry,rz,sx,sy,sz,v" );
+}

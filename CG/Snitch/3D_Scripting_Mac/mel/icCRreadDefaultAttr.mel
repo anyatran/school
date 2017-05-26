@@ -1,0 +1,45 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRreadDefaultAttr.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Apr 01, 2011
+//					created: Apr 01, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// unlock the given channels
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRreadDefaultAttr ()
+{
+	string $ctrls[] = `ls -sl -tr`;	
+	for ($ctrl in $ctrls)
+	{
+		string $attrs[] = `listAttr -l $ctrl`;
+		for ($attr in $attrs)
+		{
+			if (`gmatch $attr "default_*"`)
+			{
+				string $attrString = `substring $attr 9 (size($attr))`;
+				if (`attributeExists $attrString $ctrl`)
+				{
+					setAttr ($ctrl + "." + $attrString) (`getAttr ($ctrl + "." + $attr)`);
+				}
+			}
+		}
+    }
+}

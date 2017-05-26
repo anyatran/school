@@ -1,0 +1,37 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRaddDefaultAttr.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Apr 01, 2011
+//					created: Apr 01, 2011
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+// unlock the given channels
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRaddDefaultAttr ( string $ctrl )
+{
+	string $attrs[] = `listAttr -k -u $ctrl`;
+    for ($attr in $attrs)
+    {
+        string $attrString = ("default_" + $attr);
+        addAttr -ln $attrString -at "float" -k 0 $ctrl;
+        setAttr ($ctrl + "." + $attrString) (`getAttr ($ctrl + "." + $attr)`);
+        setAttr -l 1 ($ctrl + "." + $attrString);
+    }
+}

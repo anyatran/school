@@ -1,0 +1,731 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Gears
+''    Author: geonak 
+''    Last Updated: Apr 26, 2008
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/mel_scripts/modeling/misc/2118.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+/*
+--------------------
+
+gears.mel V 1.0  (By George Nakhle) - 2005
+
+
+
+    making a set of gears is a time consuming job. 
+    gears.mel will save some of that time. 
+
+
+
+
+--------------------
+
+LICENSE:
+
+YOU MAY MAKE MODIFICATIONS AT YOUR OWN RISK FOR YOUR OWN PURPOSES. PLEASE
+CONTACT THE AUTHOR FIRST IF YOU WANT THE MODIFICATIONS/ADD-ONS TO BE INCLUDED
+IN THIS DISTRIBUTION.
+
+This program is free software and is distributed in the hope that it will 
+be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+
+--------------------
+
+Description:
+	gears is a maya mel script , that you can use to create sets of gears.
+	those gears will have one of them (one of your choice) as the motor gear 
+	that you can later on animate.the paramters in the script's window are self explanatory.
+
+--------------------
+
+Usage:
+      - Run the following command from Maya's command line or the script editor:
+	
+		gears; ( you may also add it to your shelf)
+
+      - after the gears are created, you may use the motor gear to rotate all the others
+      	all you have to do is the following :
+      - open your outliner
+      - select the group of you gears (created automatically by the script)
+        N.B. this group will have the name you entered in the window when 
+             you first created your gears
+      - in the channel box you will see a parameter named RotMotor_gear_x
+        with x beeing your motor gear (the one you chose when you first created your gears)
+      - play around with this parameter, animate it and you're done.
+
+--------------------
+
+
+
+
+
+
+
+
+
+For any questions, suggestions or help don't hesitate to contact me @: 
+
+georges.nakhle@geonak.com
+
+visit my webpage : www.geonak.com
+
+
+Last Modified 11/26/2004
+
+*/
+
+
+
+
+
+
+
+proc createGear(float $r,float $s,float $d,float $t,int $nb,float $extrude_dist,int $holes)
+{
+
+circle -nr 0 0 1 -r $r -s $s;
+
+
+float $rot = $extrude_dist/$r;
+float $R=`getAttr makeNurbCircle1.radius`;
+float $elem_angle=360/$s;
+float $temp=$elem_angle-90;
+float $angle=-(2*$elem_angle);
+
+rotate -r -ws 0 0 $temp;
+
+
+
+for($i=0;$i<=($s-1);$i+=2)
+{
+$angle=(($angle)+(2*$elem_angle));
+float $x=-($d)*cosd($angle);
+float $y=-($d)*sind($angle);
+select -r nurbsCircle1.cv[$i] ;
+move -r $x $y 0 ;
+
+}
+
+spaceLocator -p 0 0 0;
+move -r 0 0 ($t/2) ;
+
+extrude -ch 0 -rn false -po 0 -et 0 -upn 1 -length $t -dl 3 "nurbsCircle1";
+
+select -r extrudedSurface1.cv[0:$s][1] ;
+
+rotate -r -p 0 0 $t -os 0 0 $rot ;
+
+planarSrf -ch 0 -rn 0 -po 0 "extrudedSurface1.v[0]";
+
+planarSrf -ch 0 -rn 0 -po 0 "extrudedSurface1.v[1]";
+
+select -r planarTrimmedSurface1 ;
+select -tgl extrudedSurface1 ;
+select -tgl planarTrimmedSurface2 ;
+group;
+rename "group1" ("gear1_"+$nb);
+rename "planarTrimmedSurface1" "side_1";
+rename "extrudedSurface1" "teeth";
+rename "planarTrimmedSurface2" "side 2";
+delete  nurbsCircle1;
+
+if($holes==1)
+{
+warning $d;
+cylinder -p ( (pow($r,1.4)/14)+($r/20) ) 0 0 -ax 0 0 1 -r ( (pow($r,1.4)/(36)) ) -hr (($t*4)/($r/7)) -name ("cylinder"+$nb); 
+move 0 0 0 ("cylinder"+$nb+".scalePivot") ("cylinder"+$nb+".rotatePivot") ;
+duplicate -rr; 
+rotate -r 0 0 72; 
+for ($i=1; $i<4; ++$i) duplicate -rr -st; 
+
+nurbsBoolean -ch 1 -nsf 1 -op 1 ("gear1_"+$nb) ("cylinder"+($nb+($nb-1)*4)) ;
+nurbsBoolean -ch 1 -nsf 1 -op 1 ("nurbsBooleanSurface"+$nb) ("cylinder"+($nb+(($nb-1)*4)+1)) ;
+nurbsBoolean -ch 1 -nsf 1 -op 1 ("nurbsBooleanSurface"+$nb) ("cylinder"+($nb+(($nb-1)*4)+2)) ;
+nurbsBoolean -ch 1 -nsf 1 -op 1 ("nurbsBooleanSurface"+$nb) ("cylinder"+($nb+(($nb-1)*4)+3)) ;
+nurbsBoolean -ch 1 -nsf 1 -op 1 ("nurbsBooleanSurface"+$nb) ("cylinder"+($nb+(($nb-1)*4)+4)) ;
+rename ("nurbsBooleanSurface"+$nb) ("gear_"+$nb);
+}
+else
+{
+warning ("gear1_"+$nb);
+rename ("gear1_"+$nb) ("gear_"+$nb);
+}
+
+parent "locator1" ("gear_"+$nb);
+select -r ("gear_"+$nb);
+move -r 0 0 (-$t/2) ;
+
+rename "locator1" ("gear_"+$nb+"_loc");
+
+}
+
+
+global proc gears()
+{
+
+
+string $window;
+
+int $holes = !`optionVar -q holes`;
+
+
+{
+$window="gearsMaker";
+		
+if (`window -exists $window`)
+		
+{
+			
+deleteUI $window;
+		
+}
+
+window -title "gearsMAker" -wh 300 360 $window;
+		
+columnLayout -rs 2;
+
+textFieldGrp -cw 1 120 -cw 2 80 -cal 1 "right"
+ -label "Name of gear set"
+ -text "gear_set" gear_set_name;
+		
+setParent ..;
+		
+rowColumnLayout -numberOfColumns 2 -columnWidth 1 120 -columnWidth 2 320;
+		
+		
+
+text -label "gears number   " -align "right" ;
+		
+intSliderGrp -field true -cw 1 50 -minValue 1 -fieldMinValue 1 -value 10  gears_number;
+
+
+text -label "min radius   " -align "right" ;
+		
+floatSliderGrp -field true -cw 1 50 -minValue 2 -fieldMinValue 2 -maxValue 10 -fieldMaxValue 10 -value 2  gears_min_r;
+
+
+text -label "max rad./rad. 1st gear   " -align "right" ;
+		
+floatSliderGrp -field true -cw 1 50 -minValue 1 -fieldMinValue 1 -maxValue 10 -fieldMaxValue 10 -value 5  gears_max_r;
+
+
+text -label "teeth width in deg   " -align "right" ;
+	
+floatSliderGrp -field true -cw 1 50 -minValue 5 -fieldMinValue 5 -maxValue 40 -fieldMaxValue 40 -value 10  teeth_width;
+
+
+text -label "teeth height   " -align "right" ;
+	
+floatSliderGrp -field true -cw 1 50 -minValue 0.05 -fieldMinValue 0.05 -maxValue 3 -fieldMaxValue 3 -value 1.5  teeth_height;
+
+
+text -label "helicoid angle   " -align "right" ;
+	
+floatSliderGrp -field true -cw 1 50 -minValue -45 -fieldMinValue -45 -maxValue 45 -fieldMaxValue 45 -value 0  extr_angle;
+
+
+text -label "Leading gear (motor)   " -align "right" ;
+		
+intSliderGrp -field true -cw 1 50 -minValue 1 -fieldMinValue 1 -value 1  leading_gear;
+
+
+checkBox -l "Make holes" -v 0  holes ;
+
+setParent ..;
+		
+separator -height 2 -st none;
+		
+columnLayout -w 330;
+		
+		
+button -l "Create gears" -w 330 -c"Create" Create;
+	
+button -l "close" -w 330 -c"close" CloseWindow;
+		
+separator -height 2 -st "none";
+			
+text -label "By Georges Nakhle - 2005" -w 330;
+text -label "For any questions or suggestions Please contact me @ : " -w 330;
+
+text -label "nakhle_georges@hotmail.com" -w 330;
+
+showWindow $window;
+	
+
+
+}
+
+}
+
+
+
+global proc Create()
+{
+
+int $holes = `checkBox -q -v holes`;
+int $number=`intSliderGrp -q -v gears_number`;
+
+int $leading=`intSliderGrp -q -v leading_gear`;
+
+if($leading>$number)
+{
+string $gr = `confirmDialog -message "The leading gear number exeeds the gears number"  			-button "OK" -defaultButton "OK" -ma "center" -t "Attention"
+			-cancelButton "OK" -dismissString "OK"`;
+return;
+}
+
+float $ext_dist ;
+float $dist,$rem;
+int $ig;
+int $r1,$num;
+
+string $name = `textFieldGrp -q -tx gear_set_name`;
+
+
+if(objExists ($name))
+{
+string $result=`confirmDialog -message "A gears set with this name already exists\n do you want to replace it?" -button "Yes" 			-button "No" -defaultButton "No" -ma "center" -t "Attention"
+			-cancelButton "No" -dismissString "No"`;
+
+
+if($result=="No") return;
+else
+{
+delete $name;
+}
+}
+
+float $d = `floatSliderGrp -q -v teeth_height`;
+float $width = `floatSliderGrp -q -v teeth_width`;
+
+$d = $d*10;
+
+$dist=0;
+$r1=0;
+
+
+float $ext_ang=`floatSliderGrp -q -v extr_angle`;
+float $gear_minf=`floatSliderGrp -q -v gears_min_r`;
+float $gear_maxf=`floatSliderGrp -q -v gears_max_r`;
+	
+$gear_minf=$gear_minf*10;
+$gear_maxf=$gear_maxf*10;
+
+int $gear_min = $gear_minf;
+int $gear_max = $gear_maxf;
+	
+int $r,$num1,$r2;
+float $k1,$k2;
+
+//pour choisir le rayon du premier engrenage
+
+do
+{
+$r2 = rand ($gear_min,$gear_max);
+}
+while($r2<$d);
+
+
+for($ig=1;$ig<=$number;$ig++)
+{
+
+
+
+float $depth= rand (4,10);
+
+
+
+if($r1==0)
+{
+$r=$r2;
+$num = trunc(360 / $width);
+
+do
+{
+$rem = fmod($num,4);
+if ($rem != 0)
+$num--;
+}
+while($rem!=0);
+
+$ext_dist = $r * $ext_ang;
+
+$num1=$num;
+
+$tt = rand($gear_min,$gear_max);
+
+$tt=trunc($tt/10);
+
+$num = $num1 * $tt;
+
+float $k1,$k2,$k3;
+
+$k1=$r;
+
+$k2=$num1;
+
+
+$k3 = ($k1/$k2);
+
+
+$r2 =$num * $k3;
+}
+
+if($r1!=0)
+{
+float $tt;
+
+
+
+
+
+$tt = rand($gear_min,$gear_max);
+
+$tt=trunc($tt/10);
+
+$num = $num1 * $tt;
+
+float $k1,$k2,$k3;
+
+$k1=$r;
+
+$k2=$num1;
+
+
+$k3 = ($k1/$k2);
+
+
+$r2 =$num * $k3;
+
+
+
+}
+
+
+$ext_dist = -$ext_dist;
+createGear($r2,$num,$d,$depth,$ig,$ext_dist,$holes);
+
+addAttr -ln teeth_num -at long  ("gear_"+$ig);
+setAttr ("gear_"+$ig+".teeth_num") $num;
+setAttr -l true ("gear_"+$ig+".teeth_num");
+
+if($r1!=0)
+{
+$dist=$dist+(($r1+$r2)-($d));
+select -r ("gear_"+$ig);
+move -r $dist 0 0 ;
+
+float $test=fmod($ig,2);
+
+if($test==0)
+{ 
+float $sin,$tg;
+$tg=$num;
+$sin = 360 / $tg;
+rotate 0 0 $sin; 
+}
+
+}
+$r1=$r2;
+}
+
+select -cl  ;
+select -r gear_1;
+
+for($ig=2;$ig<=$number;$ig++)
+{
+select -tgl ("gear_"+$ig);
+}
+
+group;
+setAttr "group1.scaleX" 0.1;
+setAttr "group1.scaleY" 0.1;
+setAttr "group1.scaleZ" 0.1;
+move -rpr 0 0 0 ;
+makeIdentity -apply true -t 1 -r 1 -s 1 -n 0;
+rename "group1" $name;
+
+addAttr -ln ("RotMotor_gear_"+$leading) -at double  -dv 0 ("|"+$name);
+setAttr -e -keyable true ("|"+$name+".RotMotor_gear_"+$leading);
+addAttr -ln ScaleSize -at double  -dv 1 ("|"+$name);
+setAttr -e -keyable true ("|"+$name+".ScaleSize");
+addAttr -ln ScaleDepth -at double  -dv 1 ("|"+$name);
+setAttr -e -keyable true ("|"+$name+".ScaleDepth");
+setAttr -keyable false -channelBox false ($name+".sx");
+setAttr -keyable false -channelBox false ($name+".sy");
+setAttr -keyable false -channelBox false ($name+".sz");
+
+expression -s ($name+".sx="+$name+".ScaleSize;\r\n"+$name+".sy="+$name+".ScaleSize;")  -ae 1 -uc all ;
+expression -s ($name+".sz="+$name+".ScaleDepth;")   -ae 1 -uc all ;
+
+expression -s ("gear_"+$leading+".rz="+$name+".RotMotor_gear_"+$leading+";")   -ae 1 -uc all ;
+
+for($ig=1;$ig<=$number;$ig++)
+{
+string $esm,$esm1;
+
+
+select -r ("gear_"+$ig+"_loc") ;
+parent -w;
+
+
+$esm=("gear_"+$ig);
+$esm1=("gear_"+($ig+1));
+
+if($leading>$ig)
+{
+expression -s ($esm+".rz=(-("+$esm1+".teeth_num/"+$esm+".teeth_num)*"+$esm1+".rz)+gear_"+$ig+"_loc.rz;")   -ae 1 -uc all ;
+
+}
+if(($leading<=$ig)&&($ig<=($number-1)))
+{
+expression -s ($esm1+".rz=(-("+$esm+".teeth_num/"+$esm1+".teeth_num)*"+$esm+".rz)+gear_"+($ig+1)+"_loc.rz;")   -ae 1 -uc all ;
+
+}
+
+if($holes==1)
+{
+rename ("nurbsBooleanSurface"+$ig+"_1") "s_1";
+rename ("nurbsBooleanSurface"+$ig+"_2") "s_2";
+rename ("nurbsBooleanSurface"+$ig+"_3") "s_3";
+rename ("nurbsBooleanSurface"+$ig+"_4") "s_4";
+rename ("gear_"+$ig+"_1") "s_5";
+rename ("gear_"+$ig+"_2") "s_6";
+rename ("gear_"+$ig+"_3") "s_7";
+rename ("gear_"+$ig+"_4") "s_8";
+hideAttr($esm);
+}
+else
+{
+hideAttr1($esm);
+}
+}
+
+select -r ("gear_1_loc") ;
+expression -s ("gear_1.ty=gear_1_loc.ty");
+expression -s ("gear_1.tx=gear_1_loc.tx");
+
+for($ig=2;$ig<=$number;$ig++)
+{
+select -tgl ("gear_"+$ig+"_loc") ;
+
+string $name1;
+
+expression -s ("gear_"+$ig+".ty=gear_"+$ig+"_loc.ty");
+expression -s ("gear_"+$ig+".tx=gear_"+$ig+"_loc.tx");
+$name1="gear_"+$ig+"_loc.tz";
+setAttr -lock true -keyable false $name1;
+$name1="gear_"+$ig+"_loc.rx";
+setAttr -lock true -keyable false $name1;
+$name1="gear_"+$ig+"_loc.ry";
+setAttr -lock true -keyable false $name1;
+$name1="gear_"+$ig+"_loc.sx";
+expression -s ($name1 +" = 1;");
+setAttr -keyable false -channelBox false $name1;
+$name1="gear_"+$ig+"_loc.sy";
+expression -s ($name1 +" = 1;");
+setAttr -keyable false -channelBox false $name1;
+$name1="gear_"+$ig+"_loc.sz";
+expression -s ($name1 +" = 1;");
+setAttr -keyable false -channelBox false $name1;
+
+
+
+
+
+}
+group; 
+select -r group1 ;
+rename "group1" "locators";
+parent locators $name ;
+
+
+
+delete -all -constructionHistory;
+
+$window="gearsMaker";
+
+deleteUI $window;
+
+select -cl;
+warning "By Georges Nakhle";
+}
+
+
+
+
+
+global proc close()
+{
+$window="gearsMaker";
+
+deleteUI $window;
+
+select -cl;
+warning "By Georges Nakhle";
+}
+
+
+global proc hideAttr(string $name)
+
+{
+string $name1;
+
+int $iu;
+
+for($iu=1;$iu<=8;$iu++)
+
+{
+
+$name1=$name+"|s_"+$iu+".tx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|s_"+$iu+".ty";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|s_"+$iu+".tz";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|s_"+$iu+".rx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|s_"+$iu+".ry";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|s_"+$iu+".rz";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|s_"+$iu+".sx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|s_"+$iu+".sy";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|s_"+$iu+".sz";
+setAttr -lock true -keyable false $name1;
+
+}
+
+$name1=$name+".tx";
+setAttr -keyable false -channelBox false $name1;
+$name1=$name+".ty";
+setAttr -keyable false -channelBox false $name1;
+$name1=$name+".tz";
+setAttr -keyable false -channelBox false $name1;
+$name1=$name+".rx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+".ry";
+setAttr -lock true -keyable false $name1;
+$name1=$name+".rz";
+setAttr -lock true -keyable false $name1;
+$name1=$name+".sx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+".sy";
+setAttr -lock true -keyable false $name1;
+$name1=$name+".sz";
+setAttr -lock true -keyable false $name1;
+
+
+
+}
+
+global proc hideAttr1(string $name)
+
+{
+string $name1;
+
+
+$name1=$name+"|side_1.tx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_1.ty";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_1.tz";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_1.rx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_1.ry";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_1.rz";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_1.sx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_1.sy";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_1.sz";
+setAttr -lock true -keyable false $name1;
+
+
+$name1=$name+"|side_2.tx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_2.ty";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_2.tz";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_2.rx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_2.ry";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_2.rz";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_2.sx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_2.sy";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|side_2.sz";
+setAttr -lock true -keyable false $name1;
+
+$name1=$name+"|teeth.tx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|teeth.ty";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|teeth.tz";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|teeth.rx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|teeth.ry";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|teeth.rz";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|teeth.sx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|teeth.sy";
+setAttr -lock true -keyable false $name1;
+$name1=$name+"|teeth.sz";
+setAttr -lock true -keyable false $name1;
+
+
+$name1=$name+".tx";
+setAttr -keyable false -channelBox false $name1;
+$name1=$name+".ty";
+setAttr -keyable false -channelBox false $name1;
+$name1=$name+".tz";
+setAttr -keyable false -channelBox false $name1;
+$name1=$name+".rx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+".ry";
+setAttr -lock true -keyable false $name1;
+$name1=$name+".rz";
+setAttr -lock true -keyable false $name1;
+$name1=$name+".sx";
+setAttr -lock true -keyable false $name1;
+$name1=$name+".sy";
+setAttr -lock true -keyable false $name1;
+$name1=$name+".sz";
+setAttr -lock true -keyable false $name1;
+
+
+
+}
+
+
+
+//to get the absolute position of a locator after some transformations 
+gear_2_locShape.localPositionX;
+gear_2_locShape.localPositionY;
+gear_2_locShape.localPositionZ;
+
+//to put heads up
+headsUpDisplay -l "createAtom By Georges Nakhle" -s 5 -b 1 Nakhle;
+//to remove heads up
+headsUpDisplay -rem Nakhle;
+

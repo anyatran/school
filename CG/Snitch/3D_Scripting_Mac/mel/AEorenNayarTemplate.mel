@@ -1,0 +1,49 @@
+/* This file downloaded from Highend3d.com
+''  
+''  Highend3d.com File Information:
+''  
+''    Script Name: Oren Nayar
+''    Author:  
+''    Last Updated: May 01, 2009
+''    Update/Change this file at:
+''    http://Highend3d.com/maya/downloads/plugins/rendering/mental_ray/2748.html
+''  
+''  Please do not alter any information above this line
+''  it is generated dynamically by Highend3d.com and will
+''  be changed automatically on any updates.
+*/
+////////////////////////////////////////////
+//                                    	//
+// COPYRIGHT (C) 2002 - 2004 DigiTeck3D   //
+// FILE NAME: AEorenNayarTemplate.mel	//
+//                                    	//
+// AUTHOR: Miguel A Santiago        	//
+// EMAIL: miguel@digiteck3d.com		//
+//                                    	//
+// DATE: Jan 19, 2004              		//
+//                                    	//
+// DESCRIPTION: Oren Nayar shader UI	//
+//							//
+////////////////////////////////////////////
+
+global proc AEorenNayarTemplate( string $nodeName )
+{
+	AEswatchDisplay $nodeName;
+	editorTemplate -beginScrollLayout;
+ 		AElambertCommon $nodeName;
+
+		editorTemplate -beginLayout "Oren Nayar Attributes" -collapse true;
+			editorTemplate -addControl "roughness";
+        	editorTemplate -endLayout;
+
+		editorTemplate -beginLayout "Hardware Texturing" -collapse true;
+        	    AEhardwareTextureTemplate $nodeName
+                	("color transparency ambientColor incandescence "+
+	                 "normalCamera diffuse roughness");
+        	editorTemplate -endLayout;
+
+		editorTemplate -addExtraControls;  
+	editorTemplate -endScrollLayout;
+ 	editorTemplate -suppress "caching";
+	editorTemplate -suppress "nodeState";
+}

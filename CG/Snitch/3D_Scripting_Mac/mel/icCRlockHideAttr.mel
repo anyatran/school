@@ -1,0 +1,40 @@
+//----------------------------------------------------------------------------------------------
+//
+//	SCRIPT:			icCRlockHideAttr.mel
+//
+//	AUTHOR:			Ingo Clemens
+//					www.braverabbit.de
+//					www.braverabbit.de/playground
+//
+//	DATE:			Jan 27, 2009
+//					created: Jan 02, 2005
+//
+//----------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------
+//
+//	USE AND MODIFY AT YOUR OWN RISK!!
+//
+//----------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------
+//
+//  lock and hide channels that are not used or should not be displayed
+//
+//----------------------------------------------------------------------------------------------
+
+global proc icCRlockHideAttr ( string $currentNode, string $channelArray )
+{
+	string $lhChannel[];
+
+	int $count = `tokenize $channelArray "," $lhChannel`;
+
+	for ($item in $lhChannel)
+	{
+		if (`attributeExists $item $currentNode`)
+		{
+			setAttr -k 0 -l 1 ($currentNode + "." + $item);
+		}
+	}
+}
